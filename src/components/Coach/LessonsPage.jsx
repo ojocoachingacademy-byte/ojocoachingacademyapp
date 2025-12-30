@@ -1,0 +1,317 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../../supabaseClient'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import './LessonsPage.css'
+
+export default function LessonsPage() {
+  const navigate = useNavigate()
+  const [lessons, setLessons] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('all')
+  const [selectedLesson, setSelectedLesson] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [dateFilter, setDateFilter] = useState('all')
+
+  useEffect(() => {
+    fetchLessons()
+  }, [])
+
+  const fetchLessons = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('lessons')
+        .select(`
+          *,
+          students (
+            profiles (full_name, email)
+          )
+        `)
+        .order('lesson_date', { ascending: false })
+
+      if (error) throw error
+      setLessons(data || [])
+      setLoading(false)
+    } catch (error) {
+      console.error('Error fetching lessons:', error)
+      setLoading(false)
+    }
+  }
+
+  const getFilteredLessons = () => {
+    let filtered = lessons
+
+    // Filter by tab
+    if (activeTab === 'upcoming') {
+      filtered = filtered.filter(l => l.status === 'scheduled' && new Date(l.lesson_date) > new Date())
+    } else if (activeTab === 'completed') {
+      filtered = filtered.filter(l => l.status === 'completed')
+    } else if (activeTab === 'cancelled') {
+      filtered = filtered.filter(l => l.status === 'cancelled')
+    }
+
+    // Filter by search term (student name)
+    if (searchTerm) {
+      filtered = filtered.filter(l => 
+        l.students?.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Filter by date range
+    if (dateFilter === 'today') {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      filtered = filtered.filter(l => {
+        const lessonDate = new Date(l.lesson_date)
+        return lessonDate >= today && lessonDate < tomorrow
+      })
+    } else if (dateFilter === 'week') {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      filtered = filtered.filter(l => new Date(l.lesson_date) >= weekAgo)
+    } else if (dateFilter === 'month') {
+      const monthAgo = new Date()
+      monthAgo.setMonth(monthAgo.getMonth() - 1)
+      filtered = filtered.filter(l => new Date(l.lesson_date) >= monthAgo)
+    }
+
+    return filtered
+  }
+
+  const exportToCSV = () => {
+    const filtered = getFilteredLessons()
+    const headers = ['Date', 'Time', 'Student', 'Location', 'Status', 'Plan Created', 'Learnings Submitted', 'Feedback Given']
+    const rows = filtered.map(lesson => [
+      new Date(lesson.lesson_date).toLocaleDateString(),
+      new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      lesson.students?.profiles?.full_name || 'Unknown',
+      lesson.location || '',
+      lesson.status,
+      lesson.lesson_plan ? 'Yes' : 'No',
+      lesson.student_learnings ? 'Yes' : 'No',
+      lesson.coach_feedback ? 'Yes' : 'No'
+    ])
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `lessons-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+  }
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle size={16} className="status-icon status-completed" />
+      case 'cancelled':
+        return <XCircle size={16} className="status-icon status-cancelled" />
+      default:
+        return <AlertCircle size={16} className="status-icon status-scheduled" />
+    }
+  }
+
+  if (loading) {
+    return <div className="page-container">Loading...</div>
+  }
+
+  const filteredLessons = getFilteredLessons()
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <h1>Lessons</h1>
+        <button className="btn btn-primary" onClick={exportToCSV}>
+          Export to CSV
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="tabs">
+        <button 
+          className={`tab ${activeTab === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveTab('all')}
+        >
+          All ({lessons.length})
+        </button>
+        <button 
+          className={`tab ${activeTab === 'upcoming' ? 'active' : ''}`}
+          onClick={() => setActiveTab('upcoming')}
+        >
+          Upcoming ({lessons.filter(l => l.status === 'scheduled' && new Date(l.lesson_date) > new Date()).length})
+        </button>
+        <button 
+          className={`tab ${activeTab === 'completed' ? 'active' : ''}`}
+          onClick={() => setActiveTab('completed')}
+        >
+          Completed ({lessons.filter(l => l.status === 'completed').length})
+        </button>
+        <button 
+          className={`tab ${activeTab === 'cancelled' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cancelled')}
+        >
+          Cancelled ({lessons.filter(l => l.status === 'cancelled').length})
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="filters-bar">
+        <input
+          type="text"
+          className="input"
+          placeholder="Search by student name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ maxWidth: '300px' }}
+        />
+        <select
+          className="input"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          style={{ maxWidth: '200px' }}
+        >
+          <option value="all">All Dates</option>
+          <option value="today">Today</option>
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+        </select>
+      </div>
+
+      {/* Lessons Table */}
+      <div className="table-container">
+        <table className="lessons-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Student</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Plan</th>
+              <th>Learnings</th>
+              <th>Feedback</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredLessons.length === 0 ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                  No lessons found
+                </td>
+              </tr>
+            ) : (
+              filteredLessons.map(lesson => (
+                <tr 
+                  key={lesson.id} 
+                  className="table-row"
+                  onClick={() => setSelectedLesson(lesson)}
+                >
+                  <td>{new Date(lesson.lesson_date).toLocaleDateString()}</td>
+                  <td>{new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td>{lesson.students?.profiles?.full_name || 'Unknown'}</td>
+                  <td>{lesson.location || '-'}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {getStatusIcon(lesson.status)}
+                      <span style={{ textTransform: 'capitalize' }}>{lesson.status}</span>
+                    </div>
+                  </td>
+                  <td>
+                    {lesson.lesson_plan ? (
+                      <FileText size={16} style={{ color: 'var(--color-success)' }} />
+                    ) : (
+                      <span style={{ color: '#999' }}>-</span>
+                    )}
+                  </td>
+                  <td>
+                    {lesson.student_learnings ? (
+                      <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                    ) : (
+                      <span style={{ color: '#999' }}>-</span>
+                    )}
+                  </td>
+                  <td>
+                    {lesson.coach_feedback ? (
+                      <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                    ) : (
+                      <span style={{ color: '#999' }}>-</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Lesson Detail Modal */}
+      {selectedLesson && (
+        <div className="modal-overlay" onClick={() => setSelectedLesson(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Lesson Details</h2>
+              <button className="modal-close" onClick={() => setSelectedLesson(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Student:</strong> {selectedLesson.students?.profiles?.full_name || 'Unknown'}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Date:</strong> {new Date(selectedLesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Time:</strong> {new Date(selectedLesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Location:</strong> {selectedLesson.location || '-'}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{selectedLesson.status}</span>
+              </div>
+              {selectedLesson.lesson_plan && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Lesson Plan:</strong>
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                    {selectedLesson.lesson_plan}
+                  </div>
+                </div>
+              )}
+              {selectedLesson.student_learnings && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Student Learnings:</strong>
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#E3F2FD', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                    {selectedLesson.student_learnings}
+                  </div>
+                </div>
+              )}
+              {selectedLesson.coach_feedback && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Coach Feedback:</strong>
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#E8F5E9', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                    {selectedLesson.coach_feedback}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => navigate(`/coach/students/${selectedLesson.student_id}`)}>
+                View Student Profile
+              </button>
+              <button className="btn btn-outline" onClick={() => setSelectedLesson(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+

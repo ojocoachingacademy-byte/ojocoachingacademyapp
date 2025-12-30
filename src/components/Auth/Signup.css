@@ -1,0 +1,85 @@
+.signup-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #5A3A7A 100%);
+  padding: var(--spacing-md);
+}
+
+.signup-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xl);
+  width: 100%;
+  max-width: 500px;
+  box-shadow: var(--shadow-lg);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.signup-header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.signup-logo {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 2px;
+  margin-bottom: var(--spacing-xs);
+}
+
+.signup-tagline {
+  font-size: var(--font-size-sm);
+  color: var(--color-secondary);
+  font-style: italic;
+  margin-bottom: var(--spacing-md);
+}
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.signup-link {
+  text-align: center;
+  margin-top: var(--spacing-md);
+  color: var(--color-dark);
+  font-size: var(--font-size-sm);
+}
+
+.signup-link a {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.signup-link a:hover {
+  color: var(--color-accent);
+}
+
+.error-message {
+  background-color: #FFEBEE;
+  color: var(--color-error);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+.success-message {
+  background-color: #E8F5E9;
+  color: var(--color-success);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--color-success);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+select.input {
+  cursor: pointer;
+}
+

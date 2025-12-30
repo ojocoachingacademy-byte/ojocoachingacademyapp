@@ -1,0 +1,110 @@
+.skill-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+  margin-bottom: var(--spacing-md);
+}
+
+.skill-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.skill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-sm);
+}
+
+.skill-name-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex: 1;
+}
+
+.skill-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin: 0;
+}
+
+.skill-trend {
+  display: flex;
+  align-items: center;
+}
+
+.trend-up {
+  color: var(--color-success);
+}
+
+.trend-down {
+  color: var(--color-error);
+}
+
+.trend-neutral {
+  color: #999;
+}
+
+.skill-levels {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 600;
+}
+
+.current-level {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.level-separator {
+  color: #999;
+  font-size: 14px;
+}
+
+.target-level {
+  font-size: 16px;
+  color: #666;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--color-light);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: var(--spacing-sm) 0;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.skill-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: #666;
+  margin-top: var(--spacing-xs);
+}
+
+.skill-notes {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: #666;
+  line-height: 1.5;
+}
+
+.skill-notes p {
+  margin: 0;
+}
+
