@@ -221,6 +221,7 @@ export default function StudentDetailPage() {
                 student={student}
                 onSave={handleSaveDevelopmentPlan}
                 onCancel={() => setEditingPlan(false)}
+                isStudent={false}
               />
             ) : (
               <>

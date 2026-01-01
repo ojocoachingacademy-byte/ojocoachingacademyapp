@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Award, Target } from 'lucide-react'
+import { Users, Calendar, Award, Target, Edit2 } from 'lucide-react'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
+import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null)

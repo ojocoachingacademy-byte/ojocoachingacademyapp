@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Save } from 'lucide-react'
+import './DevelopmentPlanForm.css'
 
 const ALL_SKILLS = [
   'Forehand Groundstroke',
@@ -37,7 +38,7 @@ const getInitialLevel = (ntrpLevel) => {
   return 7
 }
 
-export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
+export default function DevelopmentPlanForm({ student, onSave, onCancel, isStudent = false }) {
   const [skills, setSkills] = useState([])
   const [goals, setGoals] = useState({
     inspiration: '',
@@ -55,7 +56,8 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
     
     const initialSkills = ALL_SKILLS.map(skillName => ({
       skill_name: skillName,
-      current_level: initialLevel,
+      student_assessment: initialLevel,
+      coach_assessment: null,
       target_level: targetLevel,
       notes: ''
     }))
@@ -72,7 +74,17 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
           const existingSkills = plan.skills
           const mergedSkills = initialSkills.map(defaultSkill => {
             const existing = existingSkills.find(s => s.skill_name === defaultSkill.skill_name)
-            return existing || defaultSkill
+            if (existing) {
+              // Migrate old structure (current_level) to new structure
+              return {
+                skill_name: existing.skill_name,
+                student_assessment: existing.student_assessment ?? existing.current_level ?? defaultSkill.student_assessment,
+                coach_assessment: existing.coach_assessment ?? null,
+                target_level: existing.target_level ?? defaultSkill.target_level,
+                notes: existing.notes ?? ''
+              }
+            }
+            return defaultSkill
           })
           setSkills(mergedSkills)
         } else {
@@ -100,10 +112,20 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
     const updatedSkills = [...skills]
     updatedSkills[index] = {
       ...updatedSkills[index],
-      [field]: field === 'current_level' || field === 'target_level' 
-        ? parseInt(value) || 1 
+      [field]: field === 'student_assessment' || field === 'coach_assessment' || field === 'target_level'
+        ? parseInt(value) || null
         : value
     }
+    
+    // Ensure target is not lower than student or coach assessment
+    const skill = updatedSkills[index]
+    if (field === 'target_level' && (skill.student_assessment || skill.coach_assessment)) {
+      const maxAssessment = Math.max(skill.student_assessment || 0, skill.coach_assessment || 0)
+      if (value < maxAssessment) {
+        updatedSkills[index].target_level = maxAssessment
+      }
+    }
+    
     setSkills(updatedSkills)
   }
 
@@ -119,7 +141,7 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
 
       await onSave({
         development_plan: JSON.stringify(developmentPlan),
-        development_plan_notes: coachNotes
+        development_plan_notes: isStudent ? undefined : coachNotes // Only coaches can save notes
       })
     } catch (error) {
       console.error('Error saving development plan:', error)
@@ -129,105 +151,154 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
     }
   }
 
+  const LevelSelector = ({ value, onChange, disabledValues = [], label, maxValue = 10 }) => {
+    return (
+      <div className="level-selector-container">
+        <div className="level-label">{label}: {value || '—'}/{maxValue}</div>
+        <div className="level-buttons">
+          {Array.from({ length: maxValue }, (_, i) => i + 1).map(num => {
+            const isDisabled = disabledValues.includes(num)
+            const isActive = value === num
+            return (
+              <button
+                key={num}
+                type="button"
+                className={`level-btn ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                onClick={() => !isDisabled && onChange(num)}
+                disabled={isDisabled}
+              >
+                {num}
+              </button>
+            )
+          })}
+        </div>
+        {value && (
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${(value / maxValue) * 100}%` }}
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <div style={{ padding: '20px 0' }}>
+    <div className="development-plan-form">
       {/* SECTION A: SKILL ASSESSMENT */}
-      <div style={{ marginBottom: '40px' }}>
-        <h3 style={{ marginBottom: '20px', color: 'var(--color-primary)', fontSize: '20px' }}>
-          Skill Assessment
-        </h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+      <div className="form-section">
+        <h3 className="section-title">Skill Assessment</h3>
+        <div className="table-wrapper">
+          <table className="skills-table">
             <thead>
-              <tr style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Skill</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600, width: '120px' }}>Current Level</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600, width: '120px' }}>Target Level</th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Notes</th>
+              <tr>
+                <th className="skill-name-header">Skill</th>
+                <th className="assessment-header">Student Assessment</th>
+                <th className="assessment-header">Coach Assessment</th>
+                <th className="assessment-header">Target</th>
+                <th className="notes-header">Notes</th>
               </tr>
             </thead>
             <tbody>
-              {skills.map((skill, index) => (
-                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '12px', fontWeight: 500 }}>{skill.skill_name}</td>
-                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={skill.current_level}
-                      onChange={(e) => handleSkillChange(index, 'current_level', e.target.value)}
-                      style={{
-                        width: '80px',
-                        padding: '8px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        textAlign: 'center'
-                      }}
-                    />
-                  </td>
-                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={skill.target_level}
-                      onChange={(e) => handleSkillChange(index, 'target_level', e.target.value)}
-                      style={{
-                        width: '80px',
-                        padding: '8px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        textAlign: 'center'
-                      }}
-                    />
-                  </td>
-                  <td style={{ padding: '12px' }}>
-                    <input
-                      type="text"
-                      value={skill.notes || ''}
-                      onChange={(e) => handleSkillChange(index, 'notes', e.target.value)}
-                      placeholder="Quick notes..."
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px'
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {skills.map((skill, index) => {
+                const studentLevel = skill.student_assessment || null
+                const coachLevel = skill.coach_assessment || null
+                const targetLevel = skill.target_level || null
+                const maxAssessment = Math.max(studentLevel || 0, coachLevel || 0)
+                const disabledTargetValues = maxAssessment > 0 ? Array.from({ length: maxAssessment }, (_, i) => i + 1) : []
+
+                return (
+                  <tr key={index} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                    <td className="skill-name-cell">
+                      <strong>{skill.skill_name}</strong>
+                    </td>
+                    <td className="assessment-cell">
+                      <LevelSelector
+                        value={studentLevel}
+                        onChange={(val) => handleSkillChange(index, 'student_assessment', val)}
+                        disabledValues={[]}
+                        label="Current"
+                        maxValue={10}
+                      />
+                      {studentLevel && targetLevel && studentLevel < targetLevel && (
+                        <div className="improvement-indicator">
+                          +{targetLevel - studentLevel} to target
+                        </div>
+                      )}
+                    </td>
+                    <td className="assessment-cell">
+                      {!isStudent ? (
+                        <LevelSelector
+                          value={coachLevel}
+                          onChange={(val) => handleSkillChange(index, 'coach_assessment', val)}
+                          disabledValues={[]}
+                          label="Coach"
+                          maxValue={10}
+                        />
+                      ) : (
+                        <div className="level-selector-container">
+                          <div className="level-label">Coach: {coachLevel ? `${coachLevel}/10` : '—'}</div>
+                          {coachLevel && (
+                            <div className="progress-bar">
+                              <div 
+                                className="progress-fill coach-progress" 
+                                style={{ width: `${(coachLevel / 10) * 100}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="assessment-cell">
+                      <LevelSelector
+                        value={targetLevel}
+                        onChange={(val) => handleSkillChange(index, 'target_level', val)}
+                        disabledValues={disabledTargetValues}
+                        label="Target"
+                        maxValue={10}
+                      />
+                    </td>
+                    <td className="notes-cell">
+                      <input
+                        type="text"
+                        value={skill.notes || ''}
+                        onChange={(e) => handleSkillChange(index, 'notes', e.target.value)}
+                        placeholder="Quick notes..."
+                        className="notes-input"
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* SECTION B: GOALS & MOTIVATION */}
-      <div style={{ marginBottom: '40px' }}>
-        <h3 style={{ marginBottom: '20px', color: 'var(--color-primary)', fontSize: '20px' }}>
-          Goals & Motivation
-        </h3>
+      <div className="form-section">
+        <h3 className="section-title">Goals & Motivation</h3>
         
-        <div style={{ marginBottom: '20px' }}>
-          <label className="label">What inspired you to improve your tennis game?</label>
+        <div className="goal-field">
+          <label className="goal-label">What inspired you to improve your tennis game?</label>
           <textarea
-            className="input"
+            className="goal-textarea"
             value={goals.inspiration}
             onChange={(e) => setGoals({ ...goals, inspiration: e.target.value })}
             placeholder="Share what motivates you..."
             rows={3}
             maxLength={200}
           />
-          <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+          <p className="char-count">
             {goals.inspiration.length}/200 characters
           </p>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label className="label">What level do you want to reach?</label>
+        <div className="goal-field">
+          <label className="goal-label">What level do you want to reach?</label>
           <select
-            className="input"
+            className="goal-select"
             value={goals.targetLevel}
             onChange={(e) => setGoals({ ...goals, targetLevel: e.target.value })}
           >
@@ -238,49 +309,49 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
           </select>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label className="label">Who do you want to beat once you improve?</label>
+        <div className="goal-field">
+          <label className="goal-label">Who do you want to beat once you improve?</label>
           <input
             type="text"
-            className="input"
+            className="goal-input"
             value={goals.wantToBeat}
             onChange={(e) => setGoals({ ...goals, wantToBeat: e.target.value })}
             placeholder="e.g., My doubles partner, the club champion, my sibling..."
           />
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label className="label">What would success look like for you?</label>
+        <div className="goal-field">
+          <label className="goal-label">What would success look like for you?</label>
           <textarea
-            className="input"
+            className="goal-textarea"
             value={goals.successLookLike}
             onChange={(e) => setGoals({ ...goals, successLookLike: e.target.value })}
             placeholder="Describe your vision of success..."
             rows={3}
             maxLength={200}
           />
-          <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+          <p className="char-count">
             {goals.successLookLike.length}/200 characters
           </p>
         </div>
       </div>
 
-      {/* SECTION C: COACH NOTES */}
-      <div style={{ marginBottom: '40px' }}>
-        <h3 style={{ marginBottom: '20px', color: 'var(--color-primary)', fontSize: '20px' }}>
-          Coach Notes
-        </h3>
-        <textarea
-          className="input"
-          value={coachNotes}
-          onChange={(e) => setCoachNotes(e.target.value)}
-          placeholder="Overall assessment, recommendations, areas to focus on..."
-          rows={6}
-        />
-      </div>
+      {/* SECTION C: COACH NOTES (only for coaches) */}
+      {!isStudent && (
+        <div className="form-section">
+          <h3 className="section-title">Coach Notes</h3>
+          <textarea
+            className="coach-notes-textarea"
+            value={coachNotes}
+            onChange={(e) => setCoachNotes(e.target.value)}
+            placeholder="Overall assessment, recommendations, areas to focus on..."
+            rows={6}
+          />
+        </div>
+      )}
 
       {/* ACTION BUTTONS */}
-      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+      <div className="form-actions">
         {onCancel && (
           <button className="btn btn-outline" onClick={onCancel}>
             Cancel
@@ -298,4 +369,3 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel }) {
     </div>
   )
 }
-

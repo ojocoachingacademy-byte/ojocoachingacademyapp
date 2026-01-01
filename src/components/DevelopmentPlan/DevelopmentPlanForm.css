@@ -1,0 +1,341 @@
+.development-plan-form {
+  padding: 24px 0;
+}
+
+.form-section {
+  margin-bottom: 48px;
+}
+
+.section-title {
+  color: var(--color-primary);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+/* Table Styles */
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(75, 44, 108, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.skills-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.skills-table thead {
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  color: white;
+}
+
+.skills-table th {
+  padding: 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.skill-name-header {
+  width: 200px;
+}
+
+.assessment-header {
+  width: 220px;
+  text-align: center;
+}
+
+.notes-header {
+  min-width: 200px;
+}
+
+.skills-table tbody tr {
+  border-bottom: 1px solid #E0E0E0;
+  transition: background-color 0.2s ease;
+}
+
+.skills-table tbody tr:hover {
+  background-color: #FAFAFA;
+}
+
+.row-even {
+  background-color: white;
+}
+
+.row-odd {
+  background-color: #F8F5FB;
+}
+
+.skills-table td {
+  padding: 16px;
+  vertical-align: top;
+}
+
+.skill-name-cell {
+  font-weight: 600;
+  color: var(--color-dark);
+  font-size: 15px;
+}
+
+.assessment-cell {
+  text-align: center;
+}
+
+.notes-cell {
+  padding: 12px 16px;
+}
+
+/* Level Selector Styles */
+.level-selector-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.level-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.level-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.level-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  background: white;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.level-btn:hover:not(:disabled):not(.active) {
+  background: var(--color-secondary);
+  color: white;
+  border-color: var(--color-secondary);
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(45, 127, 111, 0.3);
+}
+
+.level-btn.active {
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  color: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(75, 44, 108, 0.3);
+  transform: scale(1.05);
+}
+
+.level-btn.disabled,
+.level-btn:disabled {
+  background: #F0F0F0;
+  color: #999;
+  border-color: #DDD;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #E0E0E0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4B2C6C 0%, #6A4C8C 100%);
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+
+.progress-fill.coach-progress {
+  background: linear-gradient(90deg, #2D7F6F 0%, #3D9F8F 100%);
+}
+
+.improvement-indicator {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-top: 4px;
+}
+
+/* Notes Input */
+.notes-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  background: white;
+  color: var(--color-dark);
+}
+
+.notes-input::placeholder {
+  color: #9E9E9E;
+}
+
+.notes-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
+}
+
+/* Goals Section */
+.goal-field {
+  margin-bottom: 24px;
+}
+
+.goal-label {
+  display: block;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.goal-input,
+.goal-select,
+.goal-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  background: white;
+  color: var(--color-dark);
+}
+
+.goal-textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.goal-input::placeholder,
+.goal-textarea::placeholder {
+  color: #9E9E9E;
+}
+
+.goal-input:focus,
+.goal-select:focus,
+.goal-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
+}
+
+.goal-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234B2C6C' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+}
+
+.char-count {
+  font-size: 12px;
+  color: #666;
+  margin-top: 6px;
+  text-align: right;
+}
+
+/* Coach Notes */
+.coach-notes-textarea {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  background: white;
+  color: var(--color-dark);
+  min-height: 150px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.coach-notes-textarea::placeholder {
+  color: #9E9E9E;
+}
+
+.coach-notes-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 24px;
+  border-top: 2px solid #E0E0E0;
+  margin-top: 32px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .table-wrapper {
+    overflow-x: scroll;
+  }
+  
+  .skills-table {
+    min-width: 900px;
+  }
+}
+
+@media (max-width: 768px) {
+  .level-buttons {
+    gap: 4px;
+  }
+  
+  .level-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+  
+  .assessment-cell {
+    padding: 12px 8px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
