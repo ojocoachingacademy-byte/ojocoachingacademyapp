@@ -50,7 +50,12 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setNotifications([])
+        setUnreadCount(0)
+        setLoading(false)
+        return
+      }
 
       const { data, error } = await supabase
         .from('notifications')
@@ -59,13 +64,23 @@ export default function NotificationBell() {
         .order('created_at', { ascending: false })
         .limit(10)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching notifications:', error)
+        // Gracefully fail - set empty arrays
+        setNotifications([])
+        setUnreadCount(0)
+        setLoading(false)
+        return
+      }
 
       setNotifications(data || [])
       setUnreadCount((data || []).filter(n => !n.read).length)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching notifications:', error)
+      // Silently fail - don't break the app
+      setNotifications([])
+      setUnreadCount(0)
       setLoading(false)
     }
   }
@@ -122,13 +137,17 @@ export default function NotificationBell() {
         })
         .in('id', unreadIds)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error marking all notifications as read:', error)
+        return
+      }
 
       // Update local state
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
       setUnreadCount(0)
     } catch (error) {
       console.error('Error marking all notifications as read:', error)
+      // Silently fail - don't interrupt user experience
     }
   }
 

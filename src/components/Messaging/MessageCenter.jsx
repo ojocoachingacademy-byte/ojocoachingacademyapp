@@ -11,6 +11,7 @@ export default function MessageCenter() {
   const [filteredConversations, setFilteredConversations] = useState([])
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [user, setUser] = useState(null)
   const [showNewConversation, setShowNewConversation] = useState(false)
@@ -45,22 +46,25 @@ export default function MessageCenter() {
     setUser(user)
   }
 
-  const fetchConversations = async () => {
+  const fetchConversations = async (showRetry = false) => {
     try {
+      setError(null)
+      setLoading(true)
+
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError) {
         console.error('Error getting user:', userError)
+        setError('Authentication error. Please try logging in again.')
         setLoading(false)
         return
       }
       
       if (!user) {
         console.log('No user found')
+        setError('Please log in to view messages.')
         setLoading(false)
         return
       }
-
-      console.log('Fetching conversations for user:', user.id)
 
       // Fetch conversations where user is a participant
       const { data, error } = await supabase
@@ -81,11 +85,8 @@ export default function MessageCenter() {
 
       if (error) {
         console.error('Error fetching conversations:', error)
-        console.error('Error details:', JSON.stringify(error, null, 2))
         throw error
       }
-
-      console.log('Conversations fetched:', data?.length || 0, data)
 
       // Fetch profiles for all participants
       const participantIds = new Set()
@@ -103,9 +104,9 @@ export default function MessageCenter() {
 
         if (profilesError) {
           console.error('Error fetching profiles:', profilesError)
+          // Continue without profile data - conversations will still show
         } else {
           profilesMap = new Map(profilesData?.map(p => [p.id, p]) || [])
-          console.log('Profiles fetched:', profilesMap.size)
         }
       }
 
@@ -144,16 +145,14 @@ export default function MessageCenter() {
         }
       })
 
-      console.log('Processed conversations:', processedConversations.length)
       setConversations(processedConversations)
+      setError(null)
       setLoading(false)
     } catch (error) {
       console.error('Error in fetchConversations:', error)
-      console.error('Error stack:', error.stack)
-      const errorMessage = error.message || 'Unknown error. Check console for details.'
-      alert('Error loading messages: ' + errorMessage + '\n\nCheck browser console (F12) for more details.')
-      setLoading(false)
+      setError('Unable to load messages. Please try again.')
       setConversations([])
+      setLoading(false)
     }
   }
 
@@ -226,6 +225,38 @@ export default function MessageCenter() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="message-center" style={{ padding: '40px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ 
+          background: 'white', 
+          padding: '32px', 
+          borderRadius: '12px', 
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          marginBottom: '20px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h2 style={{ color: 'var(--color-error)', marginBottom: '12px' }}>Unable to Load Messages</h2>
+          <p style={{ color: '#666', marginBottom: '24px' }}>{error}</p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button 
+              className="btn btn-primary"
+              onClick={() => fetchConversations(true)}
+            >
+              🔄 Retry
+            </button>
+            <button 
+              className="btn btn-outline"
+              onClick={() => navigate(isCoach ? '/coach' : '/dashboard')}
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="message-center">
       <div className="message-center-header">
@@ -254,10 +285,17 @@ export default function MessageCenter() {
         {filteredConversations.length === 0 ? (
           <div className="empty-state">
             <MessageSquare size={48} style={{ color: '#ccc', marginBottom: '16px' }} />
-            <p>No conversations yet</p>
-            <p style={{ fontSize: '14px', color: '#999', marginTop: '8px' }}>
+            <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No conversations yet</p>
+            <p style={{ fontSize: '14px', color: '#999', marginTop: '8px', marginBottom: '24px' }}>
               Start a conversation by sending a message to a student or coach
             </p>
+            <button 
+              className="btn btn-primary"
+              onClick={handleNewConversation}
+            >
+              <Plus size={18} />
+              Start Your First Conversation
+            </button>
           </div>
         ) : (
           filteredConversations.map(conversation => (
