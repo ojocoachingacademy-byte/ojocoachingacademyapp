@@ -23,6 +23,9 @@ export default function StudentDetailPage() {
 
   const fetchStudentData = async () => {
     try {
+      console.log('=== FETCHING STUDENT DATA (COACH) ===')
+      console.log('Student ID:', id)
+      
       const { data, error } = await supabase
         .from('students')
         .select(`
@@ -32,9 +35,31 @@ export default function StudentDetailPage() {
         .eq('id', id)
         .single()
 
-      if (error) throw error
+      console.log('Fetch response:', { data, error })
+
+      if (error) {
+        console.error('Fetch error:', error)
+        throw error
+      }
+      
+      console.log('Student data fetched:', data)
+      console.log('Development plan in fetched data:', data?.development_plan)
+      console.log('Development plan type:', typeof data?.development_plan)
+      
+      if (data?.development_plan) {
+        try {
+          const parsed = typeof data.development_plan === 'string'
+            ? JSON.parse(data.development_plan)
+            : data.development_plan
+          console.log('Parsed development plan:', parsed)
+        } catch (parseError) {
+          console.error('Error parsing development plan:', parseError)
+        }
+      }
+      
       setStudent(data)
       setLoading(false)
+      console.log('=== FETCH COMPLETE (COACH) ===')
     } catch (error) {
       console.error('Error fetching student:', error)
       setLoading(false)
@@ -58,19 +83,62 @@ export default function StudentDetailPage() {
 
   const handleSaveDevelopmentPlan = async (planData) => {
     try {
-      const { error } = await supabase
+      console.log('=== COACH SAVE DEVELOPMENT PLAN STARTING ===')
+      console.log('Plan data being saved:', planData)
+      console.log('Student ID:', id)
+      
+      // Ensure development_plan is properly formatted as JSON string
+      const updateData = {
+        development_plan: typeof planData.development_plan === 'string' 
+          ? planData.development_plan 
+          : JSON.stringify(planData.development_plan),
+        development_plan_notes: planData.development_plan_notes || undefined
+      }
+
+      console.log('Formatted update data:', updateData)
+
+      const { data, error } = await supabase
         .from('students')
-        .update(planData)
+        .update(updateData)
         .eq('id', id)
+        .select()
 
-      if (error) throw error
+      console.log('Save response:', { data, error })
 
-      alert('Development plan saved!')
+      if (error) {
+        console.error('Database error:', error)
+        alert('Failed to save: ' + error.message)
+        return
+      }
+
+      console.log('Save successful, returned data:', data)
+
+      // Verify the save
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('students')
+        .select('development_plan, development_plan_notes')
+        .eq('id', id)
+        .single()
+
+      if (verifyError) {
+        console.error('Verification failed:', verifyError)
+      } else {
+        console.log('Verification successful - data in DB:', verifyData)
+        if (!verifyData?.development_plan) {
+          console.warn('WARNING: Data did not save to database!')
+          alert('WARNING: Data did not save properly. Please try again.')
+          return
+        }
+      }
+
+      alert('Development plan saved successfully!')
       setEditingPlan(false)
-      fetchStudentData()
+      
+      // Force refresh student data
+      await fetchStudentData()
     } catch (error) {
-      console.error('Error saving development plan:', error)
-      alert('Error saving development plan: ' + error.message)
+      console.error('Unexpected error:', error)
+      alert('Error saving plan: ' + error.message)
     }
   }
 

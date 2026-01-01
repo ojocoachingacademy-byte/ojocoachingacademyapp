@@ -231,22 +231,70 @@ export default function StudentDashboard() {
             student={student}
             onSave={async (planData) => {
               try {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-
-                const { error } = await supabase
-                  .from('students')
-                  .update(planData)
-                  .eq('id', user.id)
-
-                if (error) throw error
+                console.log('=== STUDENT DASHBOARD SAVE STARTING ===')
+                console.log('Plan data being saved:', planData)
                 
-                alert('Development plan saved!')
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) {
+                  console.error('No user found')
+                  return
+                }
+
+                console.log('User ID:', user.id)
+
+                // Ensure development_plan is properly formatted as JSON string
+                const updateData = {
+                  development_plan: typeof planData.development_plan === 'string' 
+                    ? planData.development_plan 
+                    : JSON.stringify(planData.development_plan),
+                  development_plan_notes: planData.development_plan_notes || undefined
+                }
+
+                console.log('Formatted update data:', updateData)
+
+                const { data, error } = await supabase
+                  .from('students')
+                  .update(updateData)
+                  .eq('id', user.id)
+                  .select()
+
+                console.log('Save response:', { data, error })
+
+                if (error) {
+                  console.error('Database error:', error)
+                  alert('Failed to save: ' + error.message)
+                  return
+                }
+
+                console.log('Save successful, returned data:', data)
+
+                // Verify the save
+                const { data: verifyData, error: verifyError } = await supabase
+                  .from('students')
+                  .select('development_plan, development_plan_notes')
+                  .eq('id', user.id)
+                  .single()
+
+                if (verifyError) {
+                  console.error('Verification failed:', verifyError)
+                } else {
+                  console.log('Verification successful - data in DB:', verifyData)
+                  if (!verifyData?.development_plan) {
+                    console.warn('WARNING: Data did not save to database!')
+                    alert('WARNING: Data did not save properly. Please try again.')
+                    return
+                  }
+                }
+
+                alert('Development plan saved successfully!')
                 setEditingPlan(false)
-                fetchStudentData()
+                
+                // Force refresh student data
+                await fetchStudentData()
+                
               } catch (error) {
-                console.error('Error saving development plan:', error)
-                alert('Error saving development plan: ' + error.message)
+                console.error('Unexpected error:', error)
+                alert('Error saving plan: ' + error.message)
               }
             }}
             onCancel={() => setEditingPlan(false)}

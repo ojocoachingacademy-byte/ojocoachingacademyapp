@@ -132,6 +132,12 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
   const handleSave = async () => {
     setLoading(true)
     try {
+      console.log('=== DEVELOPMENT PLAN FORM SAVE ===')
+      console.log('Skills:', skills)
+      console.log('Goals:', goals)
+      console.log('Coach notes:', coachNotes)
+      console.log('Is student:', isStudent)
+      
       const developmentPlan = {
         skills: skills,
         goals: goals,
@@ -139,10 +145,19 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
         updatedAt: new Date().toISOString()
       }
 
-      await onSave({
-        development_plan: JSON.stringify(developmentPlan),
+      console.log('Development plan object:', developmentPlan)
+      const planJsonString = JSON.stringify(developmentPlan)
+      console.log('JSON stringified plan:', planJsonString)
+      console.log('JSON string length:', planJsonString.length)
+
+      const saveData = {
+        development_plan: planJsonString,
         development_plan_notes: isStudent ? undefined : coachNotes // Only coaches can save notes
-      })
+      }
+
+      console.log('Calling onSave with data:', saveData)
+      await onSave(saveData)
+      console.log('onSave completed successfully')
     } catch (error) {
       console.error('Error saving development plan:', error)
       alert('Error saving development plan: ' + error.message)
