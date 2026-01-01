@@ -12,6 +12,8 @@ export default function LessonsPage() {
   const [selectedLesson, setSelectedLesson] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('all')
+  const [editingPlan, setEditingPlan] = useState(false)
+  const [lessonPlanText, setLessonPlanText] = useState('')
 
   useEffect(() => {
     fetchLessons()
@@ -38,14 +40,25 @@ export default function LessonsPage() {
     }
   }
 
+  const getActualStatus = (lesson) => {
+    const lessonDate = new Date(lesson.lesson_date)
+    const now = new Date()
+    if (lesson.status === 'cancelled') return 'cancelled'
+    if (lessonDate < now && lesson.status === 'scheduled') return 'completed' // Auto-complete past scheduled lessons
+    return lesson.status || 'scheduled'
+  }
+
   const getFilteredLessons = () => {
     let filtered = lessons
 
-    // Filter by tab
+    // Filter by tab (using actual status)
     if (activeTab === 'upcoming') {
-      filtered = filtered.filter(l => l.status === 'scheduled' && new Date(l.lesson_date) > new Date())
+      filtered = filtered.filter(l => {
+        const status = getActualStatus(l)
+        return status === 'scheduled' && new Date(l.lesson_date) > new Date()
+      })
     } else if (activeTab === 'completed') {
-      filtered = filtered.filter(l => l.status === 'completed')
+      filtered = filtered.filter(l => getActualStatus(l) === 'completed')
     } else if (activeTab === 'cancelled') {
       filtered = filtered.filter(l => l.status === 'cancelled')
     }
@@ -145,13 +158,16 @@ export default function LessonsPage() {
           className={`tab ${activeTab === 'upcoming' ? 'active' : ''}`}
           onClick={() => setActiveTab('upcoming')}
         >
-          Upcoming ({lessons.filter(l => l.status === 'scheduled' && new Date(l.lesson_date) > new Date()).length})
+          Upcoming ({lessons.filter(l => {
+            const status = getActualStatus(l)
+            return status === 'scheduled' && new Date(l.lesson_date) > new Date()
+          }).length})
         </button>
         <button 
           className={`tab ${activeTab === 'completed' ? 'active' : ''}`}
           onClick={() => setActiveTab('completed')}
         >
-          Completed ({lessons.filter(l => l.status === 'completed').length})
+          Completed ({lessons.filter(l => getActualStatus(l) === 'completed').length})
         </button>
         <button 
           className={`tab ${activeTab === 'cancelled' ? 'active' : ''}`}
@@ -219,8 +235,8 @@ export default function LessonsPage() {
                   <td>{lesson.location || '-'}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {getStatusIcon(lesson.status)}
-                      <span style={{ textTransform: 'capitalize' }}>{lesson.status}</span>
+                      {getStatusIcon(getActualStatus(lesson))}
+                      <span style={{ textTransform: 'capitalize' }}>{getActualStatus(lesson)}</span>
                     </div>
                   </td>
                   <td>
@@ -253,11 +269,19 @@ export default function LessonsPage() {
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <div className="modal-overlay" onClick={() => setSelectedLesson(null)}>
+        <div className="modal-overlay" onClick={() => {
+          setSelectedLesson(null)
+          setEditingPlan(false)
+          setLessonPlanText('')
+        }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
             <div className="modal-header">
               <h2 className="modal-title">Lesson Details</h2>
-              <button className="modal-close" onClick={() => setSelectedLesson(null)}>×</button>
+              <button className="modal-close" onClick={() => {
+                setSelectedLesson(null)
+                setEditingPlan(false)
+                setLessonPlanText('')
+              }}>×</button>
             </div>
             <div className="modal-body">
               <div style={{ marginBottom: '20px' }}>
@@ -273,16 +297,86 @@ export default function LessonsPage() {
                 <strong>Location:</strong> {selectedLesson.location || '-'}
               </div>
               <div style={{ marginBottom: '20px' }}>
-                <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{selectedLesson.status}</span>
+                <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{getActualStatus(selectedLesson)}</span>
               </div>
-              {selectedLesson.lesson_plan && (
-                <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <strong>Lesson Plan:</strong>
+                  {!editingPlan && (
+                    <button 
+                      className="btn btn-outline btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingPlan(true)
+                        setLessonPlanText(selectedLesson.lesson_plan || '')
+                      }}
+                      style={{ padding: '4px 12px', fontSize: '14px' }}
+                    >
+                      <Edit2 size={14} style={{ marginRight: '4px' }} />
+                      Edit Plan
+                    </button>
+                  )}
+                </div>
+                {editingPlan ? (
+                  <div>
+                    <textarea
+                      className="input"
+                      value={lessonPlanText}
+                      onChange={(e) => setLessonPlanText(e.target.value)}
+                      rows={10}
+                      style={{ width: '100%', fontFamily: 'inherit' }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          try {
+                            const { error } = await supabase
+                              .from('lessons')
+                              .update({ lesson_plan: lessonPlanText })
+                              .eq('id', selectedLesson.id)
+
+                            if (error) throw error
+
+                            // Update local state
+                            setSelectedLesson({ ...selectedLesson, lesson_plan: lessonPlanText })
+                            setLessons(lessons.map(l => l.id === selectedLesson.id ? { ...l, lesson_plan: lessonPlanText } : l))
+                            setEditingPlan(false)
+                          } catch (error) {
+                            console.error('Error updating lesson plan:', error)
+                            alert('Error updating lesson plan: ' + error.message)
+                          }
+                        }}
+                        style={{ padding: '6px 16px', fontSize: '14px' }}
+                      >
+                        <Save size={14} style={{ marginRight: '4px' }} />
+                        Save
+                      </button>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingPlan(false)
+                          setLessonPlanText('')
+                        }}
+                        style={{ padding: '6px 16px', fontSize: '14px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : selectedLesson.lesson_plan ? (
                   <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
                     {selectedLesson.lesson_plan}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div style={{ marginTop: '8px', padding: '12px', color: '#999', fontStyle: 'italic' }}>
+                    No lesson plan yet
+                  </div>
+                )}
+              </div>
               {selectedLesson.student_learnings && (
                 <div style={{ marginBottom: '20px' }}>
                   <strong>Student Learnings:</strong>
@@ -304,7 +398,11 @@ export default function LessonsPage() {
               <button className="btn btn-primary" onClick={() => navigate(`/coach/students/${selectedLesson.student_id}`)}>
                 View Student Profile
               </button>
-              <button className="btn btn-outline" onClick={() => setSelectedLesson(null)}>
+              <button className="btn btn-outline" onClick={() => {
+                setSelectedLesson(null)
+                setEditingPlan(false)
+                setLessonPlanText('')
+              }}>
                 Close
               </button>
             </div>

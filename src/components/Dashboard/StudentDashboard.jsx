@@ -135,12 +135,42 @@ export default function StudentDashboard() {
   }
 
   const now = new Date()
+  
+  // Determine actual status based on date/time
+  const getActualStatus = (lesson) => {
+    const lessonDate = new Date(lesson.lesson_date)
+    if (lesson.status === 'cancelled') return 'cancelled'
+    if (lessonDate < now && lesson.status === 'scheduled') return 'completed' // Auto-complete past scheduled lessons
+    return lesson.status || 'scheduled'
+  }
+  
+  // Update past scheduled lessons to completed in database
+  useEffect(() => {
+    lessons.forEach(lesson => {
+      const lessonDate = new Date(lesson.lesson_date)
+      if (lesson.status === 'scheduled' && lessonDate < now) {
+        supabase
+          .from('lessons')
+          .update({ status: 'completed' })
+          .eq('id', lesson.id)
+          .then(({ error }) => {
+            if (error) console.error('Error updating lesson status:', error)
+            else fetchStudentData() // Refresh to get updated status
+          })
+      }
+    })
+  }, [lessons])
+  
   const upcomingLessons = lessons.filter(l => {
-    if (l.status !== 'scheduled') return false
+    const status = getActualStatus(l)
+    if (status !== 'scheduled') return false
     const lessonDate = new Date(l.lesson_date)
     return lessonDate > now
   })
-  const pastLessons = lessons.filter(l => new Date(l.lesson_date) < now)
+  const pastLessons = lessons.filter(l => {
+    const status = getActualStatus(l)
+    return status === 'completed' || (new Date(l.lesson_date) < now && status !== 'cancelled')
+  })
   
   // Helper function to check if lesson plan should be visible (24 hours before)
   const isLessonPlanVisible = (lessonDate) => {
