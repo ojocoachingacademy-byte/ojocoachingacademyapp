@@ -47,8 +47,20 @@ export default function MessageCenter() {
 
   const fetchConversations = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        console.error('Error getting user:', userError)
+        setLoading(false)
+        return
+      }
+      
+      if (!user) {
+        console.log('No user found')
+        setLoading(false)
+        return
+      }
+
+      console.log('Fetching conversations for user:', user.id)
 
       // Fetch conversations where user is a participant
       const { data, error } = await supabase
@@ -67,7 +79,13 @@ export default function MessageCenter() {
         .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`)
         .order('last_message_at', { ascending: false, nullsFirst: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching conversations:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        throw error
+      }
+
+      console.log('Conversations fetched:', data?.length || 0, data)
 
       // Fetch profiles for all participants
       const participantIds = new Set()
@@ -76,12 +94,20 @@ export default function MessageCenter() {
         participantIds.add(conv.participant_2_id)
       })
 
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', Array.from(participantIds))
+      let profilesMap = new Map()
+      if (participantIds.size > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', Array.from(participantIds))
 
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError)
+        } else {
+          profilesMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+          console.log('Profiles fetched:', profilesMap.size)
+        }
+      }
 
       // Enhance conversations with profile data
       const conversationsWithProfiles = (data || []).map(conv => ({
