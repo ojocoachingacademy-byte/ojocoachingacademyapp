@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings } from 'lucide-react'
 import NotificationBell from '../Notifications/NotificationBell'
 import './Header.css'
 
@@ -18,12 +18,24 @@ export default function Header({ user, isCoach }) {
   return (
     <header className="app-header">
       <div className="header-container">
-        <div className="header-left">
-          <div className="logo-container" onClick={() => navigate(isCoach ? '/coach' : '/dashboard')}>
-            <span className="logo-text">OJO</span>
-            <span className="logo-tagline">Coaching Academy</span>
-          </div>
-        </div>
+            <div className="header-left">
+              <div className="logo-container" onClick={() => navigate(isCoach ? '/coach' : '/dashboard')}>
+                <img 
+                  src="/Ojo_Coaching_Academy_Logo.png" 
+                  alt="OJO Coaching Academy" 
+                  className="logo-image"
+                  onError={(e) => {
+                    // Fallback to text if image fails to load
+                    e.target.style.display = 'none'
+                    e.target.nextSibling.style.display = 'flex'
+                  }}
+                />
+                <div className="logo-text-container" style={{ display: 'none' }}>
+                  <span className="logo-text">OJO</span>
+                  <span className="logo-tagline">Coaching Academy</span>
+                </div>
+              </div>
+            </div>
         
         <nav className="header-nav">
           {user && (
@@ -60,20 +72,29 @@ export default function Header({ user, isCoach }) {
                   </button>
                 </>
               )}
-              <button 
-                className={`nav-link ${isActive('/hitting-partners') ? 'active' : ''}`}
-                onClick={() => navigate('/hitting-partners')}
-              >
-                <Users size={18} />
-                Hitting Partners
-              </button>
-              <button 
-                className={`nav-link ${isActive('/messages') ? 'active' : ''}`}
-                onClick={() => navigate('/messages')}
-              >
-                <MessageSquare size={18} />
-                Messages
-              </button>
+                  <button 
+                    className={`nav-link ${isActive('/hitting-partners') ? 'active' : ''}`}
+                    onClick={() => navigate('/hitting-partners')}
+                  >
+                    <Users size={18} />
+                    Hitting Partners
+                  </button>
+                  <button 
+                    className={`nav-link ${isActive('/messages') ? 'active' : ''}`}
+                    onClick={() => navigate('/messages')}
+                  >
+                    <MessageSquare size={18} />
+                    Messages
+                  </button>
+                  {!isCoach && (
+                    <button 
+                      className={`nav-link ${isActive('/settings') ? 'active' : ''}`}
+                      onClick={() => navigate('/settings')}
+                    >
+                      <Settings size={18} />
+                      Settings
+                    </button>
+                  )}
               <NotificationBell />
               <button className="logout-btn" onClick={handleLogout}>
                 <LogOut size={18} />

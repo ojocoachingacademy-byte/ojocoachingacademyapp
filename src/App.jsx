@@ -97,11 +97,15 @@ function App() {
           path="/messages" 
           element={session ? <MessageCenter /> : <Navigate to="/login" />} 
         />
-        <Route 
-          path="/notifications" 
-          element={session ? <NotificationList /> : <Navigate to="/login" />} 
-        />
-        <Route path="/" element={<Navigate to="/login" />} />
+            <Route 
+              path="/notifications" 
+              element={session ? <NotificationList /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/settings" 
+              element={session && !isCoach ? <StudentSettings /> : <Navigate to="/login" />} 
+            />
+            <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
   )
