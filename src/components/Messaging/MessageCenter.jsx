@@ -53,48 +53,106 @@ export default function MessageCenter() {
 
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError) {
-        console.error('Error getting user:', userError)
-        setError('Authentication error. Please try logging in again.')
+        console.error('[MessageCenter] Error getting user:', userError)
         setLoading(false)
+        setConversations([])
         return
       }
       
       if (!user) {
-        console.log('No user found')
-        setError('Please log in to view messages.')
+        console.log('[MessageCenter] No user found')
+        setLoading(false)
+        setConversations([])
+        return
+      }
+
+      console.log('[MessageCenter] Fetching conversations for user:', user.id)
+
+      // First, test if conversations table exists with a simple count query
+      console.log('[MessageCenter] Testing conversations table access...')
+      const { count: testCount, error: testError } = await supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true })
+      
+      console.log('[MessageCenter] Table test result:', { testCount, testError })
+      
+      if (testError) {
+        console.error('[MessageCenter] Conversations table test failed:', testError)
+        console.error('[MessageCenter] Error code:', testError.code)
+        console.error('[MessageCenter] Error message:', testError.message)
+        console.error('[MessageCenter] Error details:', testError.details)
+        console.error('[MessageCenter] Error hint:', testError.hint)
+        // Gracefully degrade - just show empty state
+        setConversations([])
         setLoading(false)
         return
       }
 
-      // Fetch conversations where user is a participant
+      // Simplified query - just fetch conversations first (no joins)
+      console.log('[MessageCenter] Fetching conversations...')
       const { data, error } = await supabase
         .from('conversations')
-        .select(`
-          *,
-          messages (
-            id,
-            content,
-            sender_id,
-            receiver_id,
-            created_at,
-            read
-          )
-        `)
+        .select('*')
         .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`)
         .order('last_message_at', { ascending: false, nullsFirst: false })
 
+      console.log('[MessageCenter] Conversations query result:', { 
+        dataLength: data?.length || 0, 
+        error: error ? {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        } : null
+      })
+
       if (error) {
-        console.error('Error fetching conversations:', error)
-        throw error
+        console.error('[MessageCenter] Supabase error details:', error)
+        console.error('[MessageCenter] Error code:', error.code)
+        console.error('[MessageCenter] Error message:', error.message)
+        console.error('[MessageCenter] Error details:', error.details)
+        console.error('[MessageCenter] Error hint:', error.hint)
+        // Gracefully degrade - just show empty state
+        setConversations([])
+        setLoading(false)
+        return
+      }
+
+      console.log('[MessageCenter] Successfully fetched', data?.length || 0, 'conversations')
+
+      // If no conversations, just show empty state
+      if (!data || data.length === 0) {
+        console.log('[MessageCenter] No conversations found')
+        setConversations([])
+        setLoading(false)
+        return
+      }
+
+      // Fetch messages for these conversations
+      console.log('[MessageCenter] Fetching messages for conversations...')
+      const conversationIds = data.map(c => c.id)
+      
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select('id, conversation_id, content, sender_id, receiver_id, created_at, read')
+        .in('conversation_id', conversationIds)
+        .order('created_at', { ascending: false })
+
+      if (messagesError) {
+        console.error('[MessageCenter] Error fetching messages:', messagesError)
+        // Continue without messages - conversations will still show
+      } else {
+        console.log('[MessageCenter] Fetched', messagesData?.length || 0, 'messages')
       }
 
       // Fetch profiles for all participants
       const participantIds = new Set()
-      data?.forEach(conv => {
+      data.forEach(conv => {
         participantIds.add(conv.participant_1_id)
         participantIds.add(conv.participant_2_id)
       })
 
+      console.log('[MessageCenter] Fetching profiles for', participantIds.size, 'participants')
       let profilesMap = new Map()
       if (participantIds.size > 0) {
         const { data: profilesData, error: profilesError } = await supabase
@@ -103,36 +161,38 @@ export default function MessageCenter() {
           .in('id', Array.from(participantIds))
 
         if (profilesError) {
-          console.error('Error fetching profiles:', profilesError)
+          console.error('[MessageCenter] Error fetching profiles:', profilesError)
           // Continue without profile data - conversations will still show
         } else {
           profilesMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+          console.log('[MessageCenter] Fetched', profilesMap.size, 'profiles')
         }
       }
 
-      // Enhance conversations with profile data
-      const conversationsWithProfiles = (data || []).map(conv => ({
-        ...conv,
-        participant_1_profile: profilesMap.get(conv.participant_1_id),
-        participant_2_profile: profilesMap.get(conv.participant_2_id)
-      }))
+      // Process conversations with messages and profiles
+      const messagesByConversation = new Map()
+      if (messagesData) {
+        messagesData.forEach(msg => {
+          if (!messagesByConversation.has(msg.conversation_id)) {
+            messagesByConversation.set(msg.conversation_id, [])
+          }
+          messagesByConversation.get(msg.conversation_id).push(msg)
+        })
+      }
 
-      // Process conversations to get unread counts and last message
-      const processedConversations = conversationsWithProfiles.map(conv => {
+      const processedConversations = data.map(conv => {
+        const messages = messagesByConversation.get(conv.id) || []
         const otherParticipantProfile = conv.participant_1_id === user.id
-          ? conv.participant_2_profile
-          : conv.participant_1_profile
+          ? profilesMap.get(conv.participant_2_id)
+          : profilesMap.get(conv.participant_1_id)
 
         // Get unread count
-        const unreadCount = (conv.messages || []).filter(
+        const unreadCount = messages.filter(
           msg => msg.receiver_id === user.id && !msg.read
         ).length
 
-        // Get last message
-        const messages = conv.messages || []
-        const lastMessage = messages.length > 0 
-          ? messages.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
-          : null
+        // Get last message (already sorted by created_at DESC)
+        const lastMessage = messages.length > 0 ? messages[0] : null
 
         return {
           ...conv,
@@ -145,12 +205,14 @@ export default function MessageCenter() {
         }
       })
 
+      console.log('[MessageCenter] Processed', processedConversations.length, 'conversations')
       setConversations(processedConversations)
       setError(null)
       setLoading(false)
-    } catch (error) {
-      console.error('Error in fetchConversations:', error)
-      setError('Unable to load messages. Please try again.')
+    } catch (err) {
+      console.error('[MessageCenter] Caught unexpected error:', err)
+      console.error('[MessageCenter] Error stack:', err.stack)
+      // Gracefully degrade - just show empty state
       setConversations([])
       setLoading(false)
     }
@@ -225,37 +287,6 @@ export default function MessageCenter() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="message-center" style={{ padding: '40px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ 
-          background: 'white', 
-          padding: '32px', 
-          borderRadius: '12px', 
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          marginBottom: '20px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-          <h2 style={{ color: 'var(--color-error)', marginBottom: '12px' }}>Unable to Load Messages</h2>
-          <p style={{ color: '#666', marginBottom: '24px' }}>{error}</p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <button 
-              className="btn btn-primary"
-              onClick={() => fetchConversations(true)}
-            >
-              🔄 Retry
-            </button>
-            <button 
-              className="btn btn-outline"
-              onClick={() => navigate(-1)}
-            >
-              ← Go Back
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="message-center">
