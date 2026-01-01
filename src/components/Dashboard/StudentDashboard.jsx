@@ -383,9 +383,11 @@ export default function StudentDashboard() {
 
               {/* Coach Notes */}
               {student.development_plan_notes && (
-                <div style={{ marginTop: '32px', padding: '20px', backgroundColor: '#E3F2FD', borderRadius: '8px', borderLeft: '4px solid var(--color-secondary)' }}>
-                  <h3 style={{ margin: '0 0 12px 0', color: 'var(--color-dark)', fontSize: '18px' }}>Coach's Notes</h3>
-                  <p style={{ margin: 0, color: '#666', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                <div style={{ marginTop: '32px', padding: '24px', backgroundColor: '#F0F9FF', borderRadius: '12px', borderLeft: '4px solid var(--color-secondary)', boxShadow: 'var(--shadow-sm)' }}>
+                  <h3 style={{ margin: '0 0 12px 0', color: 'var(--color-dark)', fontSize: '18px', fontWeight: 600 }}>
+                    Coach's Notes
+                  </h3>
+                  <p style={{ margin: 0, color: '#666', lineHeight: '1.6', whiteSpace: 'pre-wrap', fontSize: '15px' }}>
                     {student.development_plan_notes}
                   </p>
                 </div>
