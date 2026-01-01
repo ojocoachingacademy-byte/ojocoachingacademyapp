@@ -28,12 +28,23 @@ export default function StudentSettings() {
   const fetchProfile = async () => {
     try {
       setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
+      setError(null)
+      
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        console.error('[Settings] Error getting user:', userError)
+        setError('Authentication error. Please log in again.')
+        setLoading(false)
+        return
+      }
       
       if (!user) {
+        console.log('[Settings] No user found, redirecting to login')
         navigate('/login')
         return
       }
+
+      console.log('[Settings] Fetching profile for user:', user.id)
 
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
@@ -42,7 +53,17 @@ export default function StudentSettings() {
         .eq('id', user.id)
         .single()
 
-      if (profileError) throw profileError
+      console.log('[Settings] Profile fetch result:', { profileData, profileError })
+
+      if (profileError) {
+        console.error('[Settings] Profile error details:', {
+          code: profileError.code,
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint
+        })
+        throw profileError
+      }
 
       // Fetch student data
       const { data: studentData, error: studentError } = await supabase
@@ -53,24 +74,30 @@ export default function StudentSettings() {
 
       if (studentError && studentError.code !== 'PGRST116') {
         // PGRST116 means no rows returned, which is OK
-        console.error('Error fetching student:', studentError)
+        console.warn('[Settings] Student fetch warning:', studentError)
+      } else {
+        console.log('[Settings] Student data:', studentData)
       }
 
       setProfile(profileData)
       setStudent(studentData || null)
       
       // Populate form
-      setFormData({
+      const initialFormData = {
         full_name: profileData?.full_name || '',
         email: profileData?.email || user.email || '',
         phone: profileData?.phone || '',
         ntrp_level: profileData?.ntrp_level || '3.0'
-      })
+      }
+
+      console.log('[Settings] Setting form data:', initialFormData)
+      setFormData(initialFormData)
 
       setLoading(false)
     } catch (error) {
-      console.error('Error fetching profile:', error)
-      setError('Failed to load profile. Please try again.')
+      console.error('[Settings] Error fetching profile:', error)
+      const errorMessage = error.message || 'Failed to load profile. Please try again.'
+      setError(errorMessage)
       setLoading(false)
     }
   }
@@ -93,32 +120,62 @@ export default function StudentSettings() {
       setError(null)
       setSuccess(false)
 
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        console.error('[Settings] Error getting user:', userError)
+        setError('Authentication error. Please log in again.')
+        setSaving(false)
+        return
+      }
+
       if (!user) {
+        console.error('[Settings] No user found')
         navigate('/login')
         return
       }
 
+      console.log('[Settings] Saving profile for user:', user.id)
+      console.log('[Settings] Form data:', formData)
+
       // Update profile
-      const { error: updateError } = await supabase
+      const updateData = {
+        full_name: formData.full_name,
+        phone: formData.phone || null,
+        ntrp_level: formData.ntrp_level
+      }
+
+      console.log('[Settings] Update data:', updateData)
+
+      const { data, error: updateError } = await supabase
         .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          phone: formData.phone,
-          ntrp_level: formData.ntrp_level
-        })
+        .update(updateData)
         .eq('id', user.id)
+        .select()
 
-      if (updateError) throw updateError
+      console.log('[Settings] Update response:', { data, error: updateError })
 
+      if (updateError) {
+        console.error('[Settings] Supabase error details:', {
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          fullError: updateError
+        })
+        throw updateError
+      }
+
+      console.log('[Settings] Profile updated successfully:', data)
       setSuccess(true)
       setProfile({ ...profile, ...formData })
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
-      console.error('Error saving profile:', error)
-      setError(error.message || 'Failed to save profile. Please try again.')
+      console.error('[Settings] Error saving profile:', error)
+      const errorMessage = error.message || 'Failed to save profile. Please try again.'
+      console.error('[Settings] Error message:', errorMessage)
+      setError(errorMessage)
     } finally {
       setSaving(false)
     }
