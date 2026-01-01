@@ -62,16 +62,6 @@ export default function MessageCenter() {
             receiver_id,
             created_at,
             read
-          ),
-          participant_1:profiles!conversations_participant_1_id_fkey (
-            id,
-            full_name,
-            email
-          ),
-          participant_2:profiles!conversations_participant_2_id_fkey (
-            id,
-            full_name,
-            email
           )
         `)
         .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`)
@@ -79,14 +69,32 @@ export default function MessageCenter() {
 
       if (error) throw error
 
+      // Fetch profiles for all participants
+      const participantIds = new Set()
+      data?.forEach(conv => {
+        participantIds.add(conv.participant_1_id)
+        participantIds.add(conv.participant_2_id)
+      })
+
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', Array.from(participantIds))
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || [])
+
+      // Enhance conversations with profile data
+      const conversationsWithProfiles = (data || []).map(conv => ({
+        ...conv,
+        participant_1_profile: profilesMap.get(conv.participant_1_id),
+        participant_2_profile: profilesMap.get(conv.participant_2_id)
+      }))
+
       // Process conversations to get unread counts and last message
-      const processedConversations = (data || []).map(conv => {
-        const otherParticipant = conv.participant_1_id === user.id 
-          ? conv.participant_2 
-          : conv.participant_1
+      const processedConversations = conversationsWithProfiles.map(conv => {
         const otherParticipantProfile = conv.participant_1_id === user.id
-          ? conv.participant_2
-          : conv.participant_1
+          ? conv.participant_2_profile
+          : conv.participant_1_profile
 
         // Get unread count
         const unreadCount = (conv.messages || []).filter(
