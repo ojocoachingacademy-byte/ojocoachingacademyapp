@@ -247,9 +247,9 @@ export default function MessageCenter() {
             </button>
             <button 
               className="btn btn-outline"
-              onClick={() => navigate(isCoach ? '/coach' : '/dashboard')}
+              onClick={() => navigate(-1)}
             >
-              ← Back to Dashboard
+              ← Go Back
             </button>
           </div>
         </div>
