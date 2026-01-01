@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2 } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
+import NewConversationModal from '../Messaging/NewConversationModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -13,6 +14,7 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [editingPlan, setEditingPlan] = useState(false)
+  const [showMessageModal, setShowMessageModal] = useState(false)
 
   useEffect(() => {
     fetchStudentData()

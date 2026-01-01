@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare } from 'lucide-react'
+import NotificationBell from '../Notifications/NotificationBell'
 import './Header.css'
 
 export default function Header({ user, isCoach }) {
@@ -50,6 +51,13 @@ export default function Header({ user, isCoach }) {
                     <Calendar size={18} />
                     Lessons
                   </button>
+                  <button 
+                    className={`nav-link ${isActive('/coach/calendar') ? 'active' : ''}`}
+                    onClick={() => navigate('/coach/calendar')}
+                  >
+                    <Calendar size={18} />
+                    Calendar
+                  </button>
                 </>
               )}
               <button 
@@ -59,6 +67,14 @@ export default function Header({ user, isCoach }) {
                 <Users size={18} />
                 Hitting Partners
               </button>
+              <button 
+                className={`nav-link ${isActive('/messages') ? 'active' : ''}`}
+                onClick={() => navigate('/messages')}
+              >
+                <MessageSquare size={18} />
+                Messages
+              </button>
+              <NotificationBell />
               <button className="logout-btn" onClick={handleLogout}>
                 <LogOut size={18} />
                 Logout

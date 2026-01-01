@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import Anthropic from '@anthropic-ai/sdk'
-import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target } from 'lucide-react'
+import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical } from 'lucide-react'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
 
@@ -15,6 +14,126 @@ const getInitials = (name) => {
     .join('')
     .toUpperCase()
     .slice(0, 2)
+}
+
+// Lesson Actions Menu Component
+const LessonActionsMenu = ({ lesson, onUpdateStatus }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
+
+  const handleAction = (action) => {
+    if (action === 'complete') {
+      onUpdateStatus(lesson.id, 'completed')
+    } else if (action === 'cancel') {
+      onUpdateStatus(lesson.id, 'cancelled')
+    }
+    setIsOpen(false)
+  }
+
+  return (
+    <div style={{ position: 'relative' }} ref={menuRef} onClick={(e) => e.stopPropagation()}>
+      <button
+        className="btn btn-sm btn-outline"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
+        style={{ 
+          padding: '6px 8px', 
+          minWidth: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+        aria-label="Lesson actions"
+      >
+        <MoreVertical size={16} />
+      </button>
+      
+      {isOpen && (
+        <div 
+          className="lesson-actions-dropdown"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            marginTop: '4px',
+            backgroundColor: 'white',
+            border: '1px solid #e0e0e0',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            minWidth: '160px',
+            zIndex: 1000,
+            overflow: 'hidden'
+          }}
+        >
+          {lesson.status !== 'completed' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleAction('complete')
+              }}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                textAlign: 'left',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                color: 'var(--color-dark)',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
+              ✓ Mark Complete
+            </button>
+          )}
+          {lesson.status !== 'cancelled' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleAction('cancel')
+              }}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                textAlign: 'left',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                color: 'var(--color-error)',
+                transition: 'background-color 0.2s',
+                borderTop: lesson.status !== 'completed' ? '1px solid #e0e0e0' : 'none'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
+              ✕ Cancel Lesson
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Helper to get avatar color based on name
@@ -286,32 +405,28 @@ Cool Down (5 min): [Final activity]
 For each section include specific drills, key coaching points, and progressions.
 Keep it concise and actionable.`
 
-      // Initialize Anthropic client
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-      if (!apiKey) {
-        throw new Error('Anthropic API key not found. Please set VITE_ANTHROPIC_API_KEY in your .env file.')
+      // Call Netlify function to generate lesson plan
+      const response = await fetch('/.netlify/functions/generate-lesson-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          studentName,
+          ntrpLevel,
+          goals,
+          pastLessons: last3Lessons
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to generate lesson plan')
       }
 
-      const anthropic = new Anthropic({
-        apiKey: apiKey,
-        dangerouslyAllowBrowser: true
-      })
-
-      // Call Claude API
-      const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-
-      const generatedPlan = message.content[0].text
+      const data = await response.json()
       // Strip markdown from generated plan
-      setLessonPlan(stripMarkdown(generatedPlan))
+      setLessonPlan(stripMarkdown(data.lessonPlan))
       setIsEditingPlan(false) // Show in display mode first
     } catch (error) {
       console.error('Error generating lesson plan:', error)
@@ -349,33 +464,26 @@ Keep it concise and actionable.`
 
     setRefiningPlan(true)
     try {
-      const anthropic = new Anthropic({
-        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-        dangerouslyAllowBrowser: true
+      // Call Netlify function to refine lesson plan
+      const response = await fetch('/.netlify/functions/refine-lesson-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPlan: lessonPlan,
+          feedback: refinementFeedback
+        })
       })
 
-      const prompt = `Here's the current lesson plan:
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to refine lesson plan' }))
+        throw new Error(errorData.error || 'Failed to refine lesson plan')
+      }
 
-${lessonPlan}
-
-The coach wants to refine it with this feedback: ${refinementFeedback}
-
-Generate an updated plan that incorporates this feedback while keeping the same structure. Remove all markdown formatting - just provide clean, readable text with proper line breaks.`
-
-      const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-
-      const refinedPlan = message.content[0].text
+      const data = await response.json()
       // Strip markdown from refined plan
-      setLessonPlan(stripMarkdown(refinedPlan))
+      setLessonPlan(stripMarkdown(data.lessonPlan))
       setRefinementFeedback('')
       setIsEditingPlan(false) // Show in display mode
     } catch (error) {
@@ -409,6 +517,18 @@ Generate an updated plan that incorporates this feedback while keeping the same 
         .eq('id', selectedFeedbackLesson.id)
 
       if (error) throw error
+
+      // Create notification for student
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: selectedFeedbackLesson.student_id,
+          type: 'feedback_posted',
+          title: 'Coach Feedback Posted',
+          body: `Your coach has posted feedback for your lesson on ${new Date(selectedFeedbackLesson.lesson_date).toLocaleDateString()}`,
+          link: `/dashboard`,
+          read: false
+        })
 
       alert('Feedback saved!')
       handleCloseFeedbackModal()
@@ -708,37 +828,21 @@ Generate an updated plan that incorporates this feedback while keeping the same 
                     {lesson.location}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <span className={`status-dot status-${lesson.status}`} style={{ textTransform: 'capitalize' }}>
-                    {lesson.status}
-                  </span>
-                  {lesson.lesson_plan ? (
-                    <span className="status-dot status-completed">✓ Plan Ready</span>
-                  ) : (
-                    <span className="status-dot status-needed">⚠️ Plan Needed</span>
-                  )}
-                  <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className="btn btn-sm btn-outline"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleUpdateLessonStatus(lesson.id, 'completed')
-                      }}
-                      style={{ fontSize: '12px', padding: '4px 8px' }}
-                    >
-                      Mark Complete
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleUpdateLessonStatus(lesson.id, 'cancelled')
-                      }}
-                      style={{ fontSize: '12px', padding: '4px 8px', color: 'var(--color-error)' }}
-                    >
-                      Cancel
-                    </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <span className={`status-dot status-${lesson.status}`} style={{ textTransform: 'capitalize' }}>
+                      {lesson.status}
+                    </span>
+                    {lesson.lesson_plan ? (
+                      <span className="status-dot status-completed">✓ Plan Ready</span>
+                    ) : (
+                      <span className="status-dot status-needed">⚠️ Plan Needed</span>
+                    )}
                   </div>
+                  <LessonActionsMenu 
+                    lesson={lesson} 
+                    onUpdateStatus={handleUpdateLessonStatus}
+                  />
                 </div>
               </div>
             </div>

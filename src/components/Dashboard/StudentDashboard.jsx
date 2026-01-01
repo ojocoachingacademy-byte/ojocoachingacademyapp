@@ -90,6 +90,25 @@ export default function StudentDashboard() {
 
       if (error) throw error
 
+      // Create notification for coach
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: studentProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: 'tobiojo10@gmail.com', // Coach email - TODO: get from profiles table
+          type: 'feedback_posted',
+          title: 'Student Learnings Submitted',
+          body: `${studentProfile?.full_name || 'A student'} has submitted learnings for a lesson`,
+          link: `/coach`,
+          read: false
+        })
+
       setSelectedLesson(null)
       setStudentLearnings('')
       fetchStudentData() // Refresh to show updated data

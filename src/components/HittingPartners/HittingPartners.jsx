@@ -303,23 +303,59 @@ export default function HittingPartners() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !selectedPartner) return
 
-      // Create message (assuming messages table exists)
-      // If it doesn't exist, we'll need to create it or use a different approach
+      // Ensure consistent ordering (smaller UUID first)
+      const participant1 = user.id < selectedPartner.id ? user.id : selectedPartner.id
+      const participant2 = user.id < selectedPartner.id ? selectedPartner.id : user.id
+      
+      // Try to find existing conversation
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('participant_1_id', participant1)
+        .eq('participant_2_id', participant2)
+        .single()
+
+      let convId = existingConv?.id
+
+      if (!convId) {
+        // Create new conversation
+        const { data: newConv, error: createError } = await supabase
+          .from('conversations')
+          .insert({
+            participant_1_id: participant1,
+            participant_2_id: participant2
+          })
+          .select()
+          .single()
+
+        if (createError) throw createError
+        convId = newConv.id
+      }
+
+      // Insert message
       const { error } = await supabase
         .from('messages')
-        .insert([{
+        .insert({
+          conversation_id: convId,
           sender_id: user.id,
           receiver_id: selectedPartner.id,
-          message: requestMessage,
-          type: 'hitting_request',
-          created_at: new Date().toISOString()
-        }])
+          content: requestMessage.trim(),
+          message_type: 'hitting_partner_request'
+        })
 
-      if (error) {
-        // Messages table might not exist yet - that's okay, we'll still show success
-        // In production, you'd want to create this table or use a different messaging system
-        console.log('Messages table may not exist yet:', error.message)
-      }
+      if (error) throw error
+
+      // Create notification
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: selectedPartner.id,
+          type: 'hitting_partner_request',
+          title: 'New Hitting Partner Request',
+          body: `${userProfile?.full_name || 'Someone'} wants to hit with you!`,
+          link: '/messages',
+          read: false
+        })
 
       // Show success toast
       alert('Request sent!')
@@ -328,9 +364,7 @@ export default function HittingPartners() {
       setSelectedPartner(null)
     } catch (error) {
       console.error('Error sending request:', error)
-      // Still show success to user
-      alert('Request sent!')
-      setShowRequestModal(false)
+      alert('Error sending request: ' + error.message)
     }
   }
 

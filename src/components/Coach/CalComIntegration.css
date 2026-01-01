@@ -1,0 +1,43 @@
+.calcom-container {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.calcom-header {
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+}
+
+.calcom-header h2 {
+  font-size: var(--font-size-h2);
+  font-weight: 600;
+  color: var(--color-dark);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.calcom-header p {
+  color: #666;
+  font-size: var(--font-size-base);
+  margin: 0;
+}
+
+.calcom-embed {
+  width: 100%;
+  min-height: 600px;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 768px) {
+  .calcom-container {
+    padding: var(--spacing-md);
+  }
+
+  .calcom-embed {
+    min-height: 400px;
+  }
+}
+

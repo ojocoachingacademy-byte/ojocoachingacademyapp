@@ -6,10 +6,13 @@ import Login from './components/Auth/Login'
 import Signup from './components/Auth/Signup'
 import StudentDashboard from './components/Dashboard/StudentDashboard'
 import CoachDashboard from './components/Dashboard/CoachDashboard'
+import MessageCenter from './components/Messaging/MessageCenter'
+import NotificationList from './components/Notifications/NotificationList'
 import HittingPartners from './components/HittingPartners/HittingPartners'
 import LessonsPage from './components/Coach/LessonsPage'
 import StudentsPage from './components/Coach/StudentsPage'
 import StudentDetailPage from './components/Coach/StudentDetailPage'
+import CalendarView from './components/Coach/CalendarView'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -73,6 +76,10 @@ function App() {
         <Route 
           path="/coach/lessons" 
           element={session && isCoach ? <LessonsPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/coach/calendar" 
+          element={session && isCoach ? <CalendarView /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/coach/students" 
