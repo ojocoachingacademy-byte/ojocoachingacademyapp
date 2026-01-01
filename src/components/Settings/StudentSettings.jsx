@@ -15,7 +15,8 @@ export default function StudentSettings() {
 
   // Form state
   const [formData, setFormData] = useState({
-    full_name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     ntrp_level: '3.0'
@@ -82,9 +83,15 @@ export default function StudentSettings() {
       setProfile(profileData)
       setStudent(studentData || null)
       
-      // Populate form
+      // Populate form - split full_name into first_name and last_name
+      const fullName = profileData?.full_name || ''
+      const nameParts = fullName.trim().split(' ')
+      const firstName = nameParts[0] || ''
+      const lastName = nameParts.slice(1).join(' ') || ''
+      
       const initialFormData = {
-        full_name: profileData?.full_name || '',
+        first_name: firstName,
+        last_name: lastName,
         email: profileData?.email || user.email || '',
         phone: profileData?.phone || '',
         ntrp_level: profileData?.ntrp_level || '3.0'
@@ -137,9 +144,12 @@ export default function StudentSettings() {
       console.log('[Settings] Saving profile for user:', user.id)
       console.log('[Settings] Form data:', formData)
 
+      // Combine first_name and last_name into full_name
+      const fullName = `${formData.first_name.trim()} ${formData.last_name.trim()}`.trim()
+
       // Update profile
       const updateData = {
-        full_name: formData.full_name,
+        full_name: fullName || null,
         phone: formData.phone || null,
         ntrp_level: formData.ntrp_level
       }
@@ -167,7 +177,7 @@ export default function StudentSettings() {
 
       console.log('[Settings] Profile updated successfully:', data)
       setSuccess(true)
-      setProfile({ ...profile, ...formData })
+      setProfile({ ...profile, full_name: fullName, phone: formData.phone, ntrp_level: formData.ntrp_level })
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(false), 3000)
@@ -218,19 +228,36 @@ export default function StudentSettings() {
 
           <form onSubmit={handleSave} className="settings-form">
             <div className="form-group">
-              <label htmlFor="full_name">
+              <label htmlFor="first_name">
                 <User size={16} />
-                Full Name
+                First Name
               </label>
               <input
                 type="text"
-                id="full_name"
-                name="full_name"
-                value={formData.full_name}
+                id="first_name"
+                name="first_name"
+                value={formData.first_name}
                 onChange={handleInputChange}
                 required
                 className="form-input"
-                placeholder="Enter your full name"
+                placeholder="Enter your first name"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="last_name">
+                <User size={16} />
+                Last Name
+              </label>
+              <input
+                type="text"
+                id="last_name"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleInputChange}
+                required
+                className="form-input"
+                placeholder="Enter your last name"
               />
             </div>
 
