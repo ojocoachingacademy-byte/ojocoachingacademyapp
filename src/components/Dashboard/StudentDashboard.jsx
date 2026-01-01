@@ -279,22 +279,52 @@ export default function StudentDashboard() {
               
               {/* Goals Section */}
               {plan.goals && (
-                <div style={{ marginBottom: '32px', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
-                  <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary)', fontSize: '18px' }}>Goals & Motivation</h3>
+                <div style={{ marginBottom: '32px', padding: '24px', backgroundColor: 'white', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', border: '1px solid #E0E0E0' }}>
+                  <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary)', fontSize: '20px', fontWeight: 600 }}>
+                    Goals & Motivation
+                  </h3>
+                  
+                  {plan.goals.inspiration && (
+                    <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #F0F0F0' }}>
+                      <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                        What inspired you to improve your tennis game?
+                      </strong>
+                      <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                        {plan.goals.inspiration}
+                      </p>
+                    </div>
+                  )}
+                  
                   {plan.goals.targetLevel && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <strong>Target Goal:</strong> <span style={{ color: '#666' }}>{plan.goals.targetLevel}</span>
+                    <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #F0F0F0' }}>
+                      <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                        What level do you want to reach?
+                      </strong>
+                      <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                        {plan.goals.targetLevel}
+                      </p>
                     </div>
                   )}
+                  
                   {plan.goals.wantToBeat && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <strong>I want to beat:</strong> <span style={{ color: '#666' }}>{plan.goals.wantToBeat}</span>
+                    <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #F0F0F0' }}>
+                      <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                        Who do you want to beat once you improve?
+                      </strong>
+                      <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                        {plan.goals.wantToBeat}
+                      </p>
                     </div>
                   )}
+                  
                   {plan.goals.successLookLike && (
                     <div>
-                      <strong>Success looks like:</strong>
-                      <p style={{ margin: '8px 0 0 0', color: '#666', lineHeight: '1.6' }}>{plan.goals.successLookLike}</p>
+                      <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                        What would success look like for you?
+                      </strong>
+                      <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                        {plan.goals.successLookLike}
+                      </p>
                     </div>
                   )}
                 </div>

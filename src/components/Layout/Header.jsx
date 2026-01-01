@@ -47,31 +47,39 @@ export default function Header({ user, isCoach }) {
                 <LayoutDashboard size={18} />
                 Dashboard
               </button>
-              {isCoach && (
-                <>
-                  <button 
-                    className={`nav-link ${isActive('/coach/students') || location.pathname.startsWith('/coach/students/') ? 'active' : ''}`}
-                    onClick={() => navigate('/coach/students')}
-                  >
-                    <Users size={18} />
-                    Students
-                  </button>
-                  <button 
-                    className={`nav-link ${isActive('/coach/lessons') ? 'active' : ''}`}
-                    onClick={() => navigate('/coach/lessons')}
-                  >
-                    <Calendar size={18} />
-                    Lessons
-                  </button>
-                  <button 
-                    className={`nav-link ${isActive('/coach/calendar') ? 'active' : ''}`}
-                    onClick={() => navigate('/coach/calendar')}
-                  >
-                    <Calendar size={18} />
-                    Calendar
-                  </button>
-                </>
-              )}
+                  {isCoach ? (
+                    <>
+                      <button 
+                        className={`nav-link ${isActive('/coach/students') || location.pathname.startsWith('/coach/students/') ? 'active' : ''}`}
+                        onClick={() => navigate('/coach/students')}
+                      >
+                        <Users size={18} />
+                        Students
+                      </button>
+                      <button 
+                        className={`nav-link ${isActive('/coach/lessons') ? 'active' : ''}`}
+                        onClick={() => navigate('/coach/lessons')}
+                      >
+                        <Calendar size={18} />
+                        Lessons
+                      </button>
+                      <button 
+                        className={`nav-link ${isActive('/coach/calendar') ? 'active' : ''}`}
+                        onClick={() => navigate('/coach/calendar')}
+                      >
+                        <Calendar size={18} />
+                        Calendar
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      className={`nav-link ${isActive('/lessons') ? 'active' : ''}`}
+                      onClick={() => navigate('/lessons')}
+                    >
+                      <Calendar size={18} />
+                      Lessons
+                    </button>
+                  )}
                   <button 
                     className={`nav-link ${isActive('/hitting-partners') ? 'active' : ''}`}
                     onClick={() => navigate('/hitting-partners')}

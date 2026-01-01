@@ -14,6 +14,7 @@ import StudentsPage from './components/Coach/StudentsPage'
 import StudentDetailPage from './components/Coach/StudentDetailPage'
 import CalendarView from './components/Coach/CalendarView'
 import StudentSettings from './components/Settings/StudentSettings'
+import StudentLessonsPage from './components/Dashboard/StudentLessonsPage'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -66,14 +67,18 @@ function App() {
       <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
         <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/dashboard" />} />
-        <Route 
-          path="/dashboard" 
-          element={session && !isCoach ? <StudentDashboard /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/coach" 
-          element={session && isCoach ? <CoachDashboard /> : <Navigate to="/login" />} 
-        />
+            <Route 
+              path="/dashboard" 
+              element={session && !isCoach ? <StudentDashboard /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/lessons" 
+              element={session && !isCoach ? <StudentLessonsPage /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/coach" 
+              element={session && isCoach ? <CoachDashboard /> : <Navigate to="/login" />} 
+            />
         <Route 
           path="/coach/lessons" 
           element={session && isCoach ? <LessonsPage /> : <Navigate to="/login" />} 
