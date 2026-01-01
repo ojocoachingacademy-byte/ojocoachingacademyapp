@@ -344,7 +344,11 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
           <textarea
             className="goal-textarea"
             value={goals.inspiration}
-            onChange={(e) => setGoals({ ...goals, inspiration: e.target.value })}
+            onChange={(e) => {
+              const newValue = e.target.value
+              console.log('Inspiration changed to:', newValue)
+              setGoals({ ...goals, inspiration: newValue })
+            }}
             placeholder="Share what motivates you..."
             rows={3}
             maxLength={200}
@@ -359,7 +363,11 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
           <select
             className="goal-select"
             value={goals.targetLevel}
-            onChange={(e) => setGoals({ ...goals, targetLevel: e.target.value })}
+            onChange={(e) => {
+              const newValue = e.target.value
+              console.log('Target level changed to:', newValue)
+              setGoals({ ...goals, targetLevel: newValue })
+            }}
           >
             <option value="">Select a goal...</option>
             {GOAL_OPTIONS.map(option => (
@@ -374,7 +382,11 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
             type="text"
             className="goal-input"
             value={goals.wantToBeat}
-            onChange={(e) => setGoals({ ...goals, wantToBeat: e.target.value })}
+            onChange={(e) => {
+              const newValue = e.target.value
+              console.log('Want to beat changed to:', newValue)
+              setGoals({ ...goals, wantToBeat: newValue })
+            }}
             placeholder="e.g., My doubles partner, the club champion, my sibling..."
           />
         </div>
@@ -384,7 +396,11 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
           <textarea
             className="goal-textarea"
             value={goals.successLookLike}
-            onChange={(e) => setGoals({ ...goals, successLookLike: e.target.value })}
+            onChange={(e) => {
+              const newValue = e.target.value
+              console.log('Success looks like changed to:', newValue)
+              setGoals({ ...goals, successLookLike: newValue })
+            }}
             placeholder="Describe your vision of success..."
             rows={3}
             maxLength={200}
