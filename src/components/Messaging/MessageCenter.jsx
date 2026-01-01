@@ -144,11 +144,16 @@ export default function MessageCenter() {
         }
       })
 
+      console.log('Processed conversations:', processedConversations.length)
       setConversations(processedConversations)
       setLoading(false)
     } catch (error) {
-      console.error('Error fetching conversations:', error)
+      console.error('Error in fetchConversations:', error)
+      console.error('Error stack:', error.stack)
+      const errorMessage = error.message || 'Unknown error. Check console for details.'
+      alert('Error loading messages: ' + errorMessage + '\n\nCheck browser console (F12) for more details.')
       setLoading(false)
+      setConversations([])
     }
   }
 
@@ -215,22 +220,8 @@ export default function MessageCenter() {
   if (loading) {
     return (
       <div className="message-center" style={{ padding: '40px', textAlign: 'center' }}>
-        <div style={{ 
-          width: '40px', 
-          height: '40px', 
-          border: '4px solid #f3f3f3',
-          borderTop: '4px solid var(--color-primary, #4B2C6C)',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          margin: '0 auto 20px'
-        }}></div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
-        <p style={{ color: '#666', marginTop: '16px' }}>Loading conversations...</p>
+        <div className="spinner"></div>
+        <p className="text-center" style={{ color: '#666', marginTop: '16px' }}>Loading conversations...</p>
       </div>
     )
   }
