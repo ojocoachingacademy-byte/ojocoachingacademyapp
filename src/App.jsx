@@ -93,6 +93,14 @@ function App() {
           path="/hitting-partners" 
           element={session ? <HittingPartners /> : <Navigate to="/login" />} 
         />
+        <Route 
+          path="/messages" 
+          element={session ? <MessageCenter /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/notifications" 
+          element={session ? <NotificationList /> : <Navigate to="/login" />} 
+        />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
