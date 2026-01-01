@@ -13,6 +13,7 @@ import LessonsPage from './components/Coach/LessonsPage'
 import StudentsPage from './components/Coach/StudentsPage'
 import StudentDetailPage from './components/Coach/StudentDetailPage'
 import CalendarView from './components/Coach/CalendarView'
+import StudentSettings from './components/Settings/StudentSettings'
 
 function App() {
   const [session, setSession] = useState(null)
