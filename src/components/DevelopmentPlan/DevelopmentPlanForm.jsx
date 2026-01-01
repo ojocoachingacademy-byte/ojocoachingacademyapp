@@ -50,6 +50,9 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    console.log('=== DEVELOPMENT PLAN FORM INITIALIZATION ===')
+    console.log('Student prop:', student)
+    
     // Initialize skills based on NTRP level
     const initialLevel = getInitialLevel(student?.profiles?.ntrp_level || '3.0')
     const targetLevel = Math.min(initialLevel + 2, 10)
@@ -65,9 +68,12 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
     // Load existing plan if available
     if (student?.development_plan) {
       try {
+        console.log('Loading existing development plan')
         const plan = typeof student.development_plan === 'string' 
           ? JSON.parse(student.development_plan) 
           : student.development_plan
+        
+        console.log('Parsed plan:', plan)
         
         if (plan.skills) {
           // Merge existing skills with defaults
@@ -92,20 +98,49 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
         }
 
         if (plan.goals) {
-          setGoals(plan.goals)
+          console.log('Setting initial goals from existing plan:', plan.goals)
+          setGoals({
+            inspiration: plan.goals.inspiration || '',
+            targetLevel: plan.goals.targetLevel || '',
+            wantToBeat: plan.goals.wantToBeat || '',
+            successLookLike: plan.goals.successLookLike || ''
+          })
+        } else {
+          console.log('No goals found in existing plan, using defaults')
+          setGoals({
+            inspiration: '',
+            targetLevel: '',
+            wantToBeat: '',
+            successLookLike: ''
+          })
         }
       } catch (error) {
         console.error('Error parsing development plan:', error)
         setSkills(initialSkills)
+        setGoals({
+          inspiration: '',
+          targetLevel: '',
+          wantToBeat: '',
+          successLookLike: ''
+        })
       }
     } else {
+      console.log('No existing development plan, using defaults')
       setSkills(initialSkills)
+      setGoals({
+        inspiration: '',
+        targetLevel: '',
+        wantToBeat: '',
+        successLookLike: ''
+      })
     }
 
     // Load coach notes
     if (student?.development_plan_notes) {
       setCoachNotes(student.development_plan_notes)
     }
+    
+    console.log('=== INITIALIZATION COMPLETE ===')
   }, [student])
 
   const handleSkillChange = (index, field, value) => {
@@ -134,18 +169,26 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
     try {
       console.log('=== DEVELOPMENT PLAN FORM SAVE ===')
       console.log('Skills:', skills)
-      console.log('Goals:', goals)
+      console.log('Goals state:', goals)
+      console.log('Goals keys:', Object.keys(goals))
+      console.log('Goals values:', {
+        inspiration: goals.inspiration,
+        targetLevel: goals.targetLevel,
+        wantToBeat: goals.wantToBeat,
+        successLookLike: goals.successLookLike
+      })
       console.log('Coach notes:', coachNotes)
       console.log('Is student:', isStudent)
       
       const developmentPlan = {
         skills: skills,
-        goals: goals,
+        goals: goals, // Make sure this is the goals state, not empty
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
 
-      console.log('Development plan object:', developmentPlan)
+      console.log('Full development plan object:', developmentPlan)
+      console.log('Goals in development plan:', developmentPlan.goals)
       const planJsonString = JSON.stringify(developmentPlan)
       console.log('JSON stringified plan:', planJsonString)
       console.log('JSON string length:', planJsonString.length)
@@ -155,6 +198,7 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
         development_plan_notes: isStudent ? undefined : coachNotes // Only coaches can save notes
       }
 
+      console.log('Final save payload:', saveData)
       console.log('Calling onSave with data:', saveData)
       await onSave(saveData)
       console.log('onSave completed successfully')
