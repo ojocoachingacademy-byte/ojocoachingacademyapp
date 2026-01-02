@@ -70,6 +70,24 @@ export default function StudentDetailPage() {
       }
       
       setStudent(data)
+      
+      // Populate profile form data - split full_name into first_name and last_name
+      if (data?.profiles) {
+        const fullName = data.profiles.full_name || ''
+        const nameParts = fullName.trim().split(' ')
+        const firstName = nameParts[0] || ''
+        const lastName = nameParts.slice(1).join(' ') || ''
+        
+        setProfileFormData({
+          first_name: firstName,
+          last_name: lastName,
+          email: data.profiles.email || '',
+          phone: data.profiles.phone || '',
+          ntrp_level: data.profiles.ntrp_level || '3.0',
+          lesson_credits: data.lesson_credits || 0
+        })
+      }
+      
       setLoading(false)
       console.log('=== FETCH COMPLETE (COACH) ===')
     } catch (error) {
