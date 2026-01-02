@@ -1,0 +1,101 @@
+.calendar-sync-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #E0E0E0;
+}
+
+.calendar-sync-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.calendar-sync-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.calendar-sync-status-connected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-success);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.calendar-sync-email {
+  color: #666;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.calendar-sync-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.calendar-sync-info {
+  font-size: 13px;
+  color: #666;
+  margin-top: 8px;
+}
+
+.calendar-sync-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #FFF3CD;
+  border: 1px solid #FFC107;
+  border-radius: 8px;
+  color: #856404;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.calendar-sync-status {
+  padding: 12px;
+  color: #666;
+  font-size: 14px;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .calendar-sync-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .calendar-sync-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .calendar-sync-actions button {
+    width: 100%;
+  }
+}
+

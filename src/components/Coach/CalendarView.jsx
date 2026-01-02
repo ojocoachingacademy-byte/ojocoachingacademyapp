@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, User, ExternalLink } from 'lucide-react'
 import './CalendarView.css'
 
 export default function CalendarView() {
@@ -87,6 +87,19 @@ export default function CalendarView() {
       const lessonDate = new Date(lesson.lesson_date).toISOString().split('T')[0]
       return lessonDate === dateStr
     })
+  }
+
+  // Check if lesson is from Google Calendar
+  const isGoogleCalendarLesson = (lesson) => {
+    if (!lesson.metadata) return false
+    try {
+      const metadata = typeof lesson.metadata === 'string' 
+        ? JSON.parse(lesson.metadata) 
+        : lesson.metadata
+      return metadata.source === 'google_calendar'
+    } catch {
+      return false
+    }
   }
 
   const navigateMonth = (direction) => {
@@ -211,8 +224,20 @@ export default function CalendarView() {
                             }}
                             onClick={() => setSelectedLesson(lesson)}
                           >
-                            <div className="lesson-time">
-                              {formatTime(lesson.lesson_date)}
+                            <div className="lesson-event-header">
+                              <div className="lesson-time">
+                                {formatTime(lesson.lesson_date)}
+                              </div>
+                              <div className="lesson-source-badge" style={{
+                                backgroundColor: isGoogleCalendarLesson(lesson) ? '#2D7F6F' : '#4B2C6C',
+                                color: 'white',
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 600
+                              }}>
+                                {isGoogleCalendarLesson(lesson) ? 'CAL' : 'APP'}
+                              </div>
                             </div>
                             <div className="lesson-student">
                               {lesson.students?.profiles?.full_name || 'Unknown'}
@@ -262,8 +287,20 @@ export default function CalendarView() {
                         }}
                         onClick={() => setSelectedLesson(lesson)}
                       >
-                        <div className="week-lesson-time">
-                          {formatTime(lesson.lesson_date)}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <div className="week-lesson-time">
+                            {formatTime(lesson.lesson_date)}
+                          </div>
+                          <div style={{
+                            backgroundColor: isGoogleCalendarLesson(lesson) ? '#2D7F6F' : '#4B2C6C',
+                            color: 'white',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 600
+                          }}>
+                            {isGoogleCalendarLesson(lesson) ? 'CAL' : 'APP'}
+                          </div>
                         </div>
                         <div className="week-lesson-student">
                           {lesson.students?.profiles?.full_name || 'Unknown'}
@@ -324,10 +361,22 @@ export default function CalendarView() {
                           <div className="day-lesson-time">
                             {formatTime(lesson.lesson_date)}
                           </div>
-                          <div className="day-lesson-status" style={{ 
-                            color: getStatusColor(lesson.status) 
-                          }}>
-                            {lesson.status}
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{
+                              backgroundColor: isGoogleCalendarLesson(lesson) ? '#2D7F6F' : '#4B2C6C',
+                              color: 'white',
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: 600
+                            }}>
+                              {isGoogleCalendarLesson(lesson) ? 'CAL' : 'APP'}
+                            </div>
+                            <div className="day-lesson-status" style={{ 
+                              color: getStatusColor(lesson.status) 
+                            }}>
+                              {lesson.status}
+                            </div>
                           </div>
                         </div>
                         <div className="day-lesson-student">
@@ -392,6 +441,44 @@ export default function CalendarView() {
                     {selectedLesson.status}
                   </span>
                 </div>
+                {isGoogleCalendarLesson(selectedLesson) && (
+                  <div className="detail-item">
+                    <strong>Source:</strong>
+                    <span style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      backgroundColor: '#2D7F6F',
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 600
+                    }}>
+                      Google Calendar
+                      {(() => {
+                        try {
+                          const metadata = typeof selectedLesson.metadata === 'string' 
+                            ? JSON.parse(selectedLesson.metadata) 
+                            : selectedLesson.metadata
+                          return metadata.google_calendar_link ? (
+                            <a 
+                              href={metadata.google_calendar_link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ color: 'white', textDecoration: 'underline', marginLeft: '4px' }}
+                            >
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : null
+                        } catch {
+                          return null
+                        }
+                      })()}
+                    </span>
+                  </div>
+                )}
                 {selectedLesson.students?.profiles?.ntrp_level && (
                   <div className="detail-item">
                     <strong>NTRP Level:</strong>

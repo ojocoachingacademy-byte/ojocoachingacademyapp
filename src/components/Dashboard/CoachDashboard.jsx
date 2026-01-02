@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical } from 'lucide-react'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
+import CalendarSync from '../Calendar/CalendarSync'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -174,6 +175,11 @@ export default function CoachDashboard() {
   useEffect(() => {
     fetchCoachData()
   }, [])
+
+  const handleSyncComplete = () => {
+    // Refresh lessons after sync
+    fetchCoachData()
+  }
 
   const fetchCoachData = async () => {
     try {
@@ -576,6 +582,7 @@ Keep it concise and actionable.`
 
   return (
     <div className="coach-dashboard">
+      <CalendarSync onSyncComplete={handleSyncComplete} />
       {/* Header */}
       <div className="dashboard-header">
         <h1 className="dashboard-title">Coach Dashboard</h1>
