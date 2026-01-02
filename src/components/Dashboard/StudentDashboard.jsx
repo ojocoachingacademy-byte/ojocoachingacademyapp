@@ -14,7 +14,9 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedLesson, setSelectedLesson] = useState(null)
   const [selectedLessonForDetails, setSelectedLessonForDetails] = useState(null) // For viewing lesson details
-  const [studentLearnings, setStudentLearnings] = useState('')
+  const [learning1, setLearning1] = useState('')
+  const [learning2, setLearning2] = useState('')
+  const [learning3, setLearning3] = useState('')
   const [developmentPlan, setDevelopmentPlan] = useState([])
   const [editingPlan, setEditingPlan] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)

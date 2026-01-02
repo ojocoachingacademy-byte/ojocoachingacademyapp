@@ -511,7 +511,8 @@ Keep it concise and actionable.`
   const pendingFeedback = lessons.filter(l => l.student_learnings && !l.coach_feedback)
 
   return (
-    <div className="coach-dashboard">
+    <div className="page-container">
+      <div className="coach-dashboard">
       <CalendarSync onSyncComplete={handleSyncComplete} />
       {/* Header */}
       <div className="dashboard-header">

@@ -1,0 +1,29 @@
+/* Container for all pages */
+.page-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Full width on large screens */
+@media (min-width: 1400px) {
+  .page-container {
+    max-width: 95vw;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .page-container {
+    padding: 16px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+}
+
