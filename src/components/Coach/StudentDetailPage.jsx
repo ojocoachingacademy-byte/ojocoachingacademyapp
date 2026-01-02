@@ -163,6 +163,45 @@ export default function StudentDetailPage() {
     return name.substring(0, 2).toUpperCase()
   }
 
+  const handleSaveProfile = async () => {
+    setSavingProfile(true)
+    try {
+      const fullName = `${profileFormData.first_name} ${profileFormData.last_name}`.trim()
+      
+      // Update profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName,
+          email: profileFormData.email,
+          phone: profileFormData.phone,
+          ntrp_level: profileFormData.ntrp_level
+        })
+        .eq('id', id)
+
+      if (profileError) throw profileError
+
+      // Update students table (lesson_credits)
+      const { error: studentError } = await supabase
+        .from('students')
+        .update({
+          lesson_credits: profileFormData.lesson_credits
+        })
+        .eq('id', id)
+
+      if (studentError) throw studentError
+
+      alert('Student information updated successfully!')
+      setEditingProfile(false)
+      await fetchStudentData() // Refresh to show updated data
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      alert('Error saving profile: ' + error.message)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
   if (loading) {
     return <div className="page-container">Loading...</div>
   }
@@ -192,30 +231,150 @@ export default function StudentDetailPage() {
           <div className="student-avatar-large">
             {getInitials(student.profiles?.full_name || 'Unknown')}
           </div>
-          <div>
-            <h1>{student.profiles?.full_name || 'Unknown Student'}</h1>
-            <div className="student-contact-info">
-              {student.profiles?.email && (
-                <div className="contact-item">
-                  <Mail size={16} />
-                  <span>{student.profiles.email}</span>
+          <div style={{ flex: 1 }}>
+            {editingProfile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>First Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileFormData.first_name}
+                      onChange={(e) => setProfileFormData({ ...profileFormData, first_name: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Last Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileFormData.last_name}
+                      onChange={(e) => setProfileFormData({ ...profileFormData, last_name: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                 </div>
-              )}
-              {student.profiles?.phone && (
-                <div className="contact-item">
-                  <Phone size={16} />
-                  <span>{student.profiles.phone}</span>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Email</label>
+                  <input
+                    type="email"
+                    className="input"
+                    value={profileFormData.email}
+                    onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })}
+                    style={{ width: '100%' }}
+                  />
                 </div>
-              )}
-              <div className="contact-item">
-                <Award size={16} />
-                <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Phone</label>
+                  <input
+                    type="tel"
+                    className="input"
+                    value={profileFormData.phone}
+                    onChange={(e) => setProfileFormData({ ...profileFormData, phone: e.target.value })}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>NTRP Level</label>
+                    <select
+                      className="input"
+                      value={profileFormData.ntrp_level}
+                      onChange={(e) => setProfileFormData({ ...profileFormData, ntrp_level: e.target.value })}
+                      style={{ width: '100%' }}
+                    >
+                      <option value="1.5">1.5 - Beginner</option>
+                      <option value="2.0">2.0 - Beginner</option>
+                      <option value="2.5">2.5 - Beginner+</option>
+                      <option value="3.0">3.0 - Intermediate</option>
+                      <option value="3.5">3.5 - Intermediate+</option>
+                      <option value="4.0">4.0 - Advanced</option>
+                      <option value="4.5">4.5 - Advanced+</option>
+                      <option value="5.0+">5.0+ - Expert</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>Lesson Credits</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={profileFormData.lesson_credits}
+                      onChange={(e) => setProfileFormData({ ...profileFormData, lesson_credits: parseInt(e.target.value) || 0 })}
+                      style={{ width: '100%' }}
+                      min="0"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleSaveProfile}
+                    disabled={savingProfile}
+                  >
+                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button 
+                    className="btn btn-outline" 
+                    onClick={() => {
+                      setEditingProfile(false)
+                      // Reset form data to current values
+                      const fullName = student.profiles?.full_name || ''
+                      const nameParts = fullName.trim().split(' ')
+                      const firstName = nameParts[0] || ''
+                      const lastName = nameParts.slice(1).join(' ') || ''
+                      setProfileFormData({
+                        first_name: firstName,
+                        last_name: lastName,
+                        email: student.profiles?.email || '',
+                        phone: student.profiles?.phone || '',
+                        ntrp_level: student.profiles?.ntrp_level || '3.0',
+                        lesson_credits: student.lesson_credits || 0
+                      })
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <div className="contact-item">
-                <Calendar size={16} />
-                <span>{student.lesson_credits || 0} Credits</span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h1>{student.profiles?.full_name || 'Unknown Student'}</h1>
+                  <button 
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setEditingProfile(true)}
+                    style={{ marginLeft: '16px' }}
+                  >
+                    <Edit2 size={18} />
+                    Edit Profile
+                  </button>
+                </div>
+                <div className="student-contact-info">
+                  {student.profiles?.email && (
+                    <div className="contact-item">
+                      <Mail size={16} />
+                      <span>{student.profiles.email}</span>
+                    </div>
+                  )}
+                  {student.profiles?.phone && (
+                    <div className="contact-item">
+                      <Phone size={16} />
+                      <span>{student.profiles.phone}</span>
+                    </div>
+                  )}
+                  <div className="contact-item">
+                    <Award size={16} />
+                    <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>
+                  </div>
+                  <div className="contact-item">
+                    <Calendar size={16} />
+                    <span>{student.lesson_credits || 0} Credits</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
