@@ -102,6 +102,21 @@ export default function CalendarView() {
     }
   }
 
+  // Get student name from lesson (from profile or metadata)
+  const getStudentName = (lesson) => {
+    if (lesson.students?.profiles?.full_name) {
+      return lesson.students.profiles.full_name
+    }
+    try {
+      const metadata = typeof lesson.metadata === 'string' 
+        ? JSON.parse(lesson.metadata) 
+        : lesson.metadata
+      return metadata?.student_name || 'Unknown'
+    } catch {
+      return 'Unknown'
+    }
+  }
+
   const navigateMonth = (direction) => {
     setCurrentDate(prev => {
       const newDate = new Date(prev)
