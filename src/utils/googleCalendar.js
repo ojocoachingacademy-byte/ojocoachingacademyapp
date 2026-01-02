@@ -341,15 +341,23 @@ export function getEventDetails(event) {
 
 /**
  * Check if event appears to be a tennis lesson
+ * Matches events that contain "lesson" anywhere in title, description, or location
  */
 export function isLessonEvent(event) {
   const title = (event.summary || '').toLowerCase()
   const location = (event.location || '').toLowerCase()
   const description = (event.description || '').toLowerCase()
   
-  // Keywords that indicate a lesson
+  // Primary filter: must contain "lesson" in title, description, or location
+  const combinedText = `${title} ${location} ${description}`
+  
+  // Check if "lesson" appears anywhere
+  if (combinedText.includes('lesson')) {
+    return true
+  }
+  
+  // Fallback: other keywords that might indicate a lesson (optional)
   const lessonKeywords = [
-    'lesson',
     'tennis',
     'coaching',
     'session',
@@ -357,6 +365,5 @@ export function isLessonEvent(event) {
     'calcom'
   ]
   
-  const combinedText = `${title} ${location} ${description}`
   return lessonKeywords.some(keyword => combinedText.includes(keyword))
 }
