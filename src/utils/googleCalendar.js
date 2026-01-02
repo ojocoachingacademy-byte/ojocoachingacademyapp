@@ -28,7 +28,7 @@ const waitForGIS = () => {
     
     console.log('Waiting for Google Identity Services to load...')
     let attempts = 0
-    const maxAttempts = 100 // 10 seconds max wait (increased for slower connections)
+    const maxAttempts = 100 // 10 seconds max wait
     
     const checkGIS = setInterval(() => {
       attempts++
@@ -94,13 +94,22 @@ export async function initGoogleCalendar(clientId) {
 
   try {
     // Wait for both GIS and gapi to load
-    console.log('Waiting for Google Identity Services...')
-    await waitForGIS()
-    console.log('Google Identity Services loaded')
+    console.log('Waiting for scripts to load...')
+    await Promise.all([
+      waitForGIS(),
+      waitForGapi()
+    ])
     
-    console.log('Waiting for Google API...')
-    await waitForGapi()
-    console.log('Google API loaded')
+    // Load gapi client (not auth2)
+    console.log('Loading gapi client...')
+    await new Promise((resolve, reject) => {
+      window.gapi.load('client', {
+        callback: resolve,
+        onerror: reject,
+        timeout: 5000,
+        ontimeout: () => reject(new Error('gapi client load timeout'))
+      })
+    })
     
     // Initialize gapi client for Calendar API
     console.log('Initializing gapi client...')
@@ -109,8 +118,12 @@ export async function initGoogleCalendar(clientId) {
     })
     console.log('gapi client initialized')
     
-    // Create token client for OAuth
+    // Create token client for OAuth using Google Identity Services
     console.log('Creating token client...')
+    if (!window.google?.accounts?.oauth2) {
+      throw new Error('Google Identity Services OAuth2 not available')
+    }
+    
     tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPES,

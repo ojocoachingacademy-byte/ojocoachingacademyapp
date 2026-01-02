@@ -1,0 +1,40 @@
+.error-message {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background-color: #FFF3CD;
+  border: 1px solid #FFC107;
+  border-left: 4px solid #FFC107;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.error-icon {
+  color: #856404;
+  flex-shrink: 0;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-content h3 {
+  margin: 0 0 0.5rem 0;
+  color: #856404;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.error-content p {
+  margin: 0 0 1rem 0;
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
