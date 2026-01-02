@@ -21,87 +21,82 @@ export async function initGoogleCalendar(clientId) {
   console.log('Client ID:', clientId)
   console.log('Client ID exists:', !!clientId)
   
-  const gapi = getGapi()
-  console.log('window.gapi available:', !!gapi)
-  
   if (isInitialized) {
     console.log('Already initialized')
-    return Promise.resolve()
+    return true
   }
 
-  if (!gapi) {
-    const error = new Error('Google API (gapi) not loaded. Please ensure the script is loaded from https://apis.google.com/js/api.js')
+  try {
+    // Load gapi if not already loaded
+    await new Promise((resolve, reject) => {
+      if (!window.gapi) {
+        console.log('Loading gapi script from CDN...')
+        const script = document.createElement('script')
+        script.src = 'https://apis.google.com/js/api.js'
+        script.onload = () => {
+          console.log('gapi script loaded')
+          window.gapi.load('client:auth2', {
+            callback: resolve,
+            onerror: reject,
+            timeout: 5000,
+            ontimeout: () => reject(new Error('gapi load timeout'))
+          })
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      } else {
+        console.log('gapi already loaded, loading client:auth2...')
+        window.gapi.load('client:auth2', {
+          callback: resolve,
+          onerror: reject,
+          timeout: 5000,
+          ontimeout: () => reject(new Error('gapi load timeout'))
+        })
+      }
+    })
+
+    console.log('gapi client:auth2 loaded successfully')
+    console.log('Initializing gapi client...')
+    
+    const gapi = getGapi()
+    if (!gapi) {
+      throw new Error('gapi not available after load')
+    }
+    
+    // Initialize with popup mode to avoid iframe/cookie issues
+    await gapi.client.init({
+      clientId: clientId,
+      discoveryDocs: DISCOVERY_DOCS, // Still needed for Calendar API
+      scope: SCOPES,
+      ux_mode: 'popup' // Use popup instead of iframe to avoid cookie issues
+    })
+    
+    console.log('gapi client initialized successfully')
+    
+    // Listen for auth changes
+    const authInstance = gapi.auth2.getAuthInstance()
+    console.log('Auth instance:', authInstance)
+    
+    authInstance.isSignedIn.listen((signedIn) => {
+      console.log('Auth status changed:', signedIn)
+      isSignedInStatus = signedIn
+    })
+    
+    isInitialized = true
+    isSignedInStatus = authInstance.isSignedIn.get()
+    console.log('Initial sign-in status:', isSignedInStatus)
+    console.log('=== INIT COMPLETE ===')
+    return true
+    
+  } catch (error) {
     console.error('=== INIT ERROR ===')
-    console.error('gapi not available')
-    console.error('window.gapi:', window.gapi)
-    console.error('Error:', error)
+    console.error('Error type:', error?.constructor?.name)
+    console.error('Error message:', error?.message)
+    console.error('Error details:', error?.details)
+    console.error('Error error:', error?.error)
+    console.error('Full error:', error)
     throw error
   }
-
-  return new Promise((resolve, reject) => {
-    try {
-      console.log('Loading gapi client:auth2...')
-      
-      gapi.load('client:auth2', {
-        callback: async () => {
-          try {
-            console.log('gapi client:auth2 loaded successfully')
-            console.log('Initializing gapi client...')
-            
-            await gapi.client.init({
-              apiKey: null, // Not needed for OAuth
-              clientId: clientId,
-              discoveryDocs: DISCOVERY_DOCS,
-              scope: SCOPES
-            })
-            
-            console.log('gapi client initialized successfully')
-            
-            // Listen for auth changes
-            const authInstance = gapi.auth2.getAuthInstance()
-            console.log('Auth instance:', authInstance)
-            
-            authInstance.isSignedIn.listen((signedIn) => {
-              console.log('Auth status changed:', signedIn)
-              isSignedInStatus = signedIn
-            })
-            
-            isInitialized = true
-            isSignedInStatus = authInstance.isSignedIn.get()
-            console.log('Initial sign-in status:', isSignedInStatus)
-            console.log('=== INIT COMPLETE ===')
-            resolve()
-          } catch (error) {
-            console.error('=== INIT ERROR (in callback) ===')
-            console.error('Error type:', error?.constructor?.name)
-            console.error('Error message:', error?.message)
-            console.error('Error details:', error?.details)
-            console.error('Error error:', error?.error)
-            console.error('Full error:', error)
-            reject(error)
-          }
-        },
-        onerror: (error) => {
-          console.error('=== INIT ERROR (load failed) ===')
-          console.error('Error loading gapi:', error)
-          reject(error)
-        },
-        timeout: 5000,
-        ontimeout: () => {
-          const error = new Error('gapi load timeout')
-          console.error('=== INIT ERROR (timeout) ===')
-          console.error('Timeout loading gapi')
-          reject(error)
-        }
-      })
-    } catch (error) {
-      console.error('=== INIT ERROR (outer catch) ===')
-      console.error('Error type:', error?.constructor?.name)
-      console.error('Error message:', error?.message)
-      console.error('Full error:', error)
-      reject(error)
-    }
-  })
 }
 
 /**
@@ -125,8 +120,12 @@ export async function signInToGoogle() {
       throw new Error('Auth instance not initialized. Call initGoogleCalendar first.')
     }
     
-    console.log('Calling signIn...')
-    const result = await authInstance.signIn()
+    console.log('Calling signIn with popup mode...')
+    // Use popup mode to avoid iframe/cookie issues
+    // If popup is blocked, this will throw an error
+    const result = await authInstance.signIn({
+      ux_mode: 'popup'
+    })
     console.log('Sign in result:', result)
     console.log('Sign in success:', !!result)
     
@@ -141,6 +140,12 @@ export async function signInToGoogle() {
     console.error('Error error:', error?.error)
     console.error('Error details:', error?.details)
     console.error('Full error:', error)
+    
+    // If popup was blocked, provide helpful error message
+    if (error?.error === 'popup_closed_by_user' || error?.message?.includes('popup')) {
+      throw new Error('Popup was blocked. Please allow popups for this site and try again.')
+    }
+    
     throw error
   }
 }
