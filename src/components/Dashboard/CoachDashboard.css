@@ -29,3 +29,35 @@
   border-color: #4B2C6C;
   box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.15);
 }
+
+/* Lesson Actions Styles */
+.lesson-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.status-dropdown {
+  padding: 6px 12px;
+  border: 1px solid #4B2C6C;
+  border-radius: 4px;
+  background: white;
+  color: #4B2C6C;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.status-dropdown:hover {
+  background-color: #f5f5f5;
+  border-color: #6A4C8C;
+}
+
+.status-dropdown:focus {
+  outline: none;
+  border-color: #4B2C6C;
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.15);
+}

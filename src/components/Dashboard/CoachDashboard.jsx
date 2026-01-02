@@ -18,7 +18,7 @@ const getInitials = (name) => {
 }
 
 // Lesson Actions Menu Component
-const LessonActionsMenu = ({ lesson, onUpdateStatus }) => {
+const LessonActions = ({ lesson, onUpdateStatus }) => {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -862,7 +862,7 @@ Keep it concise and actionable.`
                       <span className="status-dot status-needed">⚠️ Plan Needed</span>
                     )}
                   </div>
-                  <LessonActionsMenu 
+                  <LessonActions 
                     lesson={lesson} 
                     onUpdateStatus={handleUpdateLessonStatus}
                   />
@@ -1294,4 +1294,6 @@ Keep it concise and actionable.`
     </div>
   )
 }
+
+
 
