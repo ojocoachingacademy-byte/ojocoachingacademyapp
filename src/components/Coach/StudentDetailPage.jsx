@@ -574,7 +574,12 @@ export default function StudentDetailPage() {
             ) : (
               <div className="lessons-list">
                 {lessons.map(lesson => (
-                  <div key={lesson.id} className="lesson-item-detailed">
+                  <div 
+                    key={lesson.id} 
+                    className="lesson-item-detailed"
+                    onClick={() => setSelectedLesson(lesson)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div className="lesson-date-column">
                       <div className="lesson-date-main">
                         {new Date(lesson.lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -645,6 +650,139 @@ export default function StudentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Lesson Detail Modal */}
+      {selectedLesson && (
+        <div className="modal-overlay" onClick={() => setSelectedLesson(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Lesson Details</h2>
+              <button className="modal-close" onClick={() => setSelectedLesson(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="lesson-detail-section">
+                <div className="detail-item">
+                  <strong>Student:</strong>
+                  <span>{student?.profiles?.full_name || 'Unknown'}</span>
+                </div>
+                <div className="detail-item">
+                  <strong>Date & Time:</strong>
+                  <span>
+                    {new Date(selectedLesson.lesson_date).toLocaleString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <div className="detail-item">
+                  <strong>Location:</strong>
+                  <span>{selectedLesson.location || 'Not specified'}</span>
+                </div>
+                <div className="detail-item">
+                  <strong>Status:</strong>
+                  <span className={`status-badge status-${selectedLesson.status}`}>
+                    {selectedLesson.status}
+                  </span>
+                </div>
+                
+                {selectedLesson.lesson_plan && (
+                  <div className="detail-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <strong style={{ marginBottom: '8px' }}>Lesson Plan:</strong>
+                    <div style={{ 
+                      backgroundColor: '#f5f5f5', 
+                      padding: '12px', 
+                      borderRadius: '4px',
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: '300px',
+                      overflowY: 'auto',
+                      width: '100%'
+                    }}>
+                      {selectedLesson.lesson_plan}
+                    </div>
+                  </div>
+                )}
+
+                {selectedLesson.student_learnings && (
+                  <div className="detail-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <strong style={{ marginBottom: '8px' }}>Student Learnings:</strong>
+                    <div style={{ 
+                      backgroundColor: '#f0f7ff', 
+                      padding: '12px', 
+                      borderRadius: '4px',
+                      whiteSpace: 'pre-wrap',
+                      width: '100%'
+                    }}>
+                      {selectedLesson.student_learnings}
+                    </div>
+                  </div>
+                )}
+
+                {selectedLesson.coach_feedback && (
+                  <div className="detail-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <strong style={{ marginBottom: '8px' }}>Coach Feedback:</strong>
+                    <div style={{ 
+                      backgroundColor: '#fff5e6', 
+                      padding: '12px', 
+                      borderRadius: '4px',
+                      whiteSpace: 'pre-wrap',
+                      width: '100%'
+                    }}>
+                      {selectedLesson.coach_feedback}
+                    </div>
+                  </div>
+                )}
+
+                {selectedLesson.metadata && (() => {
+                  try {
+                    const metadata = typeof selectedLesson.metadata === 'string' 
+                      ? JSON.parse(selectedLesson.metadata) 
+                      : selectedLesson.metadata
+                    
+                    if (metadata?.source === 'google_calendar') {
+                      return (
+                        <div className="detail-item">
+                          <strong>Source:</strong>
+                          <span style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '6px',
+                            backgroundColor: '#2D7F6F',
+                            color: 'white',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: 600
+                          }}>
+                            Google Calendar
+                            {metadata.google_calendar_link && (
+                              <a 
+                                href={metadata.google_calendar_link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: 'white', textDecoration: 'underline', marginLeft: '8px' }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Open in Google Calendar
+                              </a>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    }
+                  } catch (e) {
+                    return null
+                  }
+                  return null
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
