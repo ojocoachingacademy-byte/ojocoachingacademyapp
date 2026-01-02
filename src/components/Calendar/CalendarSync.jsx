@@ -260,27 +260,47 @@ export default function CalendarSync({ onSyncComplete }) {
           }
 
           // Create lesson record
+          // Note: If student_id is required (NOT NULL) in the database schema,
+          // lessons without matching students will fail to insert
+          const insertData = {
+            lesson_date: lessonDate.toISOString(),
+            location: eventDetails.location || 'Colina Del Sol Park',
+            status: 'scheduled',
+            metadata: JSON.stringify({
+              source: 'google_calendar',
+              google_calendar_id: eventDetails.id,
+              google_calendar_link: eventDetails.htmlLink,
+              synced_at: new Date().toISOString(),
+              student_name: studentName,
+              student_email: event.attendees?.[0]?.email || event.organizer?.email || null
+            })
+          }
+          
+          // Only include student_id if it's not null
+          // If schema requires student_id to be NOT NULL, this insert will fail for null values
+          if (studentId !== null) {
+            insertData.student_id = studentId
+          }
+          
           const { error: insertError } = await supabase
             .from('lessons')
-            .insert([{
-              student_id: studentId,
-              lesson_date: lessonDate.toISOString(),
-              location: eventDetails.location || 'Colina Del Sol Park',
-              status: 'scheduled',
-              metadata: JSON.stringify({
-                source: 'google_calendar',
-                google_calendar_id: eventDetails.id,
-                google_calendar_link: eventDetails.htmlLink,
-                synced_at: new Date().toISOString()
-              })
-            }])
+            .insert([insertData])
 
           if (insertError) {
             console.error('Error creating lesson:', insertError)
+            console.error('Error details:', {
+              message: insertError.message,
+              details: insertError.details,
+              hint: insertError.hint,
+              code: insertError.code,
+              studentId: studentId,
+              lessonDate: lessonDate.toISOString(),
+              title: eventDetails.title
+            })
             errorCount++
           } else {
             syncedCount++
-            console.log(`Created lesson: ${eventDetails.title} for student ${studentId}`)
+            console.log(`Created lesson: ${eventDetails.title}${studentId ? ` for student ${studentId}` : ' (no student match)'}`)
           }
 
         } catch (eventError) {
