@@ -240,14 +240,7 @@ export default function CalendarView() {
                               </div>
                             </div>
                             <div className="lesson-student">
-                              {lesson.students?.profiles?.full_name || (() => {
-                                try {
-                                  const metadata = typeof lesson.metadata === 'string' ? JSON.parse(lesson.metadata) : lesson.metadata
-                                  return metadata?.student_name || 'Unknown'
-                                } catch {
-                                  return 'Unknown'
-                                }
-                              })()}
+                              {getStudentName(lesson)}
                             </div>
                           </div>
                         ))}
@@ -310,7 +303,7 @@ export default function CalendarView() {
                           </div>
                         </div>
                         <div className="week-lesson-student">
-                          {lesson.students?.profiles?.full_name || 'Unknown'}
+                          {getStudentName(lesson)}
                         </div>
                         {lesson.location && (
                           <div className="week-lesson-location">
@@ -388,7 +381,7 @@ export default function CalendarView() {
                         </div>
                         <div className="day-lesson-student">
                           <User size={14} />
-                          {lesson.students?.profiles?.full_name || 'Unknown'}
+                          {getStudentName(lesson)}
                         </div>
                         {lesson.location && (
                           <div className="day-lesson-location">
