@@ -173,8 +173,24 @@ export default function CoachDashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    updatePastLessonStatus()
     fetchCoachData()
   }, [])
+
+  const updatePastLessonStatus = async () => {
+    try {
+      const now = new Date()
+      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+      
+      await supabase
+        .from('lessons')
+        .update({ status: 'completed' })
+        .eq('status', 'scheduled')
+        .lt('lesson_date', twoHoursAgo.toISOString())
+    } catch (error) {
+      console.error('Error updating past lesson status:', error)
+    }
+  }
 
   const handleSyncComplete = () => {
     // Refresh lessons after sync
