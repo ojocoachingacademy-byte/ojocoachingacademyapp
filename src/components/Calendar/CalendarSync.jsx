@@ -228,13 +228,30 @@ export default function CalendarSync({ onSyncComplete }) {
           }
 
           // Check if lesson already exists (prevent duplicates)
+          // Use google_calendar_id from metadata to check for duplicates instead of student_id + date
           const lessonDate = new Date(eventDetails.startTime)
-          const { data: existingLesson } = await supabase
+          let existingLesson = null
+          
+          // For lessons with google_calendar_id, check by that ID
+          const { data: existingLessons } = await supabase
             .from('lessons')
-            .select('id')
-            .eq('student_id', studentId)
+            .select('id, metadata')
             .eq('lesson_date', lessonDate.toISOString())
-            .maybeSingle()
+            .limit(10) // Get a few to check metadata
+          
+          if (existingLessons) {
+            // Check if any existing lesson has the same google_calendar_id in metadata
+            existingLesson = existingLessons.find(lesson => {
+              try {
+                const metadata = typeof lesson.metadata === 'string' 
+                  ? JSON.parse(lesson.metadata) 
+                  : lesson.metadata
+                return metadata?.google_calendar_id === eventDetails.id
+              } catch {
+                return false
+              }
+            })
+          }
 
           if (existingLesson) {
             console.log(`Lesson already exists for ${eventDetails.title}`)
