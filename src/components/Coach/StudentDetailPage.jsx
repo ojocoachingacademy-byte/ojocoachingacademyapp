@@ -17,6 +17,7 @@ export default function StudentDetailPage() {
   const [editingProfile, setEditingProfile] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [selectedLesson, setSelectedLesson] = useState(null)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
