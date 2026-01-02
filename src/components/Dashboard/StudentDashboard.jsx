@@ -12,6 +12,7 @@ export default function StudentDashboard() {
   const [lessons, setLessons] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedLesson, setSelectedLesson] = useState(null)
+  const [selectedLessonForDetails, setSelectedLessonForDetails] = useState(null) // For viewing lesson details
   const [studentLearnings, setStudentLearnings] = useState('')
   const [developmentPlan, setDevelopmentPlan] = useState([])
   const [editingPlan, setEditingPlan] = useState(false)
@@ -218,7 +219,12 @@ export default function StudentDashboard() {
           <div className="empty-state">No upcoming lessons scheduled.</div>
         ) : (
           upcomingLessons.map((lesson, index) => (
-            <div key={lesson.id} className={`lesson-card stagger-item`} style={{ animationDelay: `${index * 0.05}s` }}>
+            <div 
+              key={lesson.id} 
+              className={`lesson-card stagger-item`} 
+              style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
+              onClick={() => setSelectedLessonForDetails(lesson)}
+            >
               <div className="lesson-header">
                 <div>
                   <div className="lesson-date">
@@ -232,7 +238,7 @@ export default function StudentDashboard() {
                     {lesson.location}
                   </div>
                 </div>
-                <span className="status-dot status-scheduled"></span>
+                <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
               </div>
               {lesson.lesson_plan && isLessonPlanVisible(lesson.lesson_date) && (
                 <div className="lesson-plan-box">
@@ -507,7 +513,12 @@ export default function StudentDashboard() {
           <div className="empty-state">No past lessons yet.</div>
         ) : (
           pastLessons.map(lesson => (
-            <div key={lesson.id} className="lesson-card">
+            <div 
+              key={lesson.id} 
+              className="lesson-card"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setSelectedLessonForDetails(lesson)}
+            >
               <div className="lesson-header">
                 <div>
                   <div className="lesson-date">
@@ -517,7 +528,7 @@ export default function StudentDashboard() {
                     {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
-                <span className="status-dot status-completed"></span>
+                <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
               </div>
               {lesson.student_learnings && (
                 <div className="learnings-box">
@@ -549,6 +560,61 @@ export default function StudentDashboard() {
           ))
         )}
       </div>
+
+      {/* Lesson Detail Modal */}
+      {selectedLessonForDetails && (
+        <div className="modal-overlay" onClick={() => setSelectedLessonForDetails(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Lesson Details</h2>
+              <button className="modal-close" onClick={() => setSelectedLessonForDetails(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Date:</strong> {new Date(selectedLessonForDetails.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Time:</strong> {new Date(selectedLessonForDetails.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Location:</strong> {selectedLessonForDetails.location || '-'}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{getActualStatus(selectedLessonForDetails)}</span>
+              </div>
+              {selectedLessonForDetails.lesson_plan && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Lesson Plan:</strong>
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                    {selectedLessonForDetails.lesson_plan}
+                  </div>
+                </div>
+              )}
+              {selectedLessonForDetails.student_learnings && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>My Learnings:</strong>
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#E3F2FD', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                    {selectedLessonForDetails.student_learnings}
+                  </div>
+                </div>
+              )}
+              {selectedLessonForDetails.coach_feedback && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Coach Feedback:</strong>
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#E8F5E9', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
+                    {selectedLessonForDetails.coach_feedback}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setSelectedLessonForDetails(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Submit Learnings Modal */}
       {selectedLesson && (
