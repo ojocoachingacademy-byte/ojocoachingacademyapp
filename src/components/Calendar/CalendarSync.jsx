@@ -10,7 +10,7 @@ import {
   isLessonEvent,
   getCurrentUserEmail
 } from '../../utils/googleCalendar'
-import { Calendar, RefreshCw, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { Calendar, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import './CalendarSync.css'
 
 const LAST_SYNC_KEY = 'google_calendar_last_sync'
@@ -28,10 +28,6 @@ export default function CalendarSync({ onSyncComplete }) {
 
   useEffect(() => {
     console.log('=== CALENDAR SYNC COMPONENT MOUNTED ===')
-    console.log('VITE_GOOGLE_CLIENT_ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
-    console.log('Env variables:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')))
-    console.log('window.gapi available:', !!window.gapi)
-    
     initializeGoogleCalendar()
     checkLastSyncTime()
   }, [])
@@ -39,7 +35,6 @@ export default function CalendarSync({ onSyncComplete }) {
   const initializeGoogleCalendar = async () => {
     console.log('=== INITIALIZE GOOGLE CALENDAR ===')
     console.log('Client ID:', clientId)
-    console.log('Client ID exists:', !!clientId)
     
     if (!clientId) {
       console.warn('Google Client ID not configured')
@@ -50,7 +45,12 @@ export default function CalendarSync({ onSyncComplete }) {
 
     try {
       console.log('Calling initGoogleCalendar...')
-      await initGoogleCalendar(clientId)
+      const initialized = await initGoogleCalendar(clientId)
+      
+      if (!initialized) {
+        throw new Error('Failed to initialize Google Identity Services')
+      }
+      
       console.log('initGoogleCalendar completed')
       
       const signedIn = isSignedIn()
@@ -79,11 +79,8 @@ export default function CalendarSync({ onSyncComplete }) {
       }
     } catch (err) {
       console.error('=== INITIALIZATION ERROR ===')
-      console.error('Error type:', err?.constructor?.name)
-      console.error('Error message:', err?.message)
-      console.error('Error error:', err?.error)
-      console.error('Full error:', err)
-      setError('Failed to initialize Google Calendar: ' + (err?.message || err?.error || 'Unknown error'))
+      console.error('Error:', err)
+      setError('Failed to initialize Google Calendar: ' + (err?.message || 'Unknown error'))
       setInitializing(false)
     }
   }
@@ -98,51 +95,43 @@ export default function CalendarSync({ onSyncComplete }) {
   const handleConnect = async () => {
     try {
       console.log('=== HANDLE CONNECT CLICKED ===')
-      console.log('Client ID from env:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
-      console.log('Client ID state:', clientId)
-      
       setError(null)
       
-      // Ensure initialized first (initGoogleCalendar handles the "already initialized" case internally)
+      // Ensure initialized first
       if (clientId) {
-        console.log('Initializing Google Calendar...')
+        console.log('Ensuring initGoogleCalendar is called...')
         await initGoogleCalendar(clientId)
       }
       
       console.log('Calling signInToGoogle...')
-      const success = await signInToGoogle()
-      console.log('Sign in success:', success)
+      await signInToGoogle()
+      console.log('Sign in success')
       
-      if (success) {
-        setConnected(true)
-        // Get user email
-        getCurrentUserEmail().then(email => {
-          setUserEmail(email)
-        }).catch(err => {
-          console.error('Error getting user email:', err)
-        })
-        // Auto-sync after connecting (give token a moment to propagate)
-        setTimeout(() => {
-          handleSync()
-        }, 1000)
-      }
+      setConnected(true)
+      
+      // Get user email
+      getCurrentUserEmail().then(email => {
+        setUserEmail(email)
+      }).catch(err => {
+        console.error('Error getting user email:', err)
+      })
+      
+      // Auto-sync after connecting
+      setTimeout(() => {
+        handleSync()
+      }, 1000)
     } catch (err) {
       console.error('=== CONNECTION ERROR ===')
-      console.error('Error type:', err?.constructor?.name)
-      console.error('Error message:', err?.message)
-      console.error('Error error:', err?.error)
-      console.error('Error details:', err?.details)
-      console.error('Full error:', err)
-      const errorMessage = err?.message || err?.error || err?.details || 'Unknown error'
-      setError(`Failed to connect to Google Calendar: ${errorMessage}. Check console for details.`)
-      alert(`Failed to connect: ${errorMessage}. Check console for details.`)
+      console.error('Error:', err)
+      const errorMessage = err?.error_description || err?.error || err?.message || 'Unknown error'
+      setError(`Failed to connect to Google Calendar: ${errorMessage}. Make sure popups are allowed.`)
     }
   }
 
   const handleDisconnect = async () => {
     try {
       setError(null)
-      await signOutFromGoogle()
+      signOutFromGoogle()
       setConnected(false)
       setUserEmail(null)
       localStorage.removeItem(LAST_SYNC_KEY)
@@ -160,12 +149,17 @@ export default function CalendarSync({ onSyncComplete }) {
     setError(null)
 
     try {
+      console.log('=== STARTING SYNC ===')
+      if (!isSignedIn()) {
+        throw new Error('Not connected to Google Calendar. Please connect first.')
+      }
+
       // Fetch events from next 90 days
       const timeMin = new Date()
       const timeMax = new Date()
       timeMax.setDate(timeMax.getDate() + 90)
 
-      const events = await fetchCalendarEvents(timeMin, timeMax)
+      const events = await fetchCalendarEvents(timeMin.toISOString(), timeMax.toISOString())
       console.log(`Fetched ${events.length} events from Google Calendar`)
 
       // Filter for lesson events
@@ -323,6 +317,8 @@ export default function CalendarSync({ onSyncComplete }) {
         setError(`Sync completed with ${errorCount} errors. Synced: ${syncedCount}, Skipped: ${skippedCount}`)
       } else if (syncedCount === 0 && skippedCount === 0) {
         setError('No lesson events found in Google Calendar')
+      } else {
+        setError(null)
       }
 
       console.log(`Sync complete: ${syncedCount} synced, ${skippedCount} skipped, ${errorCount} errors`)
@@ -439,4 +435,3 @@ export default function CalendarSync({ onSyncComplete }) {
     </div>
   )
 }
-

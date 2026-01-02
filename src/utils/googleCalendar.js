@@ -1,328 +1,127 @@
-// Use new Google Identity Services (GIS) instead of deprecated gapi.auth2
-// Migration guide: https://developers.google.com/identity/gsi/web/guides/gis-migration
+// Modern Google Identity Services Token Client implementation
+// Uses the new Google Identity Services API instead of deprecated gapi.auth2
 
-const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
-
-let isInitialized = false
-let accessToken = null
 let tokenClient = null
-let tokenCallback = null
-
-// Export function to check initialization status
-export function getInitializationStatus() {
-  return { isInitialized, hasToken: !!accessToken }
-}
+let accessToken = null
 
 /**
- * Wait for Google Identity Services to load
+ * Initialize Google Calendar with modern Identity Services
  */
-const waitForGIS = () => {
-  return new Promise((resolve, reject) => {
-    // Check if already loaded (accounts.oauth2 or accounts.id)
-    if (window.google?.accounts?.oauth2 || window.google?.accounts?.id) {
-      console.log('Google Identity Services already loaded')
-      resolve()
-      return
-    }
-    
-    console.log('Waiting for Google Identity Services to load...')
-    let attempts = 0
-    const maxAttempts = 100 // 10 seconds max wait
-    
+export const initGoogleCalendar = async (clientId) => {
+  return new Promise((resolve) => {
+    // Wait for Google Identity Services to load
     const checkGIS = setInterval(() => {
-      attempts++
-      if (window.google?.accounts?.oauth2 || window.google?.accounts?.id) {
+      if (window.google?.accounts?.oauth2) {
         clearInterval(checkGIS)
-        console.log('Google Identity Services loaded after', attempts * 100, 'ms')
-        resolve()
-      } else if (attempts >= maxAttempts) {
-        clearInterval(checkGIS)
-        console.error('Google Identity Services failed to load after', maxAttempts * 100, 'ms')
-        console.error('window.google:', window.google)
-        console.error('window.google?.accounts:', window.google?.accounts)
-        reject(new Error('Google Identity Services failed to load. Make sure the script is in index.html: <script src="https://accounts.google.com/gsi/client" async defer></script>'))
+        
+        // Initialize token client
+        tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/calendar.readonly',
+          callback: '' // We'll set this per request
+        })
+        
+        console.log('Google Identity Services initialized')
+        resolve(true)
       }
     }, 100)
+    
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      clearInterval(checkGIS)
+      if (!tokenClient) {
+        console.error('Google Identity Services failed to load')
+        resolve(false)
+      }
+    }, 10000)
   })
 }
 
 /**
- * Wait for gapi to load
+ * Sign in to Google (request access token)
  */
-const waitForGapi = () => {
+export const signInToGoogle = async () => {
   return new Promise((resolve, reject) => {
-    if (window.gapi) {
-      console.log('Google API already loaded')
-      resolve()
+    if (!tokenClient) {
+      reject(new Error('Token client not initialized. Call initGoogleCalendar first.'))
       return
     }
     
-    console.log('Waiting for Google API to load...')
-    let attempts = 0
-    const maxAttempts = 100 // 10 seconds max wait
-    
-    const checkGapi = setInterval(() => {
-      attempts++
-      if (window.gapi) {
-        clearInterval(checkGapi)
-        console.log('Google API loaded after', attempts * 100, 'ms')
-        resolve()
-      } else if (attempts >= maxAttempts) {
-        clearInterval(checkGapi)
-        console.error('Google API failed to load after', maxAttempts * 100, 'ms')
-        console.error('window.gapi:', window.gapi)
-        reject(new Error('Google API failed to load. Make sure the script is in index.html: <script src="https://apis.google.com/js/api.js"></script>'))
+    tokenClient.callback = (response) => {
+      if (response.error) {
+        console.error('Token error:', response.error)
+        reject(response)
+      } else {
+        accessToken = response.access_token
+        console.log('Access token received')
+        resolve(true)
       }
-    }, 100)
+    }
+    
+    // Request access token - opens popup
+    tokenClient.requestAccessToken({ prompt: 'consent' })
   })
-}
-
-/**
- * Initialize Google Calendar API with new Identity Services
- */
-export async function initGoogleCalendar(clientId) {
-  console.log('=== INIT GOOGLE CALENDAR (NEW GIS) ===')
-  console.log('Client ID:', clientId)
-  console.log('Client ID exists:', !!clientId)
-  console.log('isInitialized flag:', isInitialized)
-  
-  if (isInitialized) {
-    console.log('Already initialized')
-    return true
-  }
-
-  try {
-    // Wait for both GIS and gapi to load
-    console.log('Waiting for scripts to load...')
-    await Promise.all([
-      waitForGIS(),
-      waitForGapi()
-    ])
-    
-    // Load gapi client (not auth2)
-    console.log('Loading gapi client...')
-    await new Promise((resolve, reject) => {
-      window.gapi.load('client', {
-        callback: resolve,
-        onerror: reject,
-        timeout: 5000,
-        ontimeout: () => reject(new Error('gapi client load timeout'))
-      })
-    })
-    
-    // Initialize gapi client for Calendar API
-    console.log('Initializing gapi client...')
-    await window.gapi.client.init({
-      discoveryDocs: DISCOVERY_DOCS
-    })
-    console.log('gapi client initialized')
-    
-    // Create token client for OAuth using Google Identity Services
-    console.log('Creating token client...')
-    if (!window.google?.accounts?.oauth2) {
-      throw new Error('Google Identity Services OAuth2 not available')
-    }
-    
-    // Get current origin for redirect URI
-    const redirectUri = window.location.origin + window.location.pathname
-    
-    tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPES,
-      callback: (response) => {
-        console.log('=== TOKEN CALLBACK ===')
-        console.log('Response:', response)
-        
-        // Clean up URL if we came from redirect
-        if (window.location.search) {
-          const url = new URL(window.location.href)
-          url.searchParams.delete('code')
-          url.searchParams.delete('scope')
-          url.searchParams.delete('authuser')
-          url.searchParams.delete('prompt')
-          window.history.replaceState({}, document.title, url.pathname + url.hash)
-        }
-        
-        if (response.error) {
-          console.error('Token error:', response.error)
-          accessToken = null
-          if (tokenCallback) {
-            tokenCallback(new Error(response.error))
-            tokenCallback = null
-          }
-        } else {
-          accessToken = response.access_token
-          console.log('Access token received')
-          // Set token for gapi requests
-          window.gapi.client.setToken({ access_token: accessToken })
-          if (tokenCallback) {
-            tokenCallback(null, accessToken)
-            tokenCallback = null
-          }
-        }
-      },
-      // Use redirect URI for better compatibility with COOP
-      redirect_uri: redirectUri
-    })
-    console.log('Token client created with redirect_uri:', redirectUri)
-    
-    isInitialized = true
-    console.log('=== INIT COMPLETE ===')
-    return true
-    
-  } catch (error) {
-    console.error('=== INIT ERROR ===')
-    console.error('Error type:', error?.constructor?.name)
-    console.error('Error message:', error?.message)
-    console.error('Full error:', error)
-    throw error
-  }
-}
-
-/**
- * Sign in to Google using new Identity Services
- */
-export async function signInToGoogle() {
-  console.log('=== SIGN IN TO GOOGLE (NEW GIS) ===')
-  console.log('isInitialized:', isInitialized)
-  console.log('tokenClient exists:', !!tokenClient)
-  
-  try {
-    if (!isInitialized || !tokenClient) {
-      throw new Error('Google Calendar not initialized. Call initGoogleCalendar first.')
-    }
-    
-    console.log('Requesting access token...')
-    
-    // Request access token (this will open popup/redirect)
-    return new Promise((resolve, reject) => {
-      // Set up callback
-      tokenCallback = (error, token) => {
-        if (error) {
-          reject(error)
-        } else {
-          console.log('=== SIGN IN COMPLETE ===')
-          resolve(true)
-        }
-      }
-      
-      // Request token (triggers popup/redirect)
-      tokenClient.requestAccessToken({ prompt: 'consent' })
-      
-      // Also set up a timeout in case callback doesn't fire
-      setTimeout(() => {
-        if (tokenCallback) {
-          tokenCallback = null
-          if (!accessToken) {
-            reject(new Error('Sign in timeout - no token received. Please try again.'))
-          }
-        }
-      }, 60000) // 60 second timeout
-    })
-    
-  } catch (error) {
-    console.error('=== SIGN IN ERROR ===')
-    console.error('Error type:', error?.constructor?.name)
-    console.error('Error message:', error?.message)
-    console.error('Full error:', error)
-    throw error
-  }
-}
-
-/**
- * Sign out from Google
- */
-export async function signOutFromGoogle() {
-  console.log('=== SIGN OUT FROM GOOGLE ===')
-  try {
-    if (accessToken && window.google?.accounts?.oauth2) {
-      window.google.accounts.oauth2.revoke(accessToken, () => {
-        console.log('Token revoked')
-      })
-    }
-    accessToken = null
-    tokenClient = null
-    if (window.gapi?.client) {
-      window.gapi.client.setToken(null)
-    }
-    console.log('Signed out successfully')
-    return true
-  } catch (error) {
-    console.error('=== SIGN OUT ERROR ===')
-    console.error('Error:', error)
-    throw error
-  }
 }
 
 /**
  * Check if user is signed in
  */
-export function isSignedIn() {
-  console.log('=== CHECK SIGNED IN ===')
-  console.log('isInitialized:', isInitialized)
-  console.log('accessToken exists:', !!accessToken)
-  
-  if (!isInitialized) {
-    console.log('Not initialized, returning false')
-    return false
-  }
-  
-  const signedIn = !!accessToken
-  console.log('Signed in status:', signedIn)
-  return signedIn
+export const isSignedIn = () => {
+  return !!accessToken
 }
 
 /**
- * Get current user's email (requires additional API call with new GIS)
+ * Sign out from Google
  */
-export async function getCurrentUserEmail() {
-  try {
-    if (!accessToken) return null
-    
-    // Use tokeninfo endpoint to get user info
-    const response = await fetch(`https://www.googleapis.com/oauth2/v2/tokeninfo?access_token=${accessToken}`)
-    const data = await response.json()
-    return data.email || null
-  } catch (error) {
-    console.error('Error getting user email:', error)
-    return null
+export const signOutFromGoogle = () => {
+  if (accessToken && window.google?.accounts?.oauth2) {
+    window.google.accounts.oauth2.revoke(accessToken, () => {
+      console.log('Access token revoked')
+    })
   }
+  accessToken = null
+  tokenClient = null
 }
 
 /**
  * Fetch calendar events from Google Calendar
- * @param {Date} timeMin - Start time
- * @param {Date} timeMax - End time
  */
-export async function fetchCalendarEvents(timeMin, timeMax) {
-  const gapi = window.gapi
-  try {
-    if (!gapi || !accessToken) {
-      throw new Error('Not authenticated or gapi not loaded')
-    }
-    
-    const response = await gapi.client.calendar.events.list({
-      calendarId: 'primary',
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      showDeleted: false,
-      singleEvents: true,
-      maxResults: 250,
-      orderBy: 'startTime'
-    })
-
-    return response.result.items || []
-  } catch (error) {
-    console.error('Error fetching calendar events:', error)
-    throw error
+export const fetchCalendarEvents = async (timeMin, timeMax) => {
+  if (!accessToken) {
+    throw new Error('Not signed in')
   }
+  
+  const params = new URLSearchParams({
+    timeMin: timeMin || new Date().toISOString(),
+    timeMax: timeMax || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+    showDeleted: false,
+    singleEvents: true,
+    maxResults: 250,
+    orderBy: 'startTime'
+  })
+  
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    }
+  )
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.error?.message || 'Failed to fetch calendar events')
+  }
+  
+  const data = await response.json()
+  return data.items || []
 }
 
 /**
- * Parse event data to extract lesson information
+ * Get event details in a standardized format
  */
-export function getEventDetails(event) {
+export const getEventDetails = (event) => {
   return {
     id: event.id,
     title: event.summary || 'Untitled Event',
@@ -331,16 +130,17 @@ export function getEventDetails(event) {
     endTime: event.end?.dateTime || event.end?.date,
     location: event.location || '',
     attendees: event.attendees || [],
-    organizer: event.organizer?.email || '',
+    organizer: event.organizer || null,
     htmlLink: event.htmlLink || '',
     status: event.status,
     created: event.created,
-    updated: event.updated
+    updated: event.updated,
+    source: 'google_calendar'
   }
 }
 
 /**
- * Check if event appears to be a tennis lesson
+ * Check if event appears to be a lesson
  * Matches events that contain "lesson" anywhere in title, description, or location
  */
 export function isLessonEvent(event) {
@@ -366,4 +166,26 @@ export function isLessonEvent(event) {
   ]
   
   return lessonKeywords.some(keyword => combinedText.includes(keyword))
+}
+
+/**
+ * Get current user's email (requires a valid access token)
+ */
+export async function getCurrentUserEmail() {
+  if (!accessToken) {
+    return null
+  }
+  
+  try {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    const data = await response.json()
+    return data.email || null
+  } catch (error) {
+    console.error('Error getting user email:', error)
+    return null
+  }
 }
