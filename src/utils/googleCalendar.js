@@ -124,12 +124,26 @@ export async function initGoogleCalendar(clientId) {
       throw new Error('Google Identity Services OAuth2 not available')
     }
     
+    // Get current origin for redirect URI
+    const redirectUri = window.location.origin + window.location.pathname
+    
     tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPES,
       callback: (response) => {
         console.log('=== TOKEN CALLBACK ===')
         console.log('Response:', response)
+        
+        // Clean up URL if we came from redirect
+        if (window.location.search) {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('code')
+          url.searchParams.delete('scope')
+          url.searchParams.delete('authuser')
+          url.searchParams.delete('prompt')
+          window.history.replaceState({}, document.title, url.pathname + url.hash)
+        }
+        
         if (response.error) {
           console.error('Token error:', response.error)
           accessToken = null
@@ -147,9 +161,11 @@ export async function initGoogleCalendar(clientId) {
             tokenCallback = null
           }
         }
-      }
+      },
+      // Use redirect URI for better compatibility with COOP
+      redirect_uri: redirectUri
     })
-    console.log('Token client created')
+    console.log('Token client created with redirect_uri:', redirectUri)
     
     isInitialized = true
     console.log('=== INIT COMPLETE ===')
