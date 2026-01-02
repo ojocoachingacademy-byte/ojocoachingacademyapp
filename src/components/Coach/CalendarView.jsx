@@ -416,7 +416,7 @@ export default function CalendarView() {
               <div className="lesson-detail-section">
                 <div className="detail-item">
                   <strong>Student:</strong>
-                  <span>{selectedLesson.students?.profiles?.full_name || 'Unknown'}</span>
+                  <span>{getStudentName(selectedLesson)}</span>
                 </div>
                 <div className="detail-item">
                   <strong>Date & Time:</strong>
