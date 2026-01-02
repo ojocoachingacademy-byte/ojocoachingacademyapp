@@ -172,22 +172,22 @@ export default function CalendarSync({ onSyncComplete }) {
       const lessonEvents = events.filter(isLessonEvent)
       console.log(`Found ${lessonEvents.length} lesson events`)
 
-      // Get all students with their emails
-      const { data: students, error: studentsError } = await supabase
+      // Get all students with their emails (optional - for matching if student exists)
+      const { data: students } = await supabase
         .from('students')
         .select(`
           id,
           profiles!inner(email, full_name)
         `)
 
-      if (studentsError) throw studentsError
-
       const studentEmailMap = new Map()
-      students.forEach(student => {
-        if (student.profiles?.email) {
-          studentEmailMap.set(student.profiles.email.toLowerCase(), student.id)
-        }
-      })
+      if (students) {
+        students.forEach(student => {
+          if (student.profiles?.email) {
+            studentEmailMap.set(student.profiles.email.toLowerCase(), student.id)
+          }
+        })
+      }
 
       // Process each lesson event
       let syncedCount = 0
@@ -198,7 +198,7 @@ export default function CalendarSync({ onSyncComplete }) {
         try {
           const eventDetails = getEventDetails(event)
           
-          // Find student by attendee email
+          // Try to find student by attendee email (optional - events can exist without students)
           let studentId = null
           if (event.attendees && event.attendees.length > 0) {
             for (const attendee of event.attendees) {
@@ -216,10 +216,15 @@ export default function CalendarSync({ onSyncComplete }) {
             }
           }
 
-          if (!studentId) {
-            console.log(`No student found for event: ${eventDetails.title}`)
-            skippedCount++
-            continue
+          // Extract student name from event for display purposes
+          let studentName = null
+          if (event.attendees && event.attendees.length > 0) {
+            const studentAttendee = event.attendees.find(a => a.email && a.email !== event.organizer?.email)
+            studentName = studentAttendee?.displayName || studentAttendee?.email || event.organizer?.displayName || event.organizer?.email || 'Unknown'
+          } else if (event.organizer) {
+            studentName = event.organizer.displayName || event.organizer.email || 'Unknown'
+          } else {
+            studentName = eventDetails.title || 'Unknown'
           }
 
           // Check if lesson already exists (prevent duplicates)
