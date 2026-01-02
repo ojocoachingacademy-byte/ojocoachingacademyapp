@@ -17,121 +17,35 @@ const getInitials = (name) => {
     .slice(0, 2)
 }
 
-// Lesson Actions Menu Component
-const LessonActions = ({ lesson, onUpdateStatus }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false)
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen])
-
-  const handleAction = (action) => {
-    if (action === 'complete') {
-      onUpdateStatus(lesson.id, 'completed')
-    } else if (action === 'cancel') {
-      onUpdateStatus(lesson.id, 'cancelled')
-    }
-    setIsOpen(false)
-  }
-
+// Lesson Actions Component - Using dropdown instead of menu to avoid overlap
+const LessonActions = ({ lesson, onUpdateStatus, onOpenPlanModal }) => {
   return (
-    <div style={{ position: 'relative' }} ref={menuRef} onClick={(e) => e.stopPropagation()}>
-      <button
-        className="btn btn-sm btn-outline"
-        onClick={(e) => {
-          e.stopPropagation()
-          setIsOpen(!isOpen)
-        }}
-        style={{ 
-          padding: '6px 8px', 
-          minWidth: '32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-        aria-label="Lesson actions"
+    <div className="lesson-actions" onClick={(e) => e.stopPropagation()}>
+      <select 
+        value={lesson.status}
+        onChange={(e) => onUpdateStatus(lesson.id, e.target.value)}
+        className="status-dropdown"
+        onClick={(e) => e.stopPropagation()}
       >
-        <MoreVertical size={16} />
-      </button>
+        <option value="scheduled">Scheduled</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
       
-      {isOpen && (
-        <div 
-          className="lesson-actions-dropdown"
-          style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            marginTop: '4px',
-            backgroundColor: 'white',
-            border: '1px solid #e0e0e0',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            minWidth: '160px',
-            zIndex: 1000,
-            overflow: 'hidden'
+      {!lesson.lesson_plan && (
+        <button 
+          className="btn btn-sm btn-primary"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenPlanModal(lesson)
           }}
         >
-          {lesson.status !== 'completed' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleAction('complete')
-              }}
-              style={{
-                width: '100%',
-                padding: '10px 16px',
-                textAlign: 'left',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                fontSize: '14px',
-                color: 'var(--color-dark)',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              ✓ Mark Complete
-            </button>
-          )}
-          {lesson.status !== 'cancelled' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleAction('cancel')
-              }}
-              style={{
-                width: '100%',
-                padding: '10px 16px',
-                textAlign: 'left',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                fontSize: '14px',
-                color: 'var(--color-error)',
-                transition: 'background-color 0.2s',
-                borderTop: lesson.status !== 'completed' ? '1px solid #e0e0e0' : 'none'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              ✕ Cancel Lesson
-            </button>
-          )}
-        </div>
+          Create Plan
+        </button>
+      )}
+      
+      {lesson.lesson_plan && (
+        <span className="badge badge-success">Plan Ready</span>
       )}
     </div>
   )
