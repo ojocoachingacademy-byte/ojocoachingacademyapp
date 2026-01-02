@@ -93,9 +93,9 @@ export default function CalendarSync({ onSyncComplete }) {
       
       setError(null)
       
-      // Ensure initialized first
-      if (!isInitialized && clientId) {
-        console.log('Not initialized, initializing first...')
+      // Ensure initialized first (initGoogleCalendar handles the "already initialized" case internally)
+      if (clientId) {
+        console.log('Initializing Google Calendar...')
         await initGoogleCalendar(clientId)
       }
       
