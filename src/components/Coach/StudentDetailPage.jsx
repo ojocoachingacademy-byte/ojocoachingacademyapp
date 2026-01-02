@@ -14,7 +14,19 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [editingPlan, setEditingPlan] = useState(false)
+  const [editingProfile, setEditingProfile] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  
+  // Profile editing state
+  const [profileFormData, setProfileFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    ntrp_level: '3.0',
+    lesson_credits: 0
+  })
 
   useEffect(() => {
     fetchStudentData()
