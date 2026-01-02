@@ -19,22 +19,29 @@ export function getInitializationStatus() {
  */
 const waitForGIS = () => {
   return new Promise((resolve, reject) => {
-    if (window.google?.accounts?.id) {
+    // Check if already loaded (accounts.oauth2 or accounts.id)
+    if (window.google?.accounts?.oauth2 || window.google?.accounts?.id) {
+      console.log('Google Identity Services already loaded')
       resolve()
       return
     }
     
+    console.log('Waiting for Google Identity Services to load...')
     let attempts = 0
-    const maxAttempts = 50 // 5 seconds max wait
+    const maxAttempts = 100 // 10 seconds max wait (increased for slower connections)
     
     const checkGIS = setInterval(() => {
       attempts++
-      if (window.google?.accounts?.id) {
+      if (window.google?.accounts?.oauth2 || window.google?.accounts?.id) {
         clearInterval(checkGIS)
+        console.log('Google Identity Services loaded after', attempts * 100, 'ms')
         resolve()
       } else if (attempts >= maxAttempts) {
         clearInterval(checkGIS)
-        reject(new Error('Google Identity Services failed to load'))
+        console.error('Google Identity Services failed to load after', maxAttempts * 100, 'ms')
+        console.error('window.google:', window.google)
+        console.error('window.google?.accounts:', window.google?.accounts)
+        reject(new Error('Google Identity Services failed to load. Make sure the script is in index.html: <script src="https://accounts.google.com/gsi/client" async defer></script>'))
       }
     }, 100)
   })
@@ -46,21 +53,26 @@ const waitForGIS = () => {
 const waitForGapi = () => {
   return new Promise((resolve, reject) => {
     if (window.gapi) {
+      console.log('Google API already loaded')
       resolve()
       return
     }
     
+    console.log('Waiting for Google API to load...')
     let attempts = 0
-    const maxAttempts = 50
+    const maxAttempts = 100 // 10 seconds max wait
     
     const checkGapi = setInterval(() => {
       attempts++
       if (window.gapi) {
         clearInterval(checkGapi)
+        console.log('Google API loaded after', attempts * 100, 'ms')
         resolve()
       } else if (attempts >= maxAttempts) {
         clearInterval(checkGapi)
-        reject(new Error('Google API failed to load'))
+        console.error('Google API failed to load after', maxAttempts * 100, 'ms')
+        console.error('window.gapi:', window.gapi)
+        reject(new Error('Google API failed to load. Make sure the script is in index.html: <script src="https://apis.google.com/js/api.js"></script>'))
       }
     }, 100)
   })
