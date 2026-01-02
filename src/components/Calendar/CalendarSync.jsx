@@ -22,6 +22,7 @@ export default function CalendarSync({ onSyncComplete }) {
   const [lastSync, setLastSync] = useState(null)
   const [error, setError] = useState(null)
   const [initializing, setInitializing] = useState(true)
+  const [userEmail, setUserEmail] = useState(null)
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
@@ -56,6 +57,15 @@ export default function CalendarSync({ onSyncComplete }) {
       console.log('Signed in status after init:', signedIn)
       setConnected(signedIn)
       setInitializing(false)
+      
+      // Get user email if signed in
+      if (signedIn) {
+        getCurrentUserEmail().then(email => {
+          setUserEmail(email)
+        }).catch(err => {
+          console.error('Error getting user email:', err)
+        })
+      }
 
       // Auto-sync if connected and last sync was >1 hour ago
       if (signedIn) {
@@ -105,6 +115,12 @@ export default function CalendarSync({ onSyncComplete }) {
       
       if (success) {
         setConnected(true)
+        // Get user email
+        getCurrentUserEmail().then(email => {
+          setUserEmail(email)
+        }).catch(err => {
+          console.error('Error getting user email:', err)
+        })
         // Auto-sync after connecting (give token a moment to propagate)
         setTimeout(() => {
           handleSync()
@@ -128,6 +144,7 @@ export default function CalendarSync({ onSyncComplete }) {
       setError(null)
       await signOutFromGoogle()
       setConnected(false)
+      setUserEmail(null)
       localStorage.removeItem(LAST_SYNC_KEY)
       setLastSync(null)
     } catch (err) {
@@ -326,8 +343,8 @@ export default function CalendarSync({ onSyncComplete }) {
           <div className="calendar-sync-status-connected">
             <CheckCircle size={16} />
             <span>Connected</span>
-            {getCurrentUserEmail() && (
-              <span className="calendar-sync-email">({getCurrentUserEmail()})</span>
+            {userEmail && (
+              <span className="calendar-sync-email">({userEmail})</span>
             )}
           </div>
         )}
