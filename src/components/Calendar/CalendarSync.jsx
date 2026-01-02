@@ -90,12 +90,11 @@ export default function CalendarSync({ onSyncComplete }) {
       console.log('=== HANDLE CONNECT CLICKED ===')
       console.log('Client ID from env:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
       console.log('Client ID state:', clientId)
-      console.log('isInitialized check:', isSignedIn())
       
       setError(null)
       
       // Ensure initialized first
-      if (!isSignedIn() && clientId) {
+      if (!isInitialized && clientId) {
         console.log('Not initialized, initializing first...')
         await initGoogleCalendar(clientId)
       }
@@ -106,10 +105,10 @@ export default function CalendarSync({ onSyncComplete }) {
       
       if (success) {
         setConnected(true)
-        // Auto-sync after connecting
+        // Auto-sync after connecting (give token a moment to propagate)
         setTimeout(() => {
           handleSync()
-        }, 500)
+        }, 1000)
       }
     } catch (err) {
       console.error('=== CONNECTION ERROR ===')

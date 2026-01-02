@@ -1,130 +1,118 @@
-// Use window.gapi directly (loaded from CDN in index.html)
-// This is simpler and more reliable than the npm package
-const getGapi = () => {
-  if (typeof window !== 'undefined' && window.gapi) {
-    return window.gapi
-  }
-  return null
-}
+// Use new Google Identity Services (GIS) instead of deprecated gapi.auth2
+// Migration guide: https://developers.google.com/identity/gsi/web/guides/gis-migration
 
 const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 
 let isInitialized = false
-let isSignedInStatus = false
+let accessToken = null
+let tokenClient = null
 
 /**
- * Initialize Google Calendar API
+ * Wait for Google Identity Services to load
+ */
+const waitForGIS = () => {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.id) {
+      resolve()
+      return
+    }
+    
+    let attempts = 0
+    const maxAttempts = 50 // 5 seconds max wait
+    
+    const checkGIS = setInterval(() => {
+      attempts++
+      if (window.google?.accounts?.id) {
+        clearInterval(checkGIS)
+        resolve()
+      } else if (attempts >= maxAttempts) {
+        clearInterval(checkGIS)
+        reject(new Error('Google Identity Services failed to load'))
+      }
+    }, 100)
+  })
+}
+
+/**
+ * Wait for gapi to load
+ */
+const waitForGapi = () => {
+  return new Promise((resolve, reject) => {
+    if (window.gapi) {
+      resolve()
+      return
+    }
+    
+    let attempts = 0
+    const maxAttempts = 50
+    
+    const checkGapi = setInterval(() => {
+      attempts++
+      if (window.gapi) {
+        clearInterval(checkGapi)
+        resolve()
+      } else if (attempts >= maxAttempts) {
+        clearInterval(checkGapi)
+        reject(new Error('Google API failed to load'))
+      }
+    }, 100)
+  })
+}
+
+/**
+ * Initialize Google Calendar API with new Identity Services
  */
 export async function initGoogleCalendar(clientId) {
-  console.log('=== INIT GOOGLE CALENDAR ===')
+  console.log('=== INIT GOOGLE CALENDAR (NEW GIS) ===')
   console.log('Client ID:', clientId)
   console.log('Client ID exists:', !!clientId)
   console.log('isInitialized flag:', isInitialized)
   
   if (isInitialized) {
-    console.log('Already initialized (by flag), checking auth instance...')
-    const gapi = getGapi()
-    if (gapi && gapi.auth2) {
-      try {
-        const authInstance = gapi.auth2.getAuthInstance()
-        if (authInstance) {
-          console.log('Auth instance exists, using existing instance')
-          isSignedInStatus = authInstance.isSignedIn.get()
-          return true
-        }
-      } catch (e) {
-        console.log('Could not get auth instance, will reinitialize:', e.message)
-      }
-    }
+    console.log('Already initialized')
+    return true
   }
 
   try {
-    // Load gapi if not already loaded
-    await new Promise((resolve, reject) => {
-      if (!window.gapi) {
-        console.log('Loading gapi script from CDN...')
-        const script = document.createElement('script')
-        script.src = 'https://apis.google.com/js/api.js'
-        script.onload = () => {
-          console.log('gapi script loaded')
-          window.gapi.load('client:auth2', {
-            callback: resolve,
-            onerror: reject,
-            timeout: 5000,
-            ontimeout: () => reject(new Error('gapi load timeout'))
-          })
+    // Wait for both GIS and gapi to load
+    console.log('Waiting for Google Identity Services...')
+    await waitForGIS()
+    console.log('Google Identity Services loaded')
+    
+    console.log('Waiting for Google API...')
+    await waitForGapi()
+    console.log('Google API loaded')
+    
+    // Initialize gapi client for Calendar API
+    console.log('Initializing gapi client...')
+    await window.gapi.client.init({
+      discoveryDocs: DISCOVERY_DOCS
+    })
+    console.log('gapi client initialized')
+    
+    // Create token client for OAuth
+    console.log('Creating token client...')
+    tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: SCOPES,
+      callback: (response) => {
+        console.log('=== TOKEN CALLBACK ===')
+        console.log('Response:', response)
+        if (response.error) {
+          console.error('Token error:', response.error)
+          accessToken = null
+        } else {
+          accessToken = response.access_token
+          console.log('Access token received')
+          // Set token for gapi requests
+          window.gapi.client.setToken({ access_token: accessToken })
         }
-        script.onerror = reject
-        document.head.appendChild(script)
-      } else {
-        console.log('gapi already loaded, loading client:auth2...')
-        window.gapi.load('client:auth2', {
-          callback: resolve,
-          onerror: reject,
-          timeout: 5000,
-          ontimeout: () => reject(new Error('gapi load timeout'))
-        })
       }
     })
-
-    console.log('gapi client:auth2 loaded successfully')
-    
-    const gapi = getGapi()
-    if (!gapi) {
-      throw new Error('gapi not available after load')
-    }
-    
-    // Check if auth2 is already initialized
-    console.log('Checking if gapi.auth2 is already initialized...')
-    console.log('gapi.auth2 exists:', !!gapi.auth2)
-    
-    let authInstance = null
-    try {
-      authInstance = gapi.auth2.getAuthInstance()
-      console.log('gapi.auth2 already initialized, using existing instance')
-      console.log('Auth instance:', authInstance)
-      
-      // Just set up listeners and update status
-      authInstance.isSignedIn.listen((signedIn) => {
-        console.log('Auth status changed:', signedIn)
-        isSignedInStatus = signedIn
-      })
-      
-      isInitialized = true
-      isSignedInStatus = authInstance.isSignedIn.get()
-      console.log('Initial sign-in status:', isSignedInStatus)
-      console.log('=== INIT COMPLETE (using existing) ===')
-      return true
-    } catch (e) {
-      console.log('Auth instance not available, need to initialize:', e.message)
-      // Continue to initialization
-    }
-    
-    console.log('Initializing gapi client...')
-    
-    // Initialize with popup mode to avoid iframe/cookie issues
-    await gapi.client.init({
-      clientId: clientId,
-      discoveryDocs: DISCOVERY_DOCS, // Still needed for Calendar API
-      scope: SCOPES,
-      ux_mode: 'popup' // Use popup instead of iframe to avoid cookie issues
-    })
-    
-    console.log('gapi client initialized successfully')
-    
-    // Get auth instance after initialization
-    authInstance = gapi.auth2.getAuthInstance()
-    console.log('Auth instance:', authInstance)
-    
-    authInstance.isSignedIn.listen((signedIn) => {
-      console.log('Auth status changed:', signedIn)
-      isSignedInStatus = signedIn
-    })
+    console.log('Token client created')
     
     isInitialized = true
-    isSignedInStatus = authInstance.isSignedIn.get()
-    console.log('Initial sign-in status:', isSignedInStatus)
     console.log('=== INIT COMPLETE ===')
     return true
     
@@ -132,80 +120,53 @@ export async function initGoogleCalendar(clientId) {
     console.error('=== INIT ERROR ===')
     console.error('Error type:', error?.constructor?.name)
     console.error('Error message:', error?.message)
-    console.error('Error details:', error?.details)
-    console.error('Error error:', error?.error)
     console.error('Full error:', error)
-    
-    // If error is about already initialized, try to use existing instance
-    if (error.message && error.message.includes('already been initialized')) {
-      console.log('Attempting to use existing auth instance...')
-      try {
-        const gapi = getGapi()
-        if (gapi && gapi.auth2) {
-          const authInstance = gapi.auth2.getAuthInstance()
-          if (authInstance) {
-            console.log('Successfully using existing auth instance')
-            isInitialized = true
-            isSignedInStatus = authInstance.isSignedIn.get()
-            return true
-          }
-        }
-      } catch (e) {
-        console.error('Failed to use existing instance:', e)
-      }
-    }
-    
     throw error
   }
 }
 
 /**
- * Sign in to Google
+ * Sign in to Google using new Identity Services
  */
 export async function signInToGoogle() {
-  console.log('=== SIGN IN TO GOOGLE ===')
-  const gapi = getGapi()
-  console.log('gapi available:', !!gapi)
+  console.log('=== SIGN IN TO GOOGLE (NEW GIS) ===')
   console.log('isInitialized:', isInitialized)
+  console.log('tokenClient exists:', !!tokenClient)
   
   try {
-    if (!gapi) {
-      throw new Error('Google API (gapi) not loaded')
+    if (!isInitialized || !tokenClient) {
+      throw new Error('Google Calendar not initialized. Call initGoogleCalendar first.')
     }
     
-    const authInstance = gapi.auth2.getAuthInstance()
-    console.log('Auth instance exists:', !!authInstance)
+    console.log('Requesting access token...')
+    // Request access token (this will open popup/redirect)
+    tokenClient.requestAccessToken({ prompt: 'consent' })
     
-    if (!authInstance) {
-      throw new Error('Auth instance not initialized. Call initGoogleCalendar first.')
-    }
-    
-    console.log('Calling signIn with popup mode...')
-    // Use popup mode to avoid iframe/cookie issues
-    // If popup is blocked, this will throw an error
-    const result = await authInstance.signIn({
-      ux_mode: 'popup'
+    // Note: The callback will be called asynchronously
+    // We need to wait for the token
+    return new Promise((resolve, reject) => {
+      const checkToken = setInterval(() => {
+        if (accessToken) {
+          clearInterval(checkToken)
+          console.log('=== SIGN IN COMPLETE ===')
+          resolve(true)
+        }
+      }, 100)
+      
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        clearInterval(checkToken)
+        if (!accessToken) {
+          reject(new Error('Sign in timeout - no token received'))
+        }
+      }, 30000)
     })
-    console.log('Sign in result:', result)
-    console.log('Sign in success:', !!result)
     
-    isSignedInStatus = authInstance.isSignedIn.get()
-    console.log('Current sign-in status:', isSignedInStatus)
-    console.log('=== SIGN IN COMPLETE ===')
-    return true
   } catch (error) {
     console.error('=== SIGN IN ERROR ===')
     console.error('Error type:', error?.constructor?.name)
     console.error('Error message:', error?.message)
-    console.error('Error error:', error?.error)
-    console.error('Error details:', error?.details)
     console.error('Full error:', error)
-    
-    // If popup was blocked, provide helpful error message
-    if (error?.error === 'popup_closed_by_user' || error?.message?.includes('popup')) {
-      throw new Error('Popup was blocked. Please allow popups for this site and try again.')
-    }
-    
     throw error
   }
 }
@@ -215,19 +176,17 @@ export async function signInToGoogle() {
  */
 export async function signOutFromGoogle() {
   console.log('=== SIGN OUT FROM GOOGLE ===')
-  const gapi = getGapi()
   try {
-    if (!gapi) {
-      throw new Error('Google API (gapi) not loaded')
+    if (accessToken && window.google?.accounts?.oauth2) {
+      window.google.accounts.oauth2.revoke(accessToken, () => {
+        console.log('Token revoked')
+      })
     }
-    
-    const authInstance = gapi.auth2.getAuthInstance()
-    if (!authInstance) {
-      throw new Error('Auth instance not initialized')
+    accessToken = null
+    tokenClient = null
+    if (window.gapi?.client) {
+      window.gapi.client.setToken(null)
     }
-    
-    await authInstance.signOut()
-    isSignedInStatus = false
     console.log('Signed out successfully')
     return true
   } catch (error) {
@@ -243,41 +202,29 @@ export async function signOutFromGoogle() {
 export function isSignedIn() {
   console.log('=== CHECK SIGNED IN ===')
   console.log('isInitialized:', isInitialized)
-  const gapi = getGapi()
-  console.log('gapi available:', !!gapi)
+  console.log('accessToken exists:', !!accessToken)
   
   if (!isInitialized) {
     console.log('Not initialized, returning false')
     return false
   }
   
-  if (!gapi) {
-    console.log('gapi not available, returning false')
-    return false
-  }
-  
-  try {
-    const authInstance = gapi.auth2.getAuthInstance()
-    const signedIn = authInstance?.isSignedIn?.get() || false
-    console.log('Signed in status:', signedIn)
-    return signedIn
-  } catch (error) {
-    console.error('Error checking sign-in status:', error)
-    return false
-  }
+  const signedIn = !!accessToken
+  console.log('Signed in status:', signedIn)
+  return signedIn
 }
 
 /**
- * Get current user's email
+ * Get current user's email (requires additional API call with new GIS)
  */
-export function getCurrentUserEmail() {
-  const gapi = getGapi()
+export async function getCurrentUserEmail() {
   try {
-    if (!gapi) return null
-    const authInstance = gapi.auth2.getAuthInstance()
-    const user = authInstance.currentUser.get()
-    const profile = user.getBasicProfile()
-    return profile.getEmail()
+    if (!accessToken) return null
+    
+    // Use tokeninfo endpoint to get user info
+    const response = await fetch(`https://www.googleapis.com/oauth2/v2/tokeninfo?access_token=${accessToken}`)
+    const data = await response.json()
+    return data.email || null
   } catch (error) {
     console.error('Error getting user email:', error)
     return null
@@ -290,11 +237,12 @@ export function getCurrentUserEmail() {
  * @param {Date} timeMax - End time
  */
 export async function fetchCalendarEvents(timeMin, timeMax) {
-  const gapi = getGapi()
+  const gapi = window.gapi
   try {
-    if (!gapi) {
-      throw new Error('Google API (gapi) not loaded')
+    if (!gapi || !accessToken) {
+      throw new Error('Not authenticated or gapi not loaded')
     }
+    
     const response = await gapi.client.calendar.events.list({
       calendarId: 'primary',
       timeMin: timeMin.toISOString(),
@@ -353,4 +301,3 @@ export function isLessonEvent(event) {
   const combinedText = `${title} ${location} ${description}`
   return lessonKeywords.some(keyword => combinedText.includes(keyword))
 }
-
