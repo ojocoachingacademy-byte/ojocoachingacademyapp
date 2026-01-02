@@ -5,7 +5,9 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OJO Coaching Academy</title>
-    <!-- Google API Client Library -->
+    <!-- Google Identity Services (new library) - Must load before React app -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google API Client Library (for Calendar API) - Must load before React app -->
     <script src="https://apis.google.com/js/api.js"></script>
   </head>
   <body>
