@@ -131,15 +131,6 @@ export default function StudentDashboard() {
     setStudentLearnings('')
   }
 
-  if (loading) {
-    return (
-      <div className="student-dashboard">
-        <div className="spinner"></div>
-        <p className="text-center" style={{ color: '#666' }}>Loading...</p>
-      </div>
-    )
-  }
-
   const now = new Date()
   
   // Determine actual status based on date/time
@@ -166,6 +157,15 @@ export default function StudentDashboard() {
       }
     })
   }, [lessons])
+
+  if (loading) {
+    return (
+      <div className="student-dashboard">
+        <div className="spinner"></div>
+        <p className="text-center" style={{ color: '#666' }}>Loading...</p>
+      </div>
+    )
+  }
   
   const upcomingLessons = lessons.filter(l => {
     const status = getActualStatus(l)
