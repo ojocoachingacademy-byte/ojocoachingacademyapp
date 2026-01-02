@@ -590,6 +590,15 @@ export default function StudentDashboard() {
         )}
       </div>
 
+      {/* Book Lesson Modal */}
+      <BookLessonModal
+        isOpen={showBookingModal}
+        onClose={() => setShowBookingModal(false)}
+        studentId={user?.id}
+        studentEmail={user?.email || profile?.email}
+        availableCredits={student?.lesson_credits || 0}
+      />
+
       {/* Lesson Detail Modal */}
       {selectedLessonForDetails && (
         <div className="modal-overlay" onClick={() => setSelectedLessonForDetails(null)}>
