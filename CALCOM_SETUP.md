@@ -1,147 +1,151 @@
 # Cal.com Integration Setup Guide
 
 ## Overview
-Cal.com integration allows students to book lessons directly through a calendar widget, and automatically syncs bookings to your lesson management system.
+This guide explains how to set up Cal.com booking integration with the Ojo Coaching Academy app.
 
-## Setup Steps
+## Prerequisites
+- Cal.com account with a booking link (e.g., `tobi-ojo-jg8ane/60min`)
+- Netlify account for hosting webhook function
+- Supabase project with service role key
 
-### 1. Create Cal.com Account
-1. Go to [https://cal.com](https://cal.com)
-2. Sign up for an account (free tier available)
-3. Complete your profile setup
+## Step 1: Install Dependencies
+✅ Already completed - `@calcom/embed-react` is installed
 
-### 2. Create Event Types
-1. In Cal.com dashboard, go to "Event Types"
-2. Create a new event type called "Tennis Lesson"
-3. Set duration (e.g., 60 minutes)
-4. Configure availability (when you're available)
-5. Add booking form fields (name, email, phone, notes)
+## Step 2: Configure Cal.com Webhook
 
-### 3. Get Your Cal.com Username
-1. In Cal.com settings, find your username
-2. It will be something like: `yourname` or `yourname-cal`
-3. Copy this username
+1. **Go to Cal.com Settings**
+   - Navigate to: https://cal.com/settings/developer/webhooks
+   - Or: Settings → Developer → Webhooks
 
-### 4. Configure Environment Variables
-Add to your `.env` file:
-```env
-VITE_CALCOM_USERNAME=your-username
-VITE_CALCOM_API_KEY=your-api-key  # Optional, for API integration
-VITE_CALCOM_API_URL=https://api.cal.com/v1  # Optional
+2. **Create New Webhook**
+   - Click "Add Webhook"
+   - **URL**: `https://your-netlify-site.netlify.app/.netlify/functions/calcom-webhook`
+     - Replace `your-netlify-site` with your actual Netlify site name
+   - **Event**: Select "booking.created"
+   - **Secret**: Generate a secure secret (save this for later)
+   - Click "Save"
+
+3. **Test Webhook**
+   - Cal.com will send a test event
+   - Check Netlify function logs to verify it's receiving events
+
+## Step 3: Configure Netlify Environment Variables
+
+1. **Go to Netlify Dashboard**
+   - Navigate to: Site settings → Environment variables
+
+2. **Add Required Variables**
+   - `VITE_SUPABASE_URL`: Your Supabase project URL
+   - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (NOT the anon key)
+     - Get this from: Supabase Dashboard → Settings → API → service_role key
+   - `CALCOM_WEBHOOK_SECRET`: (Optional) The webhook secret from Cal.com for signature verification
+
+3. **Important Security Note**
+   - The service role key bypasses Row Level Security (RLS)
+   - Keep it secure and never expose it in client-side code
+   - Only use it in serverless functions
+
+## Step 4: Update Cal.com Booking Link
+
+In `BookLessonModal.jsx`, update the `calLink` prop to match your Cal.com booking link:
+
+```jsx
+<Cal
+  calLink="your-username/your-event-type"
+  // ... rest of props
+/>
 ```
 
-### 5. Add to Netlify Environment Variables
-1. Go to Netlify Dashboard → Site Settings → Environment Variables
-2. Add:
-   - `VITE_CALCOM_USERNAME` = your Cal.com username
-   - `VITE_CALCOM_API_KEY` = your API key (if using API)
+Current default: `tobi-ojo-jg8ane/60min`
 
-### 6. Integration Options
+## Step 5: Test the Integration
 
-#### Option A: Embed Widget (Recommended for Start)
-- Simplest to implement
-- Students book directly on Cal.com
-- You manually sync bookings to lessons (or use webhooks)
+1. **Student Books a Lesson**
+   - Student logs in
+   - Clicks "Book a Lesson" button
+   - Cal.com embed opens
+   - Student selects a time slot and books
 
-#### Option B: API Integration (Advanced)
-- Programmatic booking creation
-- Automatic lesson sync
-- More control over the booking flow
-- Requires Cal.com API key
+2. **Verify Webhook Fires**
+   - Check Netlify function logs
+   - Should see: "Cal.com webhook received"
+   - Should see: "Lesson created successfully"
 
-### 7. Webhook Setup (Optional)
-To automatically sync Cal.com bookings to lessons:
+3. **Verify Database Updates**
+   - Check Supabase `lessons` table
+   - New lesson should be created with status "scheduled"
+   - Check `students` table
+   - Student's `lesson_credits` should be decremented by 1
 
-1. In Cal.com dashboard, go to "Webhooks"
-2. Add webhook URL: `https://your-site.netlify.app/.netlify/functions/calcom-webhook`
-3. Select events: `BOOKING_CREATED`, `BOOKING_CANCELLED`
-4. Create the webhook handler function (see below)
+4. **Verify Notification**
+   - Check `notifications` table
+   - Student should have a new notification about the booking
 
-### 8. Webhook Handler Function
-Create `netlify/functions/calcom-webhook.js`:
+## Troubleshooting
+
+### Webhook Not Firing
+- Check Cal.com webhook settings
+- Verify webhook URL is correct
+- Check Netlify function logs for errors
+- Ensure webhook is subscribed to "booking.created" event
+
+### Lesson Not Created
+- Check Netlify function logs for errors
+- Verify `studentId` is in booking metadata
+- Check Supabase RLS policies allow inserts
+- Verify service role key is correct
+
+### Credit Not Deducted
+- Check if student has credits > 0
+- Verify student record exists in `students` table
+- Check function logs for update errors
+
+### Cal.com Embed Not Loading
+- Verify `@calcom/embed-react` is installed
+- Check browser console for errors
+- Ensure Cal.com booking link is correct
+- Check network tab for failed requests
+
+## Webhook Payload Structure
+
+Cal.com webhook payloads may vary. The function handles multiple possible structures:
 
 ```javascript
-exports.handler = async (event, context) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) }
-  }
-
-  try {
-    const booking = JSON.parse(event.body)
-    
-    // Verify webhook signature (recommended)
-    // const signature = event.headers['cal-signature']
-    // verifySignature(signature, event.body)
-    
-    // Sync booking to lessons table
-    const { createClient } = require('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    )
-    
-    // Find student by email
-    const { data: student } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', booking.responses.email)
-      .single()
-    
-    if (student) {
-      await supabase
-        .from('lessons')
-        .insert({
-          student_id: student.id,
-          lesson_date: booking.startTime,
-          location: booking.location || 'TBD',
-          status: 'scheduled',
-          metadata: {
-            calcom_booking_id: booking.id,
-            calcom_event_type: booking.eventTypeId
-          }
-        })
-    }
-    
-    return { statusCode: 200, body: JSON.stringify({ success: true }) }
-  } catch (error) {
-    console.error('Webhook error:', error)
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) }
+{
+  uid: "booking-id",
+  title: "Tennis Lesson",
+  startTime: "2024-01-15T10:00:00Z",
+  endTime: "2024-01-15T11:00:00Z",
+  attendees: [{ email: "student@example.com" }],
+  metadata: {
+    studentId: "uuid-here",
+    source: "ojo-coaching-app"
   }
 }
 ```
 
-## Usage
+## Security Considerations
 
-### In Student Dashboard
-Add a "Book Lesson" button that opens the Cal.com widget:
+1. **Webhook Signature Verification** (Recommended)
+   - Uncomment signature verification code in `calcom-webhook.js`
+   - Add `CALCOM_WEBHOOK_SECRET` to Netlify environment variables
+   - Implement signature verification function
 
-```jsx
-import CalComIntegration from '../Coach/CalComIntegration'
+2. **Service Role Key Security**
+   - Never commit service role key to git
+   - Only use in serverless functions
+   - Rotate key if exposed
 
-// In your component
-<CalComIntegration 
-  studentId={student.id}
-  studentName={student.profiles.full_name}
-/>
-```
-
-### In Coach Dashboard
-View all bookings in the Calendar View component, which shows both:
-- Lessons created manually
-- Lessons synced from Cal.com
-
-## Benefits
-- ✅ Students can book at their convenience
-- ✅ Automatic calendar management
-- ✅ Email confirmations handled by Cal.com
-- ✅ Timezone handling
-- ✅ Rescheduling and cancellation flows
-- ✅ Reduces back-and-forth communication
+3. **Input Validation**
+   - Function validates required fields
+   - Sanitizes user input
+   - Handles missing data gracefully
 
 ## Next Steps
-1. Test the integration with a test booking
-2. Set up webhooks for automatic sync
-3. Customize the booking form fields
-4. Add custom branding to Cal.com booking page
-5. Set up email templates in Cal.com
 
+- [ ] Update Cal.com booking link in `BookLessonModal.jsx`
+- [ ] Configure Cal.com webhook with your Netlify URL
+- [ ] Add environment variables to Netlify
+- [ ] Test booking flow end-to-end
+- [ ] (Optional) Add webhook signature verification
+- [ ] (Optional) Add error notifications for failed bookings

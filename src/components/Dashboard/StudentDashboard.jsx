@@ -5,6 +5,7 @@ import { Users, Calendar, Award, Target, Edit2 } from 'lucide-react'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
+import BookLessonModal from '../Calendar/BookLessonModal'
 
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null)
@@ -16,6 +17,8 @@ export default function StudentDashboard() {
   const [studentLearnings, setStudentLearnings] = useState('')
   const [developmentPlan, setDevelopmentPlan] = useState([])
   const [editingPlan, setEditingPlan] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [user, setUser] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -31,6 +34,8 @@ export default function StudentDashboard() {
         navigate('/login')
         return
       }
+      
+      setUser(user)
 
       // Get profile
       const { data: profileData, error: profileError } = await supabase
