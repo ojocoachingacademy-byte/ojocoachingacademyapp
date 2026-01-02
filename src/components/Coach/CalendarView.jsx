@@ -240,7 +240,14 @@ export default function CalendarView() {
                               </div>
                             </div>
                             <div className="lesson-student">
-                              {lesson.students?.profiles?.full_name || 'Unknown'}
+                              {lesson.students?.profiles?.full_name || (() => {
+                                try {
+                                  const metadata = typeof lesson.metadata === 'string' ? JSON.parse(lesson.metadata) : lesson.metadata
+                                  return metadata?.student_name || 'Unknown'
+                                } catch {
+                                  return 'Unknown'
+                                }
+                              })()}
                             </div>
                           </div>
                         ))}
