@@ -26,11 +26,20 @@ export default function CalendarSync({ onSyncComplete }) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
   useEffect(() => {
+    console.log('=== CALENDAR SYNC COMPONENT MOUNTED ===')
+    console.log('VITE_GOOGLE_CLIENT_ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
+    console.log('Env variables:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')))
+    console.log('window.gapi available:', !!window.gapi)
+    
     initializeGoogleCalendar()
     checkLastSyncTime()
   }, [])
 
   const initializeGoogleCalendar = async () => {
+    console.log('=== INITIALIZE GOOGLE CALENDAR ===')
+    console.log('Client ID:', clientId)
+    console.log('Client ID exists:', !!clientId)
+    
     if (!clientId) {
       console.warn('Google Client ID not configured')
       setError('Google Calendar integration not configured. Please add VITE_GOOGLE_CLIENT_ID to environment variables.')
@@ -39,8 +48,12 @@ export default function CalendarSync({ onSyncComplete }) {
     }
 
     try {
+      console.log('Calling initGoogleCalendar...')
       await initGoogleCalendar(clientId)
+      console.log('initGoogleCalendar completed')
+      
       const signedIn = isSignedIn()
+      console.log('Signed in status after init:', signedIn)
       setConnected(signedIn)
       setInitializing(false)
 
@@ -55,8 +68,12 @@ export default function CalendarSync({ onSyncComplete }) {
         }
       }
     } catch (err) {
-      console.error('Error initializing Google Calendar:', err)
-      setError('Failed to initialize Google Calendar: ' + err.message)
+      console.error('=== INITIALIZATION ERROR ===')
+      console.error('Error type:', err?.constructor?.name)
+      console.error('Error message:', err?.message)
+      console.error('Error error:', err?.error)
+      console.error('Full error:', err)
+      setError('Failed to initialize Google Calendar: ' + (err?.message || err?.error || 'Unknown error'))
       setInitializing(false)
     }
   }
@@ -70,16 +87,40 @@ export default function CalendarSync({ onSyncComplete }) {
 
   const handleConnect = async () => {
     try {
+      console.log('=== HANDLE CONNECT CLICKED ===')
+      console.log('Client ID from env:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
+      console.log('Client ID state:', clientId)
+      console.log('isInitialized check:', isSignedIn())
+      
       setError(null)
-      await signInToGoogle()
-      setConnected(true)
-      // Auto-sync after connecting
-      setTimeout(() => {
-        handleSync()
-      }, 500)
+      
+      // Ensure initialized first
+      if (!isSignedIn() && clientId) {
+        console.log('Not initialized, initializing first...')
+        await initGoogleCalendar(clientId)
+      }
+      
+      console.log('Calling signInToGoogle...')
+      const success = await signInToGoogle()
+      console.log('Sign in success:', success)
+      
+      if (success) {
+        setConnected(true)
+        // Auto-sync after connecting
+        setTimeout(() => {
+          handleSync()
+        }, 500)
+      }
     } catch (err) {
-      console.error('Error connecting to Google:', err)
-      setError('Failed to connect to Google Calendar: ' + err.message)
+      console.error('=== CONNECTION ERROR ===')
+      console.error('Error type:', err?.constructor?.name)
+      console.error('Error message:', err?.message)
+      console.error('Error error:', err?.error)
+      console.error('Error details:', err?.details)
+      console.error('Full error:', err)
+      const errorMessage = err?.message || err?.error || err?.details || 'Unknown error'
+      setError(`Failed to connect to Google Calendar: ${errorMessage}. Check console for details.`)
+      alert(`Failed to connect: ${errorMessage}. Check console for details.`)
     }
   }
 
