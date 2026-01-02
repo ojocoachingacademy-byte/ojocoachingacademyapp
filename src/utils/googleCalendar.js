@@ -7,6 +7,12 @@ const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 let isInitialized = false
 let accessToken = null
 let tokenClient = null
+let tokenCallback = null
+
+// Export function to check initialization status
+export function getInitializationStatus() {
+  return { isInitialized, hasToken: !!accessToken }
+}
 
 /**
  * Wait for Google Identity Services to load
@@ -102,11 +108,19 @@ export async function initGoogleCalendar(clientId) {
         if (response.error) {
           console.error('Token error:', response.error)
           accessToken = null
+          if (tokenCallback) {
+            tokenCallback(new Error(response.error))
+            tokenCallback = null
+          }
         } else {
           accessToken = response.access_token
           console.log('Access token received')
           // Set token for gapi requests
           window.gapi.client.setToken({ access_token: accessToken })
+          if (tokenCallback) {
+            tokenCallback(null, accessToken)
+            tokenCallback = null
+          }
         }
       }
     })
@@ -139,27 +153,31 @@ export async function signInToGoogle() {
     }
     
     console.log('Requesting access token...')
-    // Request access token (this will open popup/redirect)
-    tokenClient.requestAccessToken({ prompt: 'consent' })
     
-    // Note: The callback will be called asynchronously
-    // We need to wait for the token
+    // Request access token (this will open popup/redirect)
     return new Promise((resolve, reject) => {
-      const checkToken = setInterval(() => {
-        if (accessToken) {
-          clearInterval(checkToken)
+      // Set up callback
+      tokenCallback = (error, token) => {
+        if (error) {
+          reject(error)
+        } else {
           console.log('=== SIGN IN COMPLETE ===')
           resolve(true)
         }
-      }, 100)
+      }
       
-      // Timeout after 30 seconds
+      // Request token (triggers popup/redirect)
+      tokenClient.requestAccessToken({ prompt: 'consent' })
+      
+      // Also set up a timeout in case callback doesn't fire
       setTimeout(() => {
-        clearInterval(checkToken)
-        if (!accessToken) {
-          reject(new Error('Sign in timeout - no token received'))
+        if (tokenCallback) {
+          tokenCallback = null
+          if (!accessToken) {
+            reject(new Error('Sign in timeout - no token received. Please try again.'))
+          }
         }
-      }, 30000)
+      }, 60000) // 60 second timeout
     })
     
   } catch (error) {
