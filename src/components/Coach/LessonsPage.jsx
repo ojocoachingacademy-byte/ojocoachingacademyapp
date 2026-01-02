@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save } from 'lucide-react'
 import './LessonsPage.css'
 
 export default function LessonsPage() {
