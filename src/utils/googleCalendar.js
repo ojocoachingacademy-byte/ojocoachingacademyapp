@@ -1,5 +1,11 @@
-// Use window.gapi if available (from CDN), otherwise try gapi-script
-const gapi = window.gapi || (typeof require !== 'undefined' ? require('gapi-script')?.gapi : null)
+// Use window.gapi directly (loaded from CDN in index.html)
+// This is simpler and more reliable than the npm package
+const getGapi = () => {
+  if (typeof window !== 'undefined' && window.gapi) {
+    return window.gapi
+  }
+  return null
+}
 
 const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
