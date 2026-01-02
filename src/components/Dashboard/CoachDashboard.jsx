@@ -779,6 +779,11 @@ Keep it concise and actionable.`
                   <LessonActions 
                     lesson={lesson} 
                     onUpdateStatus={handleUpdateLessonStatus}
+                    onOpenPlanModal={(lesson) => {
+                      setSelectedLesson(lesson)
+                      setLessonPlan('')
+                      setIsEditingPlan(false)
+                    }}
                   />
                 </div>
               </div>
