@@ -15,6 +15,8 @@ import StudentDetailPage from './components/Coach/StudentDetailPage'
 import CalendarView from './components/Coach/CalendarView'
 import StudentSettings from './components/Settings/StudentSettings'
 import StudentLessonsPage from './components/Dashboard/StudentLessonsPage'
+import LoadingSpinner from './components/shared/LoadingSpinner'
+import { ToastContainer, useToast } from './components/shared/Toast'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -55,7 +57,7 @@ function App() {
   }
 
   if (loading) {
-    return <div>Loading...</div>
+    return <LoadingSpinner size="large" message="Loading..." />
   }
 
   // For now, hardcode coach access - we'll make this better later

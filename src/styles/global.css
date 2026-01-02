@@ -491,11 +491,28 @@ textarea.input {
   }
 }
 
+/* Mobile Responsiveness */
 @media (max-width: 768px) {
   .grid-2,
   .grid-3 {
     grid-template-columns: 1fr;
     gap: var(--spacing-md);
+  }
+  
+  /* Stats grid */
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--spacing-md);
+  }
+  
+  /* Students grid */
+  .students-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Lesson cards */
+  .lesson-card {
+    padding: 12px !important;
   }
   
   h1 {
