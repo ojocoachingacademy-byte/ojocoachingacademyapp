@@ -189,8 +189,32 @@ export default function StudentDashboard() {
     <div className="student-dashboard">
       {/* Header */}
       <div className="dashboard-header">
-        <h1 className="welcome-message">Welcome, {profile?.full_name}! 🎾</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <h1 className="welcome-message">Welcome, {profile?.full_name}! 🎾</h1>
+          <button 
+            onClick={() => setShowBookingModal(true)}
+            className="btn btn-primary"
+            disabled={!student || student.lesson_credits === 0}
+            style={{ marginLeft: '16px' }}
+          >
+            <Calendar size={18} style={{ marginRight: '8px' }} />
+            Book a Lesson
+          </button>
+        </div>
       </div>
+      
+      {student?.lesson_credits === 0 && (
+        <div style={{ 
+          padding: '12px 16px', 
+          backgroundColor: '#FFF3CD', 
+          borderRadius: '8px', 
+          marginBottom: '24px',
+          border: '1px solid #FFC107',
+          color: '#856404'
+        }}>
+          <strong>⚠️ No credits available.</strong> Contact your coach to purchase lessons.
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="stats-grid">
