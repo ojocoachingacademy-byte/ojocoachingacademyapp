@@ -20,10 +20,23 @@ export async function initGoogleCalendar(clientId) {
   console.log('=== INIT GOOGLE CALENDAR ===')
   console.log('Client ID:', clientId)
   console.log('Client ID exists:', !!clientId)
+  console.log('isInitialized flag:', isInitialized)
   
   if (isInitialized) {
-    console.log('Already initialized')
-    return true
+    console.log('Already initialized (by flag), checking auth instance...')
+    const gapi = getGapi()
+    if (gapi && gapi.auth2) {
+      try {
+        const authInstance = gapi.auth2.getAuthInstance()
+        if (authInstance) {
+          console.log('Auth instance exists, using existing instance')
+          isSignedInStatus = authInstance.isSignedIn.get()
+          return true
+        }
+      } catch (e) {
+        console.log('Could not get auth instance, will reinitialize:', e.message)
+      }
+    }
   }
 
   try {
@@ -56,12 +69,39 @@ export async function initGoogleCalendar(clientId) {
     })
 
     console.log('gapi client:auth2 loaded successfully')
-    console.log('Initializing gapi client...')
     
     const gapi = getGapi()
     if (!gapi) {
       throw new Error('gapi not available after load')
     }
+    
+    // Check if auth2 is already initialized
+    console.log('Checking if gapi.auth2 is already initialized...')
+    console.log('gapi.auth2 exists:', !!gapi.auth2)
+    
+    let authInstance = null
+    try {
+      authInstance = gapi.auth2.getAuthInstance()
+      console.log('gapi.auth2 already initialized, using existing instance')
+      console.log('Auth instance:', authInstance)
+      
+      // Just set up listeners and update status
+      authInstance.isSignedIn.listen((signedIn) => {
+        console.log('Auth status changed:', signedIn)
+        isSignedInStatus = signedIn
+      })
+      
+      isInitialized = true
+      isSignedInStatus = authInstance.isSignedIn.get()
+      console.log('Initial sign-in status:', isSignedInStatus)
+      console.log('=== INIT COMPLETE (using existing) ===')
+      return true
+    } catch (e) {
+      console.log('Auth instance not available, need to initialize:', e.message)
+      // Continue to initialization
+    }
+    
+    console.log('Initializing gapi client...')
     
     // Initialize with popup mode to avoid iframe/cookie issues
     await gapi.client.init({
@@ -73,8 +113,8 @@ export async function initGoogleCalendar(clientId) {
     
     console.log('gapi client initialized successfully')
     
-    // Listen for auth changes
-    const authInstance = gapi.auth2.getAuthInstance()
+    // Get auth instance after initialization
+    authInstance = gapi.auth2.getAuthInstance()
     console.log('Auth instance:', authInstance)
     
     authInstance.isSignedIn.listen((signedIn) => {
@@ -95,6 +135,26 @@ export async function initGoogleCalendar(clientId) {
     console.error('Error details:', error?.details)
     console.error('Error error:', error?.error)
     console.error('Full error:', error)
+    
+    // If error is about already initialized, try to use existing instance
+    if (error.message && error.message.includes('already been initialized')) {
+      console.log('Attempting to use existing auth instance...')
+      try {
+        const gapi = getGapi()
+        if (gapi && gapi.auth2) {
+          const authInstance = gapi.auth2.getAuthInstance()
+          if (authInstance) {
+            console.log('Successfully using existing auth instance')
+            isInitialized = true
+            isSignedInStatus = authInstance.isSignedIn.get()
+            return true
+          }
+        }
+      } catch (e) {
+        console.error('Failed to use existing instance:', e)
+      }
+    }
+    
     throw error
   }
 }
