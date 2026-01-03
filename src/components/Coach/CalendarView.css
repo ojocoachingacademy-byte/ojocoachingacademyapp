@@ -1,6 +1,6 @@
 .calendar-view {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
   padding: var(--spacing-xl);
   background: linear-gradient(to bottom, #fafafa 0%, #f0f0f0 100%);
   min-height: calc(100vh - 80px);
@@ -416,4 +416,6 @@
     min-height: 200px;
   }
 }
+
+
 

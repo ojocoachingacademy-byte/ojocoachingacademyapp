@@ -97,3 +97,5 @@ Current policy allows ANY authenticated user to update ANY lesson. Consider rest
 
 These may be intentional for features like the hitting partners directory, but be aware that students can query other students' basic info.
 
+
+

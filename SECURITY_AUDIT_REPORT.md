@@ -249,3 +249,5 @@ AND policyname = 'Authenticated users can read active hitting partners';
 
 The most critical issue is the lessons UPDATE policy allowing any user to update any lesson. This should be restricted immediately.
 
+
+

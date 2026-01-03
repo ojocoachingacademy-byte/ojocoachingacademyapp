@@ -42,3 +42,5 @@ WITH CHECK (true);
 -- - Coaches can update any field
 -- This is enforced in StudentDashboard.jsx (line 88) and CoachDashboard.jsx (line 325)
 
+
+

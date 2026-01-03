@@ -45,3 +45,5 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_BN
 
 This appears to be a network/connectivity issue, not a code issue. The configuration looks correct.
 
+
+

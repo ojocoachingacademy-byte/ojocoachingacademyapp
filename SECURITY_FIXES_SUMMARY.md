@@ -78,3 +78,5 @@ After applying fixes, test:
    - ✅ Students can only see own development plan
    - ✅ Hitting partners directory shows all active partners
 
+
+

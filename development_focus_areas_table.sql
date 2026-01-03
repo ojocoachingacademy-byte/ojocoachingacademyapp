@@ -71,3 +71,5 @@ BEFORE UPDATE ON development_focus_areas
 FOR EACH ROW 
 EXECUTE FUNCTION update_updated_at_column();
 
+
+

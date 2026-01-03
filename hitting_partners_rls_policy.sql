@@ -11,3 +11,5 @@ USING (is_active = true);
 -- Note: This policy works alongside the existing "Users can read their own hitting partner record" policy
 -- Users can read their own record regardless of is_active status, and can read all active records for the directory
 
+
+

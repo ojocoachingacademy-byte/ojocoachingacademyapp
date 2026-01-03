@@ -69,3 +69,5 @@ export const getSkillLevelLabel = (level) => {
   return labels[level] || 'Unknown'
 }
 
+
+

@@ -123,3 +123,5 @@ Before deploying to production:
 - Netlify Functions run in a secure serverless environment
 - All API calls are server-side (no client-side API key exposure)
 
+
+

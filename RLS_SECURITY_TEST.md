@@ -91,3 +91,5 @@ const { data, error } = await supabase
 console.log(error) // Should show RLS policy violation
 ```
 
+
+

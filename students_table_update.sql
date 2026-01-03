@@ -9,3 +9,5 @@ ADD COLUMN IF NOT EXISTS development_plan_notes TEXT;
 COMMENT ON COLUMN students.development_plan IS 'JSON object containing skill assessments, goals, and motivation data';
 COMMENT ON COLUMN students.development_plan_notes IS 'Coach notes about the student development plan';
 
+
+
