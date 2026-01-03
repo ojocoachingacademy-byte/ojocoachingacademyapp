@@ -78,7 +78,7 @@ export async function importHistoricalData(onProgress) {
           id: newUserId,
           email: email,
           full_name: student.name,
-          account_type: 'individual',
+          account_type: 'student',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
