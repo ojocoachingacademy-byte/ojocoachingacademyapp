@@ -113,6 +113,113 @@ export default function StudentLessonsPage() {
 
       {/* Upcoming Lessons */}
       <div className="section">
+        <h2 className="section-title">
+          <Calendar size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+          Upcoming Lessons ({upcomingLessons.length})
+        </h2>
+        {upcomingLessons.length === 0 ? (
+          <div className="empty-state">No upcoming lessons scheduled.</div>
+        ) : (
+          upcomingLessons.map((lesson, index) => (
+            <div 
+              key={lesson.id} 
+              className={`lesson-card stagger-item`} 
+              style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
+              onClick={() => setSelectedLesson(lesson)}
+            >
+              <div className="lesson-header">
+                <div>
+                  <div className="lesson-date">
+                    {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                  <div className="lesson-time">
+                    {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div className="lesson-location">
+                    <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
+                    {lesson.location}
+                  </div>
+                </div>
+                <span className="status-dot status-scheduled"></span>
+              </div>
+              {lesson.lesson_plan && (
+                <div className="lesson-plan-box">
+                  <strong>Lesson Plan:</strong>
+                  <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Past Lessons */}
+      <div className="section">
+        <h2 className="section-title">
+          <BookOpen size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+          Past Lessons ({pastLessons.length})
+        </h2>
+        {pastLessons.length === 0 ? (
+          <div className="empty-state">No past lessons yet.</div>
+        ) : (
+          pastLessons.map((lesson, index) => {
+            const actualStatus = getActualStatus(lesson)
+            return (
+              <div 
+                key={lesson.id} 
+                className={`lesson-card stagger-item`} 
+                style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
+                onClick={() => setSelectedLesson(lesson)}
+              >
+                <div className="lesson-header">
+                  <div>
+                    <div className="lesson-date">
+                      {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                    <div className="lesson-time">
+                      {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div className="lesson-location">
+                      <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
+                      {lesson.location}
+                    </div>
+                  </div>
+                  <span className={`status-dot status-${actualStatus}`}></span>
+                </div>
+
+                {lesson.lesson_plan && (
+                  <div className="lesson-plan-box">
+                    <strong>Lesson Plan:</strong>
+                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                  </div>
+                )}
+
+                {lesson.student_learnings && (
+                  <div className="learnings-box">
+                    <strong>My Learnings:</strong>
+                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
+                    {!lesson.coach_feedback && (
+                      <div className="status-badge status-waiting">
+                        ✅ Waiting for coach feedback
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {lesson.coach_feedback && (
+                  <div className="feedback-box">
+                    <strong>Coach Feedback:</strong>
+                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Development Plan Section */}
+      {developmentPlan && developmentPlan.skills && developmentPlan.skills.length > 0 && (
         <div className="section">
           <h2 className="section-title">
             <Target size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
@@ -235,113 +342,6 @@ export default function StudentLessonsPage() {
           )}
         </div>
       )}
-
-      {/* Upcoming Lessons */}
-      <div className="section">
-        <h2 className="section-title">
-          <Calendar size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-          Upcoming Lessons ({upcomingLessons.length})
-        </h2>
-        {upcomingLessons.length === 0 ? (
-          <div className="empty-state">No upcoming lessons scheduled.</div>
-        ) : (
-          upcomingLessons.map((lesson, index) => (
-            <div 
-              key={lesson.id} 
-              className={`lesson-card stagger-item`} 
-              style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
-              onClick={() => setSelectedLesson(lesson)}
-            >
-              <div className="lesson-header">
-                <div>
-                  <div className="lesson-date">
-                    {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                  <div className="lesson-time">
-                    {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  <div className="lesson-location">
-                    <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                    {lesson.location}
-                  </div>
-                </div>
-                <span className="status-dot status-scheduled"></span>
-              </div>
-              {lesson.lesson_plan && (
-                <div className="lesson-plan-box">
-                  <strong>Lesson Plan:</strong>
-                  <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Past Lessons */}
-      <div className="section">
-        <h2 className="section-title">
-          <BookOpen size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-          Past Lessons ({pastLessons.length})
-        </h2>
-        {pastLessons.length === 0 ? (
-          <div className="empty-state">No past lessons yet.</div>
-        ) : (
-          pastLessons.map((lesson, index) => {
-            const actualStatus = getActualStatus(lesson)
-            return (
-              <div 
-                key={lesson.id} 
-                className={`lesson-card stagger-item`} 
-                style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
-                onClick={() => setSelectedLesson(lesson)}
-              >
-                <div className="lesson-header">
-                  <div>
-                    <div className="lesson-date">
-                      {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </div>
-                    <div className="lesson-time">
-                      {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <div className="lesson-location">
-                      <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                      {lesson.location}
-                    </div>
-                  </div>
-                  <span className={`status-dot status-${actualStatus}`}></span>
-                </div>
-
-                {lesson.lesson_plan && (
-                  <div className="lesson-plan-box">
-                    <strong>Lesson Plan:</strong>
-                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
-                  </div>
-                )}
-
-                {lesson.student_learnings && (
-                  <div className="learnings-box">
-                    <strong>My Learnings:</strong>
-                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
-                    {!lesson.coach_feedback && (
-                      <div className="status-badge status-waiting">
-                        ✅ Waiting for coach feedback
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {lesson.coach_feedback && (
-                  <div className="feedback-box">
-                    <strong>Coach Feedback:</strong>
-                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
-      </div>
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
