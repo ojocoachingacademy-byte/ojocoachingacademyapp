@@ -7,6 +7,7 @@ import '../shared/Modal.css'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
+import CreditWarning from '../Payments/CreditWarning'
 
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null)
@@ -215,18 +216,8 @@ export default function StudentDashboard() {
         </div>
       </div>
       
-      {student?.lesson_credits === 0 && (
-        <div style={{ 
-          padding: '12px 16px', 
-          backgroundColor: '#FFF3CD', 
-          borderRadius: '8px', 
-          marginBottom: '24px',
-          border: '1px solid #FFC107',
-          color: '#856404'
-        }}>
-          <strong>⚠️ No credits available.</strong> Contact your coach to purchase lessons.
-        </div>
-      )}
+      {/* Credit Warning */}
+      <CreditWarning credits={student?.lesson_credits || 0} />
 
       {/* Quick Stats */}
       <div className="stats-grid">

@@ -1,0 +1,319 @@
+/* Package Modal Styles - Scoped to avoid conflicts */
+.package-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.package-modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 550px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.package-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #E0E0E0;
+  background: #F8F8F8;
+}
+
+.package-modal-header h2 {
+  color: #4B2C6C;
+  margin: 0;
+  font-size: 22px;
+}
+
+.package-btn-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.package-btn-close:hover {
+  background: #E0E0E0;
+  color: #333;
+}
+
+.package-modal-body {
+  padding: 24px;
+}
+
+.package-student-info {
+  background: linear-gradient(135deg, #F8F5FC 0%, #EDE7F6 100%);
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid #D1C4E9;
+}
+
+.package-student-info .student-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4B2C6C;
+  margin: 0 0 4px 0;
+}
+
+.package-student-info .current-credits {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.package-student-info .current-credits strong {
+  color: #2D7F6F;
+  font-size: 16px;
+}
+
+.package-form-group {
+  margin-bottom: 20px;
+}
+
+.package-form-group label {
+  display: block;
+  font-weight: 600;
+  color: #4B2C6C;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.package-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.package-option-btn {
+  border: 2px solid #E0E0E0;
+  background: white;
+  border-radius: 10px;
+  padding: 16px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.package-option-btn:hover {
+  border-color: #4B2C6C;
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.15);
+  transform: translateY(-2px);
+}
+
+.package-option-btn.selected {
+  border-color: #4B2C6C;
+  background: linear-gradient(135deg, #F8F5FC 0%, #EDE7F6 100%);
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.2);
+}
+
+.package-lessons {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4B2C6C;
+  margin-bottom: 8px;
+}
+
+.package-price {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2D7F6F;
+  margin-bottom: 4px;
+}
+
+.package-per-lesson {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.amount-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.currency-symbol {
+  position: absolute;
+  left: 14px;
+  color: #666;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.package-input-amount {
+  width: 100%;
+  padding: 12px 12px 12px 32px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.package-input-amount:focus {
+  outline: none;
+  border-color: #4B2C6C;
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
+}
+
+.package-input-select,
+.package-input-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.package-input-select:focus,
+.package-input-textarea:focus {
+  outline: none;
+  border-color: #4B2C6C;
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
+}
+
+.package-input-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.package-price-note {
+  font-size: 13px;
+  color: #2D7F6F;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.package-summary-box {
+  background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  border: 2px solid #4CAF50;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 24px;
+}
+
+.package-summary-box h4 {
+  color: #2E7D32;
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.summary-divider {
+  height: 1px;
+  background: #4CAF50;
+  margin: 12px 0;
+}
+
+.summary-row.total {
+  font-weight: 600;
+  font-size: 16px;
+  color: #2E7D32;
+}
+
+.package-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #E0E0E0;
+  background: #FAFAFA;
+}
+
+.package-btn-primary {
+  flex: 1;
+  padding: 14px 24px;
+  background: #4B2C6C;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.package-btn-primary:hover:not(:disabled) {
+  background: #6A4C8C;
+}
+
+.package-btn-primary:disabled {
+  background: #CCC;
+  cursor: not-allowed;
+}
+
+.package-btn-secondary {
+  padding: 14px 24px;
+  background: white;
+  color: #666;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.package-btn-secondary:hover {
+  border-color: #999;
+  color: #333;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .package-buttons {
+    grid-template-columns: 1fr;
+  }
+  
+  .package-option-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+  
+  .package-lessons {
+    margin-bottom: 0;
+  }
+  
+  .package-price {
+    margin-bottom: 0;
+  }
+  
+  .package-modal-footer {
+    flex-direction: column-reverse;
+  }
+}
+

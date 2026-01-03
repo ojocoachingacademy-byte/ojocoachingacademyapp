@@ -468,12 +468,38 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
   const handleUpdateLessonStatus = async (lessonId, newStatus) => {
     try {
+      // Update lesson status
       const { error } = await supabase
         .from('lessons')
         .update({ status: newStatus })
         .eq('id', lessonId)
 
       if (error) throw error
+
+      // If completing a lesson, deduct credit from student
+      if (newStatus === 'completed') {
+        // Get lesson details to find student
+        const { data: lesson } = await supabase
+          .from('lessons')
+          .select('student_id, students(lesson_credits)')
+          .eq('id', lessonId)
+          .single()
+
+        if (lesson && lesson.student_id && lesson.students) {
+          const currentCredits = lesson.students.lesson_credits || 0
+          const newCredits = Math.max(0, currentCredits - 1)
+
+          // Deduct 1 credit
+          const { error: creditError } = await supabase
+            .from('students')
+            .update({ lesson_credits: newCredits })
+            .eq('id', lesson.student_id)
+
+          if (!creditError) {
+            console.log(`Credit deducted for student. New balance: ${newCredits}`)
+          }
+        }
+      }
 
       fetchCoachData() // Refresh data
       if (selectedLessonDetail?.id === lessonId) {

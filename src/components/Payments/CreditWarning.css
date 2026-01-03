@@ -1,0 +1,101 @@
+/* Credit Warning Alerts */
+.credit-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 2px solid;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.credit-alert-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.credit-alert-content h3 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.credit-alert-content p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Critical - No credits */
+.credit-alert.critical {
+  background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+  border-color: #F44336;
+}
+
+.credit-alert.critical h3 {
+  color: #C62828;
+}
+
+.credit-alert.critical p {
+  color: #B71C1C;
+}
+
+/* High Warning - 1 credit */
+.credit-alert.warning-high {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+  border-color: #FF9800;
+}
+
+.credit-alert.warning-high h3 {
+  color: #E65100;
+}
+
+.credit-alert.warning-high p {
+  color: #EF6C00;
+}
+
+/* Low Warning - 2 credits */
+.credit-alert.warning-low {
+  background: linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 100%);
+  border-color: #FFC107;
+}
+
+.credit-alert.warning-low h3 {
+  color: #F57F17;
+}
+
+.credit-alert.warning-low p {
+  color: #F9A825;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .credit-alert {
+    padding: 16px;
+  }
+  
+  .credit-alert-icon {
+    font-size: 24px;
+  }
+  
+  .credit-alert-content h3 {
+    font-size: 15px;
+  }
+  
+  .credit-alert-content p {
+    font-size: 13px;
+  }
+}
+

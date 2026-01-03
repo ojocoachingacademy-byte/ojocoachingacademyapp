@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
+import AddPackageModal from '../Payments/AddPackageModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -21,6 +22,7 @@ export default function StudentDetailPage() {
   const [selectedLesson, setSelectedLesson] = useState(null)
   const [privateNotes, setPrivateNotes] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
+  const [showAddPackage, setShowAddPackage] = useState(false)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -384,14 +386,33 @@ export default function StudentDetailPage() {
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <h1>{student.profiles?.full_name || 'Unknown Student'}</h1>
-                  <button 
-                    className="btn btn-primary btn-sm"
-                    onClick={() => setEditingProfile(true)}
-                    style={{ marginLeft: '16px' }}
-                  >
-                    <Edit2 size={18} />
-                    Edit Profile
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn btn-success btn-sm"
+                      onClick={() => setShowAddPackage(true)}
+                      style={{ 
+                        background: '#2D7F6F',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <CreditCard size={18} />
+                      Add Package
+                    </button>
+                    <button 
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setEditingProfile(true)}
+                    >
+                      <Edit2 size={18} />
+                      Edit Profile
+                    </button>
+                  </div>
                 </div>
                 <div className="student-contact-info">
                   {student.profiles?.email && (
@@ -898,6 +919,18 @@ export default function StudentDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add Package Modal */}
+      {showAddPackage && student && (
+        <AddPackageModal
+          student={student}
+          onClose={() => setShowAddPackage(false)}
+          onSuccess={() => {
+            fetchStudentData()
+            setShowAddPackage(false)
+          }}
+        />
       )}
     </div>
   )
