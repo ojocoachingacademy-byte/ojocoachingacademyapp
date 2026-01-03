@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2 } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
+import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -424,6 +425,13 @@ export default function StudentDetailPage() {
         >
           Notes
         </button>
+        <button 
+          className={`tab ${activeTab === 'progress' ? 'active' : ''}`}
+          onClick={() => setActiveTab('progress')}
+        >
+          <TrendingUp size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+          Progress
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -647,6 +655,38 @@ export default function StudentDetailPage() {
             <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
               Notes are automatically saved as you type.
             </p>
+          </div>
+        )}
+
+        {activeTab === 'progress' && (
+          <div className="progress-section">
+            {/* Overall Progress Summary */}
+            {(() => {
+              try {
+                const plan = student.development_plan 
+                  ? (typeof student.development_plan === 'string' 
+                      ? JSON.parse(student.development_plan) 
+                      : student.development_plan)
+                  : null
+                return plan ? <OverallProgressSummary developmentPlan={plan} /> : null
+              } catch (e) {
+                return null
+              }
+            })()}
+            
+            <h3 style={{ color: '#4B2C6C', marginBottom: '8px' }}>Skill Progress Over Time</h3>
+            <p style={{ color: '#666', marginBottom: '24px' }}>Track improvement across key tennis skills</p>
+            
+            {/* Progress Charts Grid - Top 6 most important skills */}
+            <div className="progress-charts-grid">
+              {['Forehand Groundstroke', 'Backhand Groundstroke', 'First Serve', 'Second Serve', 'Return of Serve', 'Footwork & Movement'].map(skill => (
+                <ProgressChart 
+                  key={skill}
+                  studentId={id}
+                  skillName={skill}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

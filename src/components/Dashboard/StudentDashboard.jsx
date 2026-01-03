@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Award, Target, Edit2 } from 'lucide-react'
+import { Users, Calendar, Award, Target, Edit2, TrendingUp } from 'lucide-react'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import BookLessonModal from '../Calendar/BookLessonModal'
+import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null)
@@ -602,6 +603,40 @@ export default function StudentDashboard() {
               <Target size={18} />
               Create Development Plan
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* My Progress Section */}
+      {user && student?.development_plan && (
+        <div className="section student-progress-section">
+          <h2 className="section-title">
+            <TrendingUp size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+            My Progress 📈
+          </h2>
+          <p style={{ color: '#666', marginBottom: '24px' }}>Track your improvement over time</p>
+          
+          {/* Overall Progress Summary */}
+          {(() => {
+            try {
+              const plan = typeof student.development_plan === 'string' 
+                ? JSON.parse(student.development_plan) 
+                : student.development_plan
+              return plan ? <OverallProgressSummary developmentPlan={plan} /> : null
+            } catch (e) {
+              return null
+            }
+          })()}
+          
+          {/* Progress Charts - Show top skills being worked on */}
+          <div className="progress-charts-grid">
+            {['Forehand Groundstroke', 'Backhand Groundstroke', 'First Serve', 'Return of Serve'].map(skill => (
+              <ProgressChart 
+                key={skill}
+                studentId={user.id}
+                skillName={skill}
+              />
+            ))}
           </div>
         </div>
       )}

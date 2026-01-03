@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Save } from 'lucide-react'
+import { supabase } from '../../supabaseClient'
 import './DevelopmentPlanForm.css'
 
 const ALL_SKILLS = [
@@ -202,11 +203,49 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
       console.log('Calling onSave with data:', saveData)
       await onSave(saveData)
       console.log('onSave completed successfully')
+      
+      // Save skill assessment snapshot for progress tracking
+      await saveSkillAssessmentSnapshot(student?.id, skills)
+      
     } catch (error) {
       console.error('Error saving development plan:', error)
       alert('Error saving development plan: ' + error.message)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // Save skill assessment snapshot for progress tracking
+  const saveSkillAssessmentSnapshot = async (studentId, skillsData) => {
+    if (!studentId) {
+      console.log('No student ID, skipping skill assessment snapshot')
+      return
+    }
+    
+    // Only save if there are actual skill assessments
+    const assessmentsToSave = skillsData
+      .filter(skill => skill.student_assessment || skill.coach_assessment)
+      .map(skill => ({
+        student_id: studentId,
+        skill_name: skill.skill_name,
+        student_assessment: skill.student_assessment || null,
+        coach_assessment: skill.coach_assessment || null,
+        assessed_at: new Date().toISOString(),
+        notes: skill.notes || null
+      }))
+
+    if (assessmentsToSave.length > 0) {
+      console.log('Saving skill assessment snapshot:', assessmentsToSave.length, 'skills')
+      const { error } = await supabase
+        .from('skill_assessments')
+        .insert(assessmentsToSave)
+
+      if (error) {
+        console.error('Error saving skill assessment:', error)
+        // Don't throw - this is a non-critical operation
+      } else {
+        console.log('Skill assessment snapshot saved successfully')
+      }
     }
   }
 
