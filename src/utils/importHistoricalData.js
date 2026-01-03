@@ -6,7 +6,7 @@ function generateEmail(name) {
     .replace(/[^a-z0-9\s&]/g, '')
     .replace(/\s+/g, '-')
     .replace(/&/g, 'and')
-  return `${cleaned}@historical.student`
+  return `${cleaned}@ojo-historical.com`
 }
 
 function generatePassword() {
@@ -232,7 +232,7 @@ export async function checkImportStatus() {
     const { count } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .ilike('email', '%@historical.student')
+      .ilike('email', '%@ojo-historical.com')
     
     return {
       imported: count > 0,
@@ -250,7 +250,7 @@ export async function getImportSummary() {
     const { data: historicalProfiles, count: historicalCount } = await supabase
       .from('profiles')
       .select('id, full_name, email', { count: 'exact' })
-      .ilike('email', '%@historical.student')
+      .ilike('email', '%@ojo-historical.com')
     
     const { data: students } = await supabase
       .from('students')
