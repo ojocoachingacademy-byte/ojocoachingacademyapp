@@ -111,8 +111,8 @@ export default function StudentLessonsPage() {
         <h1 className="welcome-message">My Lessons & Progress 🎾</h1>
       </div>
 
-      {/* Development Plan Section */}
-      {developmentPlan && developmentPlan.skills && developmentPlan.skills.length > 0 && (
+      {/* Upcoming Lessons */}
+      <div className="section">
         <div className="section">
           <h2 className="section-title">
             <Target size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
