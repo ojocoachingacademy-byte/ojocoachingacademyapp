@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical } from 'lucide-react'
+import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical, Upload } from 'lucide-react'
 import Anthropic from '@anthropic-ai/sdk'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
 import CalendarSync from '../Calendar/CalendarSync'
 import LessonTemplates from '../Templates/LessonTemplates'
+import { importHistoricalData, checkImportStatus } from '../../utils/importHistoricalData'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -68,12 +69,68 @@ export default function CoachDashboard() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(null)
+  const [importStatus, setImportStatus] = useState({ imported: false, count: 0 })
   const navigate = useNavigate()
 
   useEffect(() => {
     updatePastLessonStatus()
     fetchCoachData()
+    checkExistingImport()
   }, [])
+
+  const checkExistingImport = async () => {
+    const status = await checkImportStatus()
+    setImportStatus(status)
+  }
+
+  const handleImportHistoricalData = async () => {
+    const confirmed = window.confirm(
+      '⚠️ This will import 224 historical students into the database.\n\n' +
+      'This should only be done ONCE.\n\n' +
+      'Are you sure you want to continue?'
+    )
+    
+    if (!confirmed) return
+    
+    setImporting(true)
+    setImportProgress({ current: 0, total: 224, studentName: 'Starting...' })
+    
+    try {
+      const result = await importHistoricalData((progress) => {
+        setImportProgress(progress)
+      })
+      
+      setImporting(false)
+      setImportProgress(null)
+      
+      if (result.success) {
+        alert(
+          `✅ Import Complete!\n\n` +
+          `Successfully imported: ${result.successCount} students\n` +
+          `Skipped (already exist): ${result.skippedCount}\n\n` +
+          `The page will now refresh.`
+        )
+        window.location.reload()
+      } else {
+        alert(
+          `⚠️ Import completed with some errors\n\n` +
+          `Success: ${result.successCount}\n` +
+          `Skipped: ${result.skippedCount}\n` +
+          `Errors: ${result.errorCount}\n\n` +
+          `Check browser console for details.`
+        )
+        // Still refresh to show imported data
+        window.location.reload()
+      }
+    } catch (error) {
+      console.error('Import error:', error)
+      setImporting(false)
+      setImportProgress(null)
+      alert(`❌ Import failed: ${error.message}`)
+    }
+  }
 
   const updatePastLessonStatus = async () => {
     try {
@@ -547,7 +604,78 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       )}
 
       {/* Quick Actions */}
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        {/* Import Historical Data Button - Only show if not imported yet */}
+        {!importStatus.imported ? (
+          <div className="import-section">
+            <button 
+              onClick={handleImportHistoricalData} 
+              disabled={importing}
+              className="btn-import"
+              style={{
+                padding: '12px 24px',
+                background: importing ? '#ccc' : '#4B2C6C',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: importing ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(75, 44, 108, 0.3)'
+              }}
+            >
+              <Upload size={18} />
+              {importing ? '⏳ Importing...' : '📥 Import Historical Data'}
+            </button>
+            
+            {importProgress && (
+              <div style={{ 
+                marginTop: '12px', 
+                padding: '12px 16px',
+                background: '#F8F5FC',
+                borderRadius: '8px',
+                border: '1px solid #E0D4F7'
+              }}>
+                <div style={{ color: '#4B2C6C', fontWeight: '600', marginBottom: '6px' }}>
+                  Importing: {importProgress.studentName}
+                </div>
+                <div style={{ color: '#666', fontSize: '14px' }}>
+                  Progress: {importProgress.current}/{importProgress.total} 
+                  ({Math.round((importProgress.current / importProgress.total) * 100)}%)
+                </div>
+                <div style={{
+                  marginTop: '8px',
+                  height: '8px',
+                  background: '#E0E0E0',
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${(importProgress.current / importProgress.total) * 100}%`,
+                    background: 'linear-gradient(90deg, #4B2C6C, #2D7F6F)',
+                    borderRadius: '4px',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ 
+            padding: '8px 16px', 
+            background: '#E8F5E9', 
+            borderRadius: '8px',
+            color: '#2E7D32',
+            fontSize: '14px'
+          }}>
+            ✓ {importStatus.count} historical students imported
+          </div>
+        )}
+
         <button 
           className="btn btn-primary"
           onClick={() => setShowCreateLesson(!showCreateLesson)}
