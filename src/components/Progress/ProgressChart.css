@@ -60,11 +60,13 @@
 
 /* Overall Progress Summary Card */
 .overall-progress-card {
-  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  background: white;
   border-radius: 16px;
   padding: 24px;
-  color: white;
+  color: #333;
   margin-bottom: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #E0E0E0;
 }
 
 .progress-header {
@@ -78,16 +80,18 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  color: #4B2C6C;
 }
 
 .progress-percent {
   font-size: 32px;
   font-weight: 700;
+  color: #4B2C6C;
 }
 
 .progress-bar-large {
   height: 12px;
-  background: rgba(255, 255, 255, 0.3);
+  background: #E0E0E0;
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 20px;
@@ -109,14 +113,15 @@
   flex: 1;
   text-align: center;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.15);
+  background: #F8F8F8;
   border-radius: 8px;
+  border: 1px solid #E0E0E0;
 }
 
 .stat-label {
   display: block;
   font-size: 12px;
-  opacity: 0.8;
+  color: #666;
   margin-bottom: 4px;
 }
 
@@ -124,6 +129,7 @@
   display: block;
   font-size: 18px;
   font-weight: 600;
+  color: #4B2C6C;
 }
 
 /* Progress Charts Grid */
