@@ -87,15 +87,18 @@ export default function StudentDashboard() {
   }
 
   const handleSubmitLearnings = async () => {
-    if (!selectedLesson || !studentLearnings.trim()) {
-      alert('Please enter your 3 learnings')
+    if (!selectedLesson || !learning1.trim() || !learning2.trim() || !learning3.trim()) {
+      alert('Please enter all 3 learnings')
       return
     }
+
+    // Combine the three learnings into one string
+    const combinedLearnings = `1. ${learning1.trim()}\n2. ${learning2.trim()}\n3. ${learning3.trim()}`
 
     try {
       const { error } = await supabase
         .from('lessons')
-        .update({ student_learnings: studentLearnings })
+        .update({ student_learnings: combinedLearnings })
         .eq('id', selectedLesson.id)
 
       if (error) throw error
@@ -120,7 +123,9 @@ export default function StudentDashboard() {
         })
 
       setSelectedLesson(null)
-      setStudentLearnings('')
+      setLearning1('')
+      setLearning2('')
+      setLearning3('')
       fetchStudentData() // Refresh to show updated data
     } catch (error) {
       console.error('Error submitting learnings:', error)
@@ -130,7 +135,9 @@ export default function StudentDashboard() {
 
   const handleCloseLearningsModal = () => {
     setSelectedLesson(null)
-    setStudentLearnings('')
+    setLearning1('')
+    setLearning2('')
+    setLearning3('')
   }
 
   const now = new Date()
@@ -680,15 +687,45 @@ export default function StudentDashboard() {
                 <strong>Lesson Date:</strong> {new Date(selectedLesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
               
-              <div>
-                <label className="label">Your 3 Learnings:</label>
-                <textarea
-                  className="input"
-                  value={studentLearnings}
-                  onChange={(e) => setStudentLearnings(e.target.value)}
-                  placeholder="Write your 3 key takeaways here..."
-                  style={{ minHeight: '200px' }}
-                />
+              <div className="learnings-form">
+                <div className="learning-input-group">
+                  <label className="label">Learning #1</label>
+                  <textarea
+                    className="input"
+                    value={learning1}
+                    onChange={(e) => setLearning1(e.target.value)}
+                    placeholder="What was your first key learning from this lesson?"
+                    maxLength={200}
+                    rows={3}
+                  />
+                  <span style={{ display: 'block', textAlign: 'right', fontSize: '12px', color: '#999', marginTop: '4px' }}>{learning1.length}/200</span>
+                </div>
+                
+                <div className="learning-input-group">
+                  <label className="label">Learning #2</label>
+                  <textarea
+                    className="input"
+                    value={learning2}
+                    onChange={(e) => setLearning2(e.target.value)}
+                    placeholder="What was your second key learning?"
+                    maxLength={200}
+                    rows={3}
+                  />
+                  <span style={{ display: 'block', textAlign: 'right', fontSize: '12px', color: '#999', marginTop: '4px' }}>{learning2.length}/200</span>
+                </div>
+                
+                <div className="learning-input-group">
+                  <label className="label">Learning #3</label>
+                  <textarea
+                    className="input"
+                    value={learning3}
+                    onChange={(e) => setLearning3(e.target.value)}
+                    placeholder="What was your third key learning?"
+                    maxLength={200}
+                    rows={3}
+                  />
+                  <span style={{ display: 'block', textAlign: 'right', fontSize: '12px', color: '#999', marginTop: '4px' }}>{learning3.length}/200</span>
+                </div>
               </div>
             </div>
             <div className="modal-footer">
