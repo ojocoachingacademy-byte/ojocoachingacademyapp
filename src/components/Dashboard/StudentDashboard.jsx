@@ -286,8 +286,67 @@ export default function StudentDashboard() {
                 </p>
               )}
             </div>
-          ))
-        )}
+              ))
+            )}
+          </div>
+          
+          <div className="lessons-column">
+            <h3>Past Lessons</h3>
+            {pastLessons.length === 0 ? (
+              <p className="empty-state">No past lessons yet.</p>
+            ) : (
+              pastLessons.map(lesson => (
+                <div 
+                  key={lesson.id} 
+                  className="lesson-card"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setSelectedLessonForDetails(lesson)}
+                >
+                  <div className="lesson-header">
+                    <div>
+                      <div className="lesson-date">
+                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                      <div className="lesson-time">
+                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
+                  </div>
+                  {lesson.student_learnings && (
+                    <div className="learnings-box">
+                      <strong>My Learnings:</strong>
+                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
+                      {!lesson.coach_feedback && (
+                        <div className="status-badge status-waiting">
+                          ✅ Waiting for coach feedback
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {lesson.coach_feedback && (
+                    <div className="feedback-box">
+                      <strong>Coach Feedback:</strong>
+                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
+                    </div>
+                  )}
+                  {!lesson.student_learnings && lesson.status === 'completed' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedLesson(lesson)
+                      }}
+                      className="btn btn-primary"
+                      style={{ marginTop: '16px' }}
+                    >
+                      Submit 3 Learnings
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Development Plan */}
