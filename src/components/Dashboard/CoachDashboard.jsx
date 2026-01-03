@@ -1032,49 +1032,72 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             </div>
             
             <div className="modal-body">
+              {/* Lesson Info */}
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div>
-                    <strong>Date:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span className={`status-dot status-${selectedLessonDetail.status}`} style={{ textTransform: 'capitalize' }}>
-                      {selectedLessonDetail.status}
-                    </span>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {selectedLessonDetail.status !== 'completed' && (
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleUpdateLessonStatus(selectedLessonDetail.id, 'completed')}
-                        >
-                          Mark Complete
-                        </button>
-                      )}
-                      {selectedLessonDetail.status !== 'cancelled' && (
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleUpdateLessonStatus(selectedLessonDetail.id, 'cancelled')}
-                          style={{ color: 'var(--color-error)' }}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      {selectedLessonDetail.status === 'cancelled' && (
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleUpdateLessonStatus(selectedLessonDetail.id, 'scheduled')}
-                        >
-                          Reschedule
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <strong>Date:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
-                <div style={{ marginBottom: '8px' }}>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Time:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div>
+                <div style={{ marginBottom: '16px' }}>
                   <strong>Location:</strong> {selectedLessonDetail.location || '-'}
+                </div>
+                
+                {/* Status & Actions Row */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  padding: '16px',
+                  backgroundColor: '#f8f8f8',
+                  borderRadius: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong>Status:</strong>
+                    <span className={`badge badge-${selectedLessonDetail.status === 'completed' ? 'success' : selectedLessonDetail.status === 'cancelled' ? 'warning' : 'info'}`} style={{ textTransform: 'capitalize' }}>
+                      {selectedLessonDetail.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {selectedLessonDetail.status !== 'completed' && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ backgroundColor: '#28a745', color: 'white', border: 'none' }}
+                        onClick={() => {
+                          handleUpdateLessonStatus(selectedLessonDetail.id, 'completed')
+                          setSelectedLessonDetail({ ...selectedLessonDetail, status: 'completed' })
+                        }}
+                      >
+                        ✓ Complete
+                      </button>
+                    )}
+                    {selectedLessonDetail.status !== 'cancelled' && selectedLessonDetail.status !== 'completed' && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ backgroundColor: '#dc3545', color: 'white', border: 'none' }}
+                        onClick={() => {
+                          handleUpdateLessonStatus(selectedLessonDetail.id, 'cancelled')
+                          setSelectedLessonDetail({ ...selectedLessonDetail, status: 'cancelled' })
+                        }}
+                      >
+                        ✗ Cancel
+                      </button>
+                    )}
+                    {selectedLessonDetail.status === 'cancelled' && (
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => {
+                          handleUpdateLessonStatus(selectedLessonDetail.id, 'scheduled')
+                          setSelectedLessonDetail({ ...selectedLessonDetail, status: 'scheduled' })
+                        }}
+                      >
+                        ↺ Reschedule
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
