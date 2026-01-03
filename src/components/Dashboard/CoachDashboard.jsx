@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
 import CalendarSync from '../Calendar/CalendarSync'
+import LessonTemplates from '../Templates/LessonTemplates'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -66,6 +67,7 @@ export default function CoachDashboard() {
   const [selectedLessonDetail, setSelectedLessonDetail] = useState(null)
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -956,15 +958,32 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 </div>
               )}
 
-              {/* Generate with AI Button */}
+              {/* Generate with AI / Use Template Buttons */}
               {!isEditingPlan && (
-                <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                  <button
+                    className="btn btn-template"
+                    onClick={() => setShowTemplates(true)}
+                    style={{
+                      flex: 1,
+                      background: '#2D7F6F',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: '500',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📋 Use Template
+                  </button>
                   <button
                     className="btn btn-primary"
                     onClick={handleGenerateLessonPlan}
                     disabled={generatingPlan}
+                    style={{ flex: 1 }}
                   >
-                    {generatingPlan ? '⏳ Generating...' : '🤖 Generate with AI'}
+                    {generatingPlan ? '⏳ Generating...' : '✨ Generate with AI'}
                   </button>
                 </div>
               )}
@@ -1016,6 +1035,22 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Modal */}
+      {showTemplates && (
+        <div className="modal-overlay" onClick={() => setShowTemplates(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '900px', margin: '20px' }}>
+            <LessonTemplates 
+              onSelectTemplate={(content) => {
+                setLessonPlan(content)
+                setIsEditingPlan(true) // Allow coach to edit template before saving
+                setShowTemplates(false)
+              }}
+              onClose={() => setShowTemplates(false)}
+            />
           </div>
         </div>
       )}
