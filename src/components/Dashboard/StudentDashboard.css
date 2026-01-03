@@ -143,6 +143,21 @@
   background-color: #F3E5F5;
   border-left: 4px solid var(--color-primary);
   border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.learnings-box strong {
+  display: block;
+  color: var(--color-dark);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+}
+
+.learnings-box p {
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .feedback-box {
