@@ -108,9 +108,18 @@ export default function Signup() {
     <div className="signup-container">
       <div className="signup-card">
         <div className="signup-header">
-          <div className="signup-logo">OJO</div>
+          <img 
+            src="/Ojo_Coaching_Academy_Logo.png" 
+            alt="Ojo Coaching Academy" 
+            className="signup-logo-img"
+          />
+          <div className="signup-brand">
+            <span className="brand-ojo">OJO</span>
+            <span className="brand-coaching">COACHING</span>
+            <span className="brand-academy">ACADEMY</span>
+          </div>
           <div className="signup-tagline">Embrace the Journey</div>
-          <h2>Join Ojo Coaching Academy</h2>
+          <h2>Join the Academy</h2>
         </div>
         {success ? (
           <div className="success-message">Account created! Redirecting...</div>

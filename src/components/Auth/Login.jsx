@@ -29,7 +29,16 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">OJO</div>
+          <img 
+            src="/Ojo_Coaching_Academy_Logo.png" 
+            alt="Ojo Coaching Academy" 
+            className="login-logo-img"
+          />
+          <div className="login-brand">
+            <span className="brand-ojo">OJO</span>
+            <span className="brand-coaching">COACHING</span>
+            <span className="brand-academy">ACADEMY</span>
+          </div>
           <div className="login-tagline">Embrace the Journey</div>
           <h2>Welcome Back</h2>
         </div>

@@ -21,19 +21,57 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.login-logo {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--color-primary);
-  letter-spacing: 2px;
-  margin-bottom: var(--spacing-xs);
+.login-logo-img {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 8px rgba(75, 44, 108, 0.2));
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 8px;
+  line-height: 1.1;
+}
+
+.brand-ojo {
+  font-size: 42px;
+  font-weight: 800;
+  color: #4B2C6C;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+}
+
+.brand-coaching {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2D7F6F;
+  letter-spacing: 12px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.brand-academy {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  margin-top: 2px;
 }
 
 .login-tagline {
-  font-size: var(--font-size-sm);
-  color: var(--color-secondary);
+  font-size: 14px;
+  color: #2D7F6F;
   font-style: italic;
-  margin-bottom: var(--spacing-md);
+  margin: 16px 0;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #F8F5FC 0%, #E8F5E9 100%);
+  border-radius: 20px;
+  display: inline-block;
 }
 
 .login-form {
