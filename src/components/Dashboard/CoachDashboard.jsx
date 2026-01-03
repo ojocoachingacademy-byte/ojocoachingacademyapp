@@ -64,6 +64,8 @@ export default function CoachDashboard() {
   const [refinementFeedback, setRefinementFeedback] = useState('')
   const [refiningPlan, setRefiningPlan] = useState(false)
   const [selectedLessonDetail, setSelectedLessonDetail] = useState(null)
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false)
+  const [showAllCompleted, setShowAllCompleted] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -727,74 +729,84 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
       {/* Upcoming Lessons */}
       <div className="section">
-        <h2 className="section-title">Upcoming Lessons</h2>
+        <h2 className="section-title">Upcoming Lessons ({upcomingLessons.length})</h2>
         {upcomingLessons.length === 0 ? (
           <div className="empty-state">No upcoming lessons.</div>
         ) : (
-          upcomingLessons.map((lesson, index) => (
-            <div 
-              key={lesson.id} 
-              className="lesson-card upcoming-lesson"
-              onClick={() => handleLessonPlanClick(lesson)}
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              <div className="lesson-header">
-                <div className="lesson-info">
-                  <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
-                  <div className="lesson-details">
-                    <div className="detail-row">
-                      <Calendar size={16} />
-                      {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </div>
-                    <div className="detail-row">
-                      <Clock size={16} />
-                      {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <div className="detail-row">
-                      <Target size={16} />
-                      {lesson.location}
+          <>
+            {(showAllUpcoming ? upcomingLessons : upcomingLessons.slice(0, 3)).map((lesson, index) => (
+              <div 
+                key={lesson.id} 
+                className="lesson-card upcoming-lesson"
+                onClick={() => handleLessonPlanClick(lesson)}
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <div className="lesson-header">
+                  <div className="lesson-info">
+                    <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
+                    <div className="lesson-details">
+                      <div className="detail-row">
+                        <Calendar size={16} />
+                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      </div>
+                      <div className="detail-row">
+                        <Clock size={16} />
+                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="detail-row">
+                        <Target size={16} />
+                        {lesson.location}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="lesson-actions" onClick={(e) => e.stopPropagation()}>
-                  <select 
-                    value={lesson.status}
-                    onChange={(e) => handleUpdateLessonStatus(lesson.id, e.target.value)}
-                    className="status-dropdown"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <option value="scheduled">Scheduled</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  {lesson.lesson_plan ? (
-                    <span className="badge badge-success">✓ Plan Ready</span>
-                  ) : (
-                    <button 
-                      className="btn-generate-plan"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedLesson(lesson)
-                        setLessonPlan('')
-                        setIsEditingPlan(false)
-                      }}
+                  <div className="lesson-actions" onClick={(e) => e.stopPropagation()}>
+                    <select 
+                      value={lesson.status}
+                      onChange={(e) => handleUpdateLessonStatus(lesson.id, e.target.value)}
+                      className="status-dropdown"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      Generate with AI
-                    </button>
-                  )}
+                      <option value="scheduled">Scheduled</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    {lesson.lesson_plan ? (
+                      <span className="badge badge-success">✓ Plan Ready</span>
+                    ) : (
+                      <button 
+                        className="btn-generate-plan"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedLesson(lesson)
+                          setLessonPlan('')
+                          setIsEditingPlan(false)
+                        }}
+                      >
+                        Generate with AI
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+            {upcomingLessons.length > 3 && (
+              <button 
+                className="show-more-btn"
+                onClick={() => setShowAllUpcoming(!showAllUpcoming)}
+              >
+                {showAllUpcoming ? '▲ Show Less' : `▼ Show ${upcomingLessons.length - 3} More`}
+              </button>
+            )}
+          </>
         )}
       </div>
 
       {/* Recent Completed Lessons */}
       {completedLessons.length > 0 && (
         <div className="section">
-          <h2 className="section-title">Recent Completed Lessons</h2>
+          <h2 className="section-title">Recent Completed Lessons ({completedLessons.length})</h2>
           <div className="lessons-list">
-            {completedLessons.map(lesson => (
+            {(showAllCompleted ? completedLessons : completedLessons.slice(0, 3)).map(lesson => (
               <div 
                 key={lesson.id} 
                 className="lesson-card completed-lesson"
@@ -845,6 +857,14 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 </div>
               </div>
             ))}
+            {completedLessons.length > 3 && (
+              <button 
+                className="show-more-btn"
+                onClick={() => setShowAllCompleted(!showAllCompleted)}
+              >
+                {showAllCompleted ? '▲ Show Less' : `▼ Show ${completedLessons.length - 3} More`}
+              </button>
+            )}
           </div>
         </div>
       )}

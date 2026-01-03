@@ -22,6 +22,8 @@ export default function StudentDashboard() {
   const [editingPlan, setEditingPlan] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [user, setUser] = useState(null)
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false)
+  const [showAllPast, setShowAllPast] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -256,102 +258,122 @@ export default function StudentDashboard() {
         <h2 className="section-title">My Lessons</h2>
         <div className="lessons-grid">
           <div className="lessons-column">
-            <h3>Upcoming Lessons</h3>
+            <h3>Upcoming Lessons ({upcomingLessons.length})</h3>
             {upcomingLessons.length === 0 ? (
               <p className="empty-state">No upcoming lessons scheduled.</p>
             ) : (
-              upcomingLessons.map((lesson, index) => (
-            <div 
-              key={lesson.id} 
-              className={`lesson-card stagger-item`} 
-              style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
-              onClick={() => setSelectedLessonForDetails(lesson)}
-            >
-              <div className="lesson-header">
-                <div>
-                  <div className="lesson-date">
-                    {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              <>
+                {(showAllUpcoming ? upcomingLessons : upcomingLessons.slice(0, 3)).map((lesson, index) => (
+                  <div 
+                    key={lesson.id} 
+                    className={`lesson-card stagger-item`} 
+                    style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
+                    onClick={() => setSelectedLessonForDetails(lesson)}
+                  >
+                    <div className="lesson-header">
+                      <div>
+                        <div className="lesson-date">
+                          {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </div>
+                        <div className="lesson-time">
+                          {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div className="lesson-location">
+                          <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
+                          {lesson.location}
+                        </div>
+                      </div>
+                      <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
+                    </div>
+                    {lesson.lesson_plan && isLessonPlanVisible(lesson.lesson_date) && (
+                      <div className="lesson-plan-box">
+                        <strong>Lesson Plan:</strong>
+                        <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                      </div>
+                    )}
+                    {lesson.lesson_plan && !isLessonPlanVisible(lesson.lesson_date) && (
+                      <p style={{ color: '#999', fontSize: '14px', marginTop: '10px' }}>
+                        Lesson plan will be available 24 hours before the lesson
+                      </p>
+                    )}
                   </div>
-                  <div className="lesson-time">
-                    {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  <div className="lesson-location">
-                    <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                    {lesson.location}
-                  </div>
-                </div>
-                <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
-              </div>
-              {lesson.lesson_plan && isLessonPlanVisible(lesson.lesson_date) && (
-                <div className="lesson-plan-box">
-                  <strong>Lesson Plan:</strong>
-                  <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
-                </div>
-              )}
-              {lesson.lesson_plan && !isLessonPlanVisible(lesson.lesson_date) && (
-                <p style={{ color: '#999', fontSize: '14px', marginTop: '10px' }}>
-                  Lesson plan will be available 24 hours before the lesson
-                </p>
-              )}
-            </div>
-              ))
+                ))}
+                {upcomingLessons.length > 3 && (
+                  <button 
+                    className="show-more-btn"
+                    onClick={() => setShowAllUpcoming(!showAllUpcoming)}
+                  >
+                    {showAllUpcoming ? '▲ Show Less' : `▼ Show ${upcomingLessons.length - 3} More`}
+                  </button>
+                )}
+              </>
             )}
           </div>
           
           <div className="lessons-column">
-            <h3>Past Lessons</h3>
+            <h3>Past Lessons ({pastLessons.length})</h3>
             {pastLessons.length === 0 ? (
               <p className="empty-state">No past lessons yet.</p>
             ) : (
-              pastLessons.map(lesson => (
-                <div 
-                  key={lesson.id} 
-                  className="lesson-card"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedLessonForDetails(lesson)}
-                >
-                  <div className="lesson-header">
-                    <div>
-                      <div className="lesson-date">
-                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      </div>
-                      <div className="lesson-time">
-                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                    <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
-                  </div>
-                  {lesson.student_learnings && (
-                    <div className="learnings-box">
-                      <strong>My Learnings:</strong>
-                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
-                      {!lesson.coach_feedback && (
-                        <div className="status-badge status-waiting">
-                          ✅ Waiting for coach feedback
+              <>
+                {(showAllPast ? pastLessons : pastLessons.slice(0, 3)).map(lesson => (
+                  <div 
+                    key={lesson.id} 
+                    className="lesson-card"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedLessonForDetails(lesson)}
+                  >
+                    <div className="lesson-header">
+                      <div>
+                        <div className="lesson-date">
+                          {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </div>
-                      )}
+                        <div className="lesson-time">
+                          {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
                     </div>
-                  )}
-                  {lesson.coach_feedback && (
-                    <div className="feedback-box">
-                      <strong>Coach Feedback:</strong>
-                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
-                    </div>
-                  )}
-                  {!lesson.student_learnings && lesson.status === 'completed' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedLesson(lesson)
-                      }}
-                      className="btn btn-primary"
-                      style={{ marginTop: '16px' }}
-                    >
-                      Submit 3 Learnings
-                    </button>
-                  )}
-                </div>
-              ))
+                    {lesson.student_learnings && (
+                      <div className="learnings-box">
+                        <strong>My Learnings:</strong>
+                        <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
+                        {!lesson.coach_feedback && (
+                          <div className="status-badge status-waiting">
+                            ✅ Waiting for coach feedback
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {lesson.coach_feedback && (
+                      <div className="feedback-box">
+                        <strong>Coach Feedback:</strong>
+                        <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
+                      </div>
+                    )}
+                    {!lesson.student_learnings && lesson.status === 'completed' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedLesson(lesson)
+                        }}
+                        className="btn btn-primary"
+                        style={{ marginTop: '16px' }}
+                      >
+                        Submit 3 Learnings
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {pastLessons.length > 3 && (
+                  <button 
+                    className="show-more-btn"
+                    onClick={() => setShowAllPast(!showAllPast)}
+                  >
+                    {showAllPast ? '▲ Show Less' : `▼ Show ${pastLessons.length - 3} More`}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
