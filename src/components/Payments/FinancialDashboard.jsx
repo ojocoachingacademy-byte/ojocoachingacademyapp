@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 import './FinancialDashboard.css'
 
 export default function FinancialDashboard() {
@@ -15,10 +17,12 @@ export default function FinancialDashboard() {
   const [studentRevenue, setStudentRevenue] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [selectedYear, setSelectedYear] = useState('all')
+  const [availableYears, setAvailableYears] = useState([])
 
   useEffect(() => {
     fetchFinancialData()
-  }, [selectedMonth])
+  }, [selectedMonth, selectedYear])
 
   const fetchFinancialData = async () => {
     try {
@@ -52,24 +56,40 @@ export default function FinancialDashboard() {
 
         if (!txError && txData) {
           allTransactions = txData
+          
+          // Extract available years from transactions
+          const years = [...new Set(
+            txData.map(t => new Date(t.created_at).getFullYear())
+          )].sort((a, b) => b - a)
+          setAvailableYears(years)
         }
       } catch (e) {
         console.log('Transactions table not available')
       }
 
-      // 3. Calculate stats from student data
-      const totalRevenue = studentData.reduce((sum, s) => sum + (parseFloat(s.total_revenue) || 0), 0)
-      const totalLessonsSold = studentData.reduce((sum, s) => sum + (s.total_lessons_purchased || 0), 0)
-      const activeStudents = studentData.filter(s => (s.lesson_credits || 0) > 0).length
+      // 3. Filter data by selected year
+      let filteredStudents = studentData
+      let filteredTransactions = allTransactions
 
-      // Monthly revenue calculation from student data changes
-      // For now, estimate based on recent activity or use transaction data if available
+      if (selectedYear !== 'all') {
+        const year = parseInt(selectedYear)
+        filteredTransactions = allTransactions.filter(t => 
+          new Date(t.created_at).getFullYear() === year
+        )
+      }
+
+      // 4. Calculate stats
+      const totalRevenue = filteredStudents.reduce((sum, s) => sum + (parseFloat(s.total_revenue) || 0), 0)
+      const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + (s.total_lessons_purchased || 0), 0)
+      const activeStudents = filteredStudents.filter(s => (s.lesson_credits || 0) > 0).length
+
+      // Monthly revenue calculation
       let monthlyRevenue = 0
-      if (allTransactions.length > 0) {
+      if (filteredTransactions.length > 0) {
         const monthStart = new Date(selectedMonth + '-01')
         const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
         
-        monthlyRevenue = allTransactions
+        monthlyRevenue = filteredTransactions
           .filter(t => {
             const transDate = new Date(t.created_at)
             return transDate >= monthStart && transDate <= monthEnd
@@ -77,23 +97,125 @@ export default function FinancialDashboard() {
           .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0)
       }
 
+      // Year revenue
+      const yearRevenue = selectedYear === 'all' 
+        ? totalRevenue 
+        : filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0)
+
       setStats({
         totalRevenue,
         monthlyRevenue,
+        yearRevenue,
         totalLessonsSold,
         activeStudents,
-        avgRevenuePerStudent: studentData.length > 0 ? totalRevenue / studentData.length : 0,
-        totalStudents: studentData.length
+        avgRevenuePerStudent: filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0,
+        totalStudents: filteredStudents.length
       })
 
-      setTransactions(allTransactions)
-      setStudentRevenue(studentData)
+      setTransactions(filteredTransactions)
+      setStudentRevenue(filteredStudents)
 
     } catch (error) {
       console.error('Error fetching financial data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Export to CSV
+  const exportCSV = () => {
+    const headers = ['Student', 'Email', 'Total Revenue', 'Lessons Purchased', 'Credits Remaining', 'Avg Per Lesson']
+    const rows = studentRevenue.map(s => [
+      s.profiles?.full_name || 'Unknown',
+      s.profiles?.email || '',
+      (s.total_revenue || 0).toFixed(2),
+      s.total_lessons_purchased || 0,
+      s.lesson_credits || 0,
+      s.total_lessons_purchased > 0 
+        ? ((s.total_revenue || 0) / s.total_lessons_purchased).toFixed(2)
+        : '0.00'
+    ])
+    
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ojo-finances-${selectedYear === 'all' ? 'all-time' : selectedYear}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  // Export to PDF
+  const exportPDF = () => {
+    const doc = new jsPDF()
+    
+    // Header
+    doc.setFontSize(22)
+    doc.setTextColor(75, 44, 108)
+    doc.text('OJO Coaching Academy', 105, 20, { align: 'center' })
+    
+    doc.setFontSize(14)
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Financial Report - ${selectedYear === 'all' ? 'All Time' : selectedYear}`, 105, 30, { align: 'center' })
+    
+    // Separator
+    doc.setDrawColor(75, 44, 108)
+    doc.setLineWidth(0.5)
+    doc.line(20, 35, 190, 35)
+    
+    // Summary stats
+    doc.setFontSize(11)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 45)
+    doc.text(`Total Revenue: $${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 20, 55)
+    doc.text(`Total Students: ${studentRevenue.length}`, 20, 62)
+    doc.text(`Active Students: ${stats.activeStudents}`, 20, 69)
+    doc.text(`Total Lessons Sold: ${stats.totalLessonsSold}`, 20, 76)
+    
+    // Table
+    const tableData = studentRevenue.map(s => [
+      s.profiles?.full_name || 'Unknown',
+      `$${parseFloat(s.total_revenue || 0).toFixed(2)}`,
+      s.total_lessons_purchased || 0,
+      s.lesson_credits || 0,
+      `$${s.total_lessons_purchased > 0 
+        ? ((s.total_revenue || 0) / s.total_lessons_purchased).toFixed(2)
+        : '0.00'
+      }`
+    ])
+    
+    doc.autoTable({
+      startY: 85,
+      head: [['Student', 'Revenue', 'Lessons', 'Credits', 'Avg/Lesson']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [75, 44, 108],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      bodyStyles: {
+        fontSize: 9
+      },
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'right' }
+      }
+    })
+    
+    // Footer
+    doc.setFontSize(9)
+    doc.setTextColor(150, 150, 150)
+    doc.text('OJO Coaching Academy - Financial Report', 105, 285, { align: 'center' })
+    
+    doc.save(`ojo-finances-${selectedYear === 'all' ? 'all-time' : selectedYear}-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
   if (loading) {
@@ -111,14 +233,37 @@ export default function FinancialDashboard() {
     <div className="financial-dashboard">
       <div className="fin-dashboard-header">
         <h1>💰 Financial Dashboard</h1>
-        <div className="month-selector">
-          <label>View Month:</label>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="month-input"
-          />
+        <div className="fin-header-actions">
+          <div className="filter-group">
+            <label>Year:</label>
+            <select 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="year-select"
+            >
+              <option value="all">All Time</option>
+              {availableYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Month:</label>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="month-input"
+            />
+          </div>
+          <div className="export-buttons">
+            <button onClick={exportCSV} className="btn-export">
+              📊 CSV
+            </button>
+            <button onClick={exportPDF} className="btn-export">
+              📄 PDF
+            </button>
+          </div>
         </div>
       </div>
 
@@ -169,7 +314,10 @@ export default function FinancialDashboard() {
 
       {/* Revenue by Student */}
       <div className="fin-section">
-        <h2>💼 Revenue by Student</h2>
+        <div className="section-header">
+          <h2>💼 Revenue by Student</h2>
+          <span className="section-count">{studentRevenue.length} students</span>
+        </div>
         {studentRevenue.length === 0 ? (
           <div className="empty-state">
             <p>No student revenue data yet.</p>
@@ -218,7 +366,10 @@ export default function FinancialDashboard() {
 
       {/* Transaction History */}
       <div className="fin-section">
-        <h2>📝 Recent Transactions</h2>
+        <div className="section-header">
+          <h2>📝 Recent Transactions</h2>
+          <span className="section-count">{transactions.length} transactions</span>
+        </div>
         {transactions.length === 0 ? (
           <div className="empty-state">
             <p>No transaction history available.</p>
@@ -301,4 +452,3 @@ export default function FinancialDashboard() {
     </div>
   )
 }
-

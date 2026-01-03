@@ -21,18 +21,26 @@
   font-size: 28px;
 }
 
-.month-selector {
+.fin-header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.month-selector label {
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
   font-weight: 600;
   color: #4B2C6C;
-  font-size: 14px;
+  font-size: 13px;
 }
 
+.year-select,
 .month-input {
   padding: 10px 14px;
   border: 2px solid #E0E0E0;
@@ -41,11 +49,57 @@
   font-family: inherit;
   cursor: pointer;
   transition: border-color 0.2s;
+  background: white;
 }
 
+.year-select:focus,
 .month-input:focus {
   outline: none;
   border-color: #4B2C6C;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-export {
+  padding: 10px 16px;
+  background: #2D7F6F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-export:hover {
+  background: #3D9F8F;
+  transform: translateY(-1px);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+.section-count {
+  font-size: 13px;
+  color: #666;
+  background: #F0F0F0;
+  padding: 4px 12px;
+  border-radius: 12px;
 }
 
 /* Stats Grid */

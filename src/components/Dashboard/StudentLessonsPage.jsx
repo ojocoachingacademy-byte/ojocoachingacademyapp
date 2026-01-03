@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Target, BookOpen, MessageSquare, CheckCircle } from 'lucide-react'
+import { Calendar, Target, BookOpen, MessageSquare, CheckCircle, FileText } from 'lucide-react'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
+import StudentLessonHistory from '../History/StudentLessonHistory'
 
 export default function StudentLessonsPage() {
   const [profile, setProfile] = useState(null)
@@ -13,6 +14,7 @@ export default function StudentLessonsPage() {
   const [selectedLesson, setSelectedLesson] = useState(null)
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllPast, setShowAllPast] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -364,6 +366,49 @@ export default function StudentLessonsPage() {
           )}
         </div>
       )}
+
+      {/* Transaction History Section */}
+      <div className="section" style={{ marginTop: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 className="section-title" style={{ margin: 0 }}>
+            <FileText size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+            Payment & Lesson History
+          </h2>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            style={{
+              padding: '10px 20px',
+              background: showHistory ? '#4B2C6C' : 'white',
+              color: showHistory ? 'white' : '#4B2C6C',
+              border: '2px solid #4B2C6C',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              transition: 'all 0.2s'
+            }}
+          >
+            {showHistory ? 'Hide History' : 'View Full History'}
+          </button>
+        </div>
+        
+        {showHistory && student && (
+          <StudentLessonHistory studentId={student.id} />
+        )}
+        
+        {!showHistory && (
+          <div style={{ 
+            padding: '40px', 
+            textAlign: 'center', 
+            backgroundColor: '#FAFAFA', 
+            borderRadius: '12px',
+            border: '1px dashed #E0E0E0'
+          }}>
+            <p style={{ margin: 0, color: '#666' }}>
+              Click "View Full History" to see your complete payment and lesson history with PDF export option.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (

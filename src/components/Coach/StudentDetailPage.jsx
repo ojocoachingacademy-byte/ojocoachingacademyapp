@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2 } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 import AddPackageModal from '../Payments/AddPackageModal'
+import MergeHistoricalModal from '../History/MergeHistoricalModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -23,6 +24,7 @@ export default function StudentDetailPage() {
   const [privateNotes, setPrivateNotes] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
   const [showAddPackage, setShowAddPackage] = useState(false)
+  const [showMergeModal, setShowMergeModal] = useState(false)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -386,7 +388,7 @@ export default function StudentDetailPage() {
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <h1>{student.profiles?.full_name || 'Unknown Student'}</h1>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button 
                       className="btn btn-success btn-sm"
                       onClick={() => setShowAddPackage(true)}
@@ -405,6 +407,26 @@ export default function StudentDetailPage() {
                       <CreditCard size={18} />
                       Add Package
                     </button>
+                    {(student.total_lessons_purchased || 0) === 0 && (
+                      <button 
+                        onClick={() => setShowMergeModal(true)}
+                        style={{ 
+                          background: '#FF9800',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        <Link2 size={18} />
+                        Link History
+                      </button>
+                    )}
                     <button 
                       className="btn btn-primary btn-sm"
                       onClick={() => setEditingProfile(true)}
@@ -929,6 +951,19 @@ export default function StudentDetailPage() {
           onSuccess={() => {
             fetchStudentData()
             setShowAddPackage(false)
+          }}
+        />
+      )}
+
+      {/* Merge Historical Modal */}
+      {showMergeModal && student && (
+        <MergeHistoricalModal
+          studentId={student.id}
+          studentName={student.profiles?.full_name || 'Unknown'}
+          onClose={() => setShowMergeModal(false)}
+          onSuccess={() => {
+            fetchStudentData()
+            setShowMergeModal(false)
           }}
         />
       )}

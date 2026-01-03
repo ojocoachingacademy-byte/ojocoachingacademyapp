@@ -1,0 +1,249 @@
+/* Merge Historical Modal Styles */
+.merge-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.merge-modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.merge-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #E0E0E0;
+  background: #F8F8F8;
+}
+
+.merge-modal-header h2 {
+  color: #4B2C6C;
+  margin: 0;
+  font-size: 20px;
+}
+
+.merge-btn-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.merge-btn-close:hover {
+  background: #E0E0E0;
+  color: #333;
+}
+
+.merge-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.merge-info-box {
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+  border: 1px solid #2196F3;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.merge-info-box p {
+  margin: 0;
+  color: #1565C0;
+}
+
+.merge-info-hint {
+  font-size: 13px;
+  margin-top: 8px !important;
+  opacity: 0.9;
+}
+
+.merge-search {
+  margin-bottom: 20px;
+}
+
+.merge-search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.merge-search-input:focus {
+  outline: none;
+  border-color: #4B2C6C;
+}
+
+.historical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.historical-card {
+  border: 2px solid #E0E0E0;
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.historical-card:hover {
+  border-color: #4B2C6C;
+  box-shadow: 0 2px 8px rgba(75, 44, 108, 0.15);
+}
+
+.historical-card.selected {
+  border-color: #4B2C6C;
+  background: linear-gradient(135deg, #F8F5FC 0%, #EDE7F6 100%);
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.2);
+}
+
+.historical-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.historical-card-header h3 {
+  color: #4B2C6C;
+  margin: 0;
+  font-size: 16px;
+}
+
+.selected-badge {
+  background: #4B2C6C;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.historical-card-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.historical-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.historical-stat .stat-label {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.historical-stat .stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.historical-stat .stat-value.revenue {
+  color: #2D7F6F;
+}
+
+.merge-loading,
+.merge-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.merge-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #E0E0E0;
+  background: #FAFAFA;
+}
+
+.merge-btn-primary {
+  flex: 1;
+  padding: 14px 24px;
+  background: #4B2C6C;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.merge-btn-primary:hover:not(:disabled) {
+  background: #6A4C8C;
+}
+
+.merge-btn-primary:disabled {
+  background: #CCC;
+  cursor: not-allowed;
+}
+
+.merge-btn-secondary {
+  padding: 14px 24px;
+  background: white;
+  color: #666;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.merge-btn-secondary:hover {
+  border-color: #999;
+  color: #333;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .historical-card-stats {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .merge-modal-footer {
+    flex-direction: column-reverse;
+  }
+}
+
