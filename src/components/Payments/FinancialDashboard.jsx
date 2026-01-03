@@ -218,6 +218,16 @@ export default function FinancialDashboard() {
     doc.save(`ojo-finances-${selectedYear === 'all' ? 'all-time' : selectedYear}-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
+  // Format currency - compact for large numbers
+  const formatCurrency = (value) => {
+    if (value >= 100000) {
+      return `$${(value / 1000).toFixed(1)}K`
+    } else if (value >= 10000) {
+      return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+    }
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
   if (loading) {
     return (
       <div className="financial-dashboard">
@@ -273,7 +283,9 @@ export default function FinancialDashboard() {
           <div className="fin-stat-icon">💵</div>
           <div className="fin-stat-content">
             <div className="fin-stat-label">Total Revenue</div>
-            <div className="fin-stat-value">${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="fin-stat-value" title={`$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(stats.totalRevenue)}
+            </div>
           </div>
         </div>
 
@@ -283,7 +295,9 @@ export default function FinancialDashboard() {
             <div className="fin-stat-label">
               {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </div>
-            <div className="fin-stat-value">${stats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="fin-stat-value" title={`$${stats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(stats.monthlyRevenue)}
+            </div>
           </div>
         </div>
 
@@ -307,7 +321,9 @@ export default function FinancialDashboard() {
           <div className="fin-stat-icon">📊</div>
           <div className="fin-stat-content">
             <div className="fin-stat-label">Avg Revenue/Student</div>
-            <div className="fin-stat-value">${stats.avgRevenuePerStudent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="fin-stat-value" title={`$${stats.avgRevenuePerStudent.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(stats.avgRevenuePerStudent)}
+            </div>
           </div>
         </div>
       </div>

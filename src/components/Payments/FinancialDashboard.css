@@ -147,12 +147,15 @@
 }
 
 .fin-stat-value {
-  font-size: 28px;
+  font-size: clamp(18px, 4vw, 28px);
   font-weight: 700;
   color: #4B2C6C;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.fin-stat-value.large-number {
+  font-size: clamp(16px, 3vw, 24px);
 }
 
 /* Card color accents */
