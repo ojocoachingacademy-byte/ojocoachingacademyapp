@@ -15,6 +15,7 @@ import StudentDetailPage from './components/Coach/StudentDetailPage'
 import CalendarView from './components/Coach/CalendarView'
 import StudentSettings from './components/Settings/StudentSettings'
 import StudentLessonsPage from './components/Dashboard/StudentLessonsPage'
+import FinancialDashboard from './components/Payments/FinancialDashboard'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 
@@ -96,6 +97,10 @@ function App() {
         <Route 
           path="/coach/students/:id" 
           element={session && isCoach ? <StudentDetailPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/coach/finances" 
+          element={session && isCoach ? <FinancialDashboard /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/hitting-partners" 

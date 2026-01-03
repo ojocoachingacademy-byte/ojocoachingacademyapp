@@ -2,23 +2,51 @@ import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import './AddPackageModal.css'
 
+// Pricing structures
+const existingStudentPackages = [
+  { lessons: 1, price: 70 },
+  { lessons: 5, price: 325 },
+  { lessons: 10, price: 600 },
+  { lessons: 20, price: 1000 }
+]
+
+const newStudentPackages = [
+  { lessons: 1, price: 100 },
+  { lessons: 5, price: 450 },
+  { lessons: 20, price: 1400 }
+]
+
 export default function AddPackageModal({ student, onClose, onSuccess }) {
+  const [studentType, setStudentType] = useState('existing')
   const [packageSize, setPackageSize] = useState(5)
-  const [amount, setAmount] = useState(350)
+  const [amount, setAmount] = useState(325)
+  const [useCustomPricing, setUseCustomPricing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('Venmo')
   const [notes, setNotes] = useState('')
   const [processing, setProcessing] = useState(false)
 
-  const packageOptions = [
-    { lessons: 5, defaultPrice: 350, pricePerLesson: 70 },
-    { lessons: 10, defaultPrice: 650, pricePerLesson: 65 },
-    { lessons: 20, defaultPrice: 1200, pricePerLesson: 60 }
-  ]
+  const packageOptions = studentType === 'existing' ? existingStudentPackages : newStudentPackages
+
+  const handleStudentTypeChange = (type) => {
+    setStudentType(type)
+    const packages = type === 'existing' ? existingStudentPackages : newStudentPackages
+    // Find the current package size in new pricing, or default to first option
+    let pkg = packages.find(p => p.lessons === packageSize)
+    if (!pkg) {
+      pkg = packages[0]
+      setPackageSize(pkg.lessons)
+    }
+    if (!useCustomPricing) {
+      setAmount(pkg.price)
+    }
+  }
 
   const handlePackageChange = (lessons) => {
     setPackageSize(lessons)
-    const pkg = packageOptions.find(p => p.lessons === lessons)
-    setAmount(pkg.defaultPrice)
+    if (!useCustomPricing) {
+      const pkg = packageOptions.find(p => p.lessons === lessons)
+      if (pkg) setAmount(pkg.price)
+    }
   }
 
   const handleAddPackage = async () => {
@@ -49,7 +77,7 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
             amount: parseFloat(amount),
             lesson_credits: packageSize,
             payment_method: paymentMethod,
-            notes: notes || `${packageSize}-lesson package purchased`
+            notes: notes || `${packageSize}-lesson package (${studentType} student rate)`
           })
       } catch (txError) {
         console.log('Transaction logging skipped (table may not exist):', txError)
@@ -83,6 +111,28 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
             <p className="current-credits">Current Credits: <strong>{currentCredits}</strong></p>
           </div>
 
+          {/* Student Type Toggle */}
+          <div className="package-form-group">
+            <label>Student Type</label>
+            <div className="student-type-toggle">
+              <button
+                type="button"
+                onClick={() => handleStudentTypeChange('existing')}
+                className={`toggle-btn ${studentType === 'existing' ? 'active' : ''}`}
+              >
+                Existing Student
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStudentTypeChange('new')}
+                className={`toggle-btn ${studentType === 'new' ? 'active' : ''}`}
+              >
+                New Student
+              </button>
+            </div>
+          </div>
+
+          {/* Package Selection */}
           <div className="package-form-group">
             <label>Select Package</label>
             <div className="package-buttons">
@@ -93,14 +143,27 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
                   onClick={() => handlePackageChange(pkg.lessons)}
                   className={`package-option-btn ${packageSize === pkg.lessons ? 'selected' : ''}`}
                 >
-                  <div className="package-lessons">{pkg.lessons} Lessons</div>
-                  <div className="package-price">${pkg.defaultPrice}</div>
-                  <div className="package-per-lesson">${pkg.pricePerLesson}/lesson</div>
+                  <div className="package-lessons">{pkg.lessons} {pkg.lessons === 1 ? 'Lesson' : 'Lessons'}</div>
+                  <div className="package-price">${pkg.price}</div>
+                  <div className="package-per-lesson">${(pkg.price / pkg.lessons).toFixed(2)}/lesson</div>
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Custom Pricing Toggle */}
+          <div className="package-form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={useCustomPricing}
+                onChange={(e) => setUseCustomPricing(e.target.checked)}
+              />
+              <span>Use Custom Pricing (gift cards, special deals, etc.)</span>
+            </label>
+          </div>
+
+          {/* Amount */}
           <div className="package-form-group">
             <label>Amount Paid</label>
             <div className="amount-input-wrapper">
@@ -112,14 +175,22 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
                 placeholder="Amount"
                 step="0.01"
                 min="0"
-                className="package-input-amount"
+                className={`package-input-amount ${!useCustomPricing ? 'disabled' : ''}`}
+                disabled={!useCustomPricing}
               />
             </div>
-            <p className="package-price-note">
-              ${(amount / packageSize).toFixed(2)} per lesson
-            </p>
+            {!useCustomPricing ? (
+              <p className="package-price-note">
+                Using {studentType === 'existing' ? 'existing' : 'new'} student pricing
+              </p>
+            ) : (
+              <p className="package-price-note custom">
+                ${(amount / packageSize).toFixed(2)} per lesson (custom)
+              </p>
+            )}
           </div>
 
+          {/* Payment Method */}
           <div className="package-form-group">
             <label>Payment Method</label>
             <select 
@@ -132,10 +203,12 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
               <option value="Cash">Cash</option>
               <option value="Check">Check</option>
               <option value="Card">Credit/Debit Card</option>
+              <option value="Gift Card">Gift Card</option>
               <option value="Other">Other</option>
             </select>
           </div>
 
+          {/* Notes */}
           <div className="package-form-group">
             <label>Notes (optional)</label>
             <textarea
@@ -147,15 +220,24 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
             />
           </div>
 
+          {/* Summary */}
           <div className="package-summary-box">
             <h4>✓ Summary</h4>
             <div className="summary-row">
+              <span>Student Type:</span>
+              <span>{studentType === 'existing' ? 'Existing' : 'New'}</span>
+            </div>
+            <div className="summary-row">
               <span>Package:</span>
-              <span>{packageSize} lessons</span>
+              <span>{packageSize} {packageSize === 1 ? 'lesson' : 'lessons'}</span>
             </div>
             <div className="summary-row">
               <span>Amount:</span>
-              <span>${parseFloat(amount).toFixed(2)}</span>
+              <span>${parseFloat(amount).toFixed(2)}{useCustomPricing ? ' (custom)' : ''}</span>
+            </div>
+            <div className="summary-row">
+              <span>Per Lesson:</span>
+              <span>${(amount / packageSize).toFixed(2)}</span>
             </div>
             <div className="summary-row">
               <span>Payment:</span>
@@ -185,4 +267,3 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
     </div>
   )
 }
-
