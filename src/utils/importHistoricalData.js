@@ -63,16 +63,15 @@ export async function importHistoricalData(onProgress) {
         continue
       }
       
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Create auth user using admin API (bypasses email confirmation)
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email,
         password: password,
-        options: {
-          data: {
-            full_name: student.name,
-            role: 'student',
-            account_type: 'student'
-          }
+        email_confirm: true,
+        user_metadata: {
+          full_name: student.name,
+          role: 'student',
+          account_type: 'student'
         }
       })
 
