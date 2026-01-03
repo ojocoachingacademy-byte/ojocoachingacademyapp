@@ -9,13 +9,8 @@ function generateEmail(name) {
   return `${cleaned}@historical.student`
 }
 
-// Generate a UUID v4
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
+function generatePassword() {
+  return `Hist${Math.random().toString(36).slice(2, 10)}!${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 }
 
 export async function importHistoricalData(onProgress) {
@@ -51,9 +46,9 @@ export async function importHistoricalData(onProgress) {
       
       console.log(`[${i + 1}/${allStudents.length}] Importing ${student.name}...`)
       
-      // Generate email and UUID
+      // Generate email and password
       const email = generateEmail(student.name)
-      const newUserId = generateUUID()
+      const password = generatePassword()
       
       // Check if student already exists by email
       const { data: existingProfile } = await supabase
@@ -68,31 +63,84 @@ export async function importHistoricalData(onProgress) {
         continue
       }
       
-      // Determine if current student (has active credits)
-      const isCurrent = studentsData.current_students.find(s => s.name === student.name)
-      
-      // Insert profile directly (bypassing auth)
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: {
+            full_name: student.name,
+            role: 'student',
+            account_type: 'student'
+          }
+        }
+      })
+
+      // Check if signup succeeded
+      if (authError) {
+        console.error(`Auth error for ${student.name}:`, authError.message)
+        throw new Error(`Auth signup failed: ${authError.message}`)
+      }
+
+      if (!authData.user) {
+        console.error(`No user created for ${student.name}`)
+        throw new Error('No user object returned from signup')
+      }
+
+      const userId = authData.user.id
+      console.log(`✓ Created auth user for ${student.name} with ID: ${userId}`)
+
+      // Wait for auth trigger to create profile
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Check if profile was created by trigger
+      const { data: createdProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .single()
+
+      if (!createdProfile) {
+        console.log(`Profile not auto-created, creating manually for ${student.name}`)
+        
+        // Create profile manually
+        const { error: profileInsertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email,
+            full_name: student.name,
+            account_type: 'student'
+          })
+        
+        if (profileInsertError) {
+          throw new Error(`Profile insert failed: ${profileInsertError.message}`)
+        }
+      } else {
+        console.log(`Profile exists for ${student.name}, updating...`)
+      }
+
+      // Update profile with correct data
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
-          id: newUserId,
-          email: email,
+        .update({
           full_name: student.name,
-          account_type: 'student',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          account_type: 'student'
         })
-      
+        .eq('id', userId)
+
       if (profileError) {
-        console.error(`Profile error for ${student.name}:`, profileError)
-        throw new Error(`Profile: ${profileError.message}`)
+        throw new Error(`Profile update failed: ${profileError.message}`)
       }
+      
+      // Determine if current student (has active credits)
+      const isCurrent = studentsData.current_students.find(s => s.name === student.name)
       
       // Create student record
       const { error: studentError } = await supabase
         .from('students')
         .insert({
-          id: newUserId,
+          id: userId,
           lesson_credits: student.current_credits || 0,
           total_revenue: student.revenue || 0,
           total_lessons_purchased: student.total_lessons_purchased || 0,
@@ -104,8 +152,6 @@ export async function importHistoricalData(onProgress) {
       
       if (studentError) {
         console.error(`Student error for ${student.name}:`, studentError)
-        // Try to clean up the profile we just created
-        await supabase.from('profiles').delete().eq('id', newUserId)
         throw new Error(`Student: ${studentError.message}`)
       }
       
@@ -116,7 +162,7 @@ export async function importHistoricalData(onProgress) {
             const { error: txError } = await supabase
               .from('payment_transactions')
               .insert({
-                student_id: newUserId,
+                student_id: userId,
                 payment_date: pkg.date,
                 amount: pkg.amount || 0,
                 lesson_credits: pkg.size || 0,
@@ -134,7 +180,7 @@ export async function importHistoricalData(onProgress) {
         const { error: txError } = await supabase
           .from('payment_transactions')
           .insert({
-            student_id: newUserId,
+            student_id: userId,
             payment_date: '2024-01-01',
             amount: student.revenue,
             lesson_credits: student.total_lessons_purchased,
@@ -148,10 +194,10 @@ export async function importHistoricalData(onProgress) {
       }
       
       successCount++
-      console.log(`✓ ${student.name}`)
+      console.log(`✓ ${student.name} - COMPLETE`)
       
-      // Small delay to avoid overwhelming the database
-      await new Promise(resolve => setTimeout(resolve, 50))
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100))
       
     } catch (error) {
       errorCount++
