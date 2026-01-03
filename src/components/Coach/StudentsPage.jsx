@@ -166,6 +166,11 @@ export default function StudentsPage() {
               className="student-card"
               onClick={() => navigate(`/coach/students/${student.id}`)}
             >
+              {student.private_coach_notes && (
+                <div className="notes-indicator" title="Has private notes">
+                  🔒 Notes
+                </div>
+              )}
               <div className="student-avatar">
                 {getInitials(student.profiles?.full_name || 'Unknown')}
               </div>

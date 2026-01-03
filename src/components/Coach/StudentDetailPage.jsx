@@ -19,6 +19,8 @@ export default function StudentDetailPage() {
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [selectedLesson, setSelectedLesson] = useState(null)
+  const [privateNotes, setPrivateNotes] = useState('')
+  const [editingNotes, setEditingNotes] = useState(false)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -72,6 +74,7 @@ export default function StudentDetailPage() {
       }
       
       setStudent(data)
+      setPrivateNotes(data.private_coach_notes || '')
       
       // Populate profile form data - split full_name into first_name and last_name
       if (data?.profiles) {
@@ -110,6 +113,25 @@ export default function StudentDetailPage() {
       setLessons(data || [])
     } catch (error) {
       console.error('Error fetching lessons:', error)
+    }
+  }
+
+  const savePrivateNotes = async () => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ private_coach_notes: privateNotes })
+        .eq('id', id)
+
+      if (error) throw error
+      
+      setEditingNotes(false)
+      // Update the local student state
+      setStudent(prev => ({ ...prev, private_coach_notes: privateNotes }))
+      
+    } catch (error) {
+      console.error('Error saving notes:', error)
+      alert('Error saving notes: ' + error.message)
     }
   }
 
@@ -397,6 +419,60 @@ export default function StudentDetailPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Private Coach Notes */}
+      <div className="private-notes-section">
+        <div className="notes-section-header">
+          <h2>🔒 Private Coach Notes</h2>
+          <p className="notes-subtitle">Only visible to you - students cannot see this</p>
+        </div>
+        
+        {editingNotes ? (
+          <div className="notes-editor">
+            <textarea
+              value={privateNotes}
+              onChange={(e) => setPrivateNotes(e.target.value)}
+              placeholder="Track anything important about this student:
+- Playing style & tendencies
+- Injuries or physical limitations
+- Mental game notes
+- What motivates them
+- Equipment details
+- Schedule preferences
+- Personality quirks
+- Things that work/don't work
+- Family/work context
+- Long-term goals"
+              rows={12}
+              className="notes-textarea"
+            />
+            <div className="notes-actions">
+              <button onClick={savePrivateNotes} className="btn btn-primary">
+                Save Notes
+              </button>
+              <button onClick={() => setEditingNotes(false)} className="btn btn-outline">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="notes-display">
+            {privateNotes ? (
+              <div className="notes-content">
+                <pre>{privateNotes}</pre>
+              </div>
+            ) : (
+              <div className="notes-empty">
+                <p>No private notes yet</p>
+                <p className="empty-hint">Click "Add Notes" to start tracking important details</p>
+              </div>
+            )}
+            <button onClick={() => setEditingNotes(true)} className="btn-edit-notes">
+              {privateNotes ? '✏️ Edit Notes' : '➕ Add Notes'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

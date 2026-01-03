@@ -11,6 +11,8 @@ export default function StudentLessonsPage() {
   const [lessons, setLessons] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedLesson, setSelectedLesson] = useState(null)
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false)
+  const [showAllPast, setShowAllPast] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -120,51 +122,8 @@ export default function StudentLessonsPage() {
         {upcomingLessons.length === 0 ? (
           <div className="empty-state">No upcoming lessons scheduled.</div>
         ) : (
-          upcomingLessons.map((lesson, index) => (
-            <div 
-              key={lesson.id} 
-              className={`lesson-card stagger-item`} 
-              style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
-              onClick={() => setSelectedLesson(lesson)}
-            >
-              <div className="lesson-header">
-                <div>
-                  <div className="lesson-date">
-                    {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                  <div className="lesson-time">
-                    {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  <div className="lesson-location">
-                    <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                    {lesson.location}
-                  </div>
-                </div>
-                <span className="status-dot status-scheduled"></span>
-              </div>
-              {lesson.lesson_plan && (
-                <div className="lesson-plan-box">
-                  <strong>Lesson Plan:</strong>
-                  <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Past Lessons */}
-      <div className="section">
-        <h2 className="section-title">
-          <BookOpen size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-          Past Lessons ({pastLessons.length})
-        </h2>
-        {pastLessons.length === 0 ? (
-          <div className="empty-state">No past lessons yet.</div>
-        ) : (
-          pastLessons.map((lesson, index) => {
-            const actualStatus = getActualStatus(lesson)
-            return (
+          <>
+            {(showAllUpcoming ? upcomingLessons : upcomingLessons.slice(0, 3)).map((lesson, index) => (
               <div 
                 key={lesson.id} 
                 className={`lesson-card stagger-item`} 
@@ -184,37 +143,100 @@ export default function StudentLessonsPage() {
                       {lesson.location}
                     </div>
                   </div>
-                  <span className={`status-dot status-${actualStatus}`}></span>
+                  <span className="status-dot status-scheduled"></span>
                 </div>
-
                 {lesson.lesson_plan && (
                   <div className="lesson-plan-box">
                     <strong>Lesson Plan:</strong>
                     <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
                   </div>
                 )}
-
-                {lesson.student_learnings && (
-                  <div className="learnings-box">
-                    <strong>My Learnings:</strong>
-                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
-                    {!lesson.coach_feedback && (
-                      <div className="status-badge status-waiting">
-                        ✅ Waiting for coach feedback
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {lesson.coach_feedback && (
-                  <div className="feedback-box">
-                    <strong>Coach Feedback:</strong>
-                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
-                  </div>
-                )}
               </div>
-            )
-          })
+            ))}
+            {upcomingLessons.length > 3 && (
+              <button 
+                className="show-more-btn"
+                onClick={() => setShowAllUpcoming(!showAllUpcoming)}
+              >
+                {showAllUpcoming ? '▲ Show Less' : `▼ Show ${upcomingLessons.length - 3} More`}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Past Lessons */}
+      <div className="section">
+        <h2 className="section-title">
+          <BookOpen size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+          Past Lessons ({pastLessons.length})
+        </h2>
+        {pastLessons.length === 0 ? (
+          <div className="empty-state">No past lessons yet.</div>
+        ) : (
+          <>
+            {(showAllPast ? pastLessons : pastLessons.slice(0, 1)).map((lesson, index) => {
+              const actualStatus = getActualStatus(lesson)
+              return (
+                <div 
+                  key={lesson.id} 
+                  className={`lesson-card stagger-item`} 
+                  style={{ animationDelay: `${index * 0.05}s`, cursor: 'pointer' }}
+                  onClick={() => setSelectedLesson(lesson)}
+                >
+                  <div className="lesson-header">
+                    <div>
+                      <div className="lesson-date">
+                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                      <div className="lesson-time">
+                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="lesson-location">
+                        <Calendar size={16} style={{ display: 'inline', marginRight: '8px' }} />
+                        {lesson.location}
+                      </div>
+                    </div>
+                    <span className={`status-dot status-${actualStatus}`}></span>
+                  </div>
+
+                  {lesson.lesson_plan && (
+                    <div className="lesson-plan-box">
+                      <strong>Lesson Plan:</strong>
+                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                    </div>
+                  )}
+
+                  {lesson.student_learnings && (
+                    <div className="learnings-box">
+                      <strong>My Learnings:</strong>
+                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.student_learnings}</p>
+                      {!lesson.coach_feedback && (
+                        <div className="status-badge status-waiting">
+                          ✅ Waiting for coach feedback
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {lesson.coach_feedback && (
+                    <div className="feedback-box">
+                      <strong>Coach Feedback:</strong>
+                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {pastLessons.length > 1 && (
+              <button 
+                className="show-more-btn"
+                onClick={() => setShowAllPast(!showAllPast)}
+              >
+                {showAllPast ? '▲ Show Less' : `▼ Show ${pastLessons.length - 1} More Past Lessons`}
+              </button>
+            )}
+          </>
         )}
       </div>
 
