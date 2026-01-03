@@ -752,8 +752,8 @@ Keep it concise and actionable.`
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div className="lesson-header">
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0' }}>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
+                <div className="lesson-info">
+                  <h3 style={{ margin: '0 0 8px 0', color: 'var(--color-dark)' }}>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
                   <div className="lesson-date">
                     {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </div>
@@ -766,15 +766,15 @@ Keep it concise and actionable.`
                     {lesson.location}
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <span className={`status-dot status-${lesson.status}`} style={{ textTransform: 'capitalize' }}>
+                <div className="lesson-card-actions">
+                  <div className="lesson-status-badges">
+                    <span className={`status-dot status-${lesson.status}`}>
                       {lesson.status}
                     </span>
                     {lesson.lesson_plan ? (
                       <span className="status-dot status-completed">✓ Plan Ready</span>
                     ) : (
-                      <span className="status-dot status-needed">⚠️ Plan Needed</span>
+                      <span className="status-dot status-needed">Plan Needed</span>
                     )}
                   </div>
                   <LessonActions 

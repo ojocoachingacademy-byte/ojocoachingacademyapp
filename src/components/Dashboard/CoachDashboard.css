@@ -1,63 +1,134 @@
-/* Add lesson actions styles at the end of the file */
-.lesson-actions {
+/* Lesson Card Layout */
+.lesson-card {
+  background: white;
+  border-radius: var(--radius-md, 12px);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lesson-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.lesson-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.lesson-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-card-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Status badges row */
+.lesson-status-badges {
   display: flex;
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+/* Lesson Actions - dropdown and buttons */
+.lesson-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .status-dropdown {
-  padding: 6px 12px;
-  border: 1px solid #4B2C6C;
-  border-radius: 4px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-primary, #4B2C6C);
+  border-radius: 6px;
   background: white;
-  color: #4B2C6C;
+  color: var(--color-primary, #4B2C6C);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s;
+  min-width: 110px;
 }
 
 .status-dropdown:hover {
-  background-color: #f5f5f5;
+  background-color: #f8f4fc;
   border-color: #6A4C8C;
 }
 
 .status-dropdown:focus {
   outline: none;
-  border-color: #4B2C6C;
+  border-color: var(--color-primary, #4B2C6C);
   box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.15);
 }
 
-/* Lesson Actions Styles */
-.lesson-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 8px;
+/* Small button style for lesson actions */
+.btn-sm {
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  white-space: nowrap;
 }
 
-.status-dropdown {
+/* Badge styles in lesson cards */
+.lesson-card .badge {
   padding: 6px 12px;
-  border: 1px solid #4B2C6C;
-  border-radius: 4px;
-  background: white;
-  color: #4B2C6C;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.status-dropdown:hover {
-  background-color: #f5f5f5;
-  border-color: #6A4C8C;
+.lesson-card .badge-success {
+  background-color: rgba(45, 127, 111, 0.15);
+  color: var(--color-secondary, #2D7F6F);
 }
 
-.status-dropdown:focus {
-  outline: none;
-  border-color: #4B2C6C;
-  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.15);
+/* Status dots in lesson cards */
+.lesson-card .status-dot {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-needed {
+  background-color: rgba(244, 196, 48, 0.2);
+  color: #B8860B;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .lesson-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .lesson-header > div:last-child {
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .lesson-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .status-dropdown {
+    flex: 1;
+    max-width: 150px;
+  }
 }
