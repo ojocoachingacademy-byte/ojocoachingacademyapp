@@ -1,6 +1,9 @@
 import { supabase } from '../supabaseClient'
 import studentsData from '../data/historicalStudents.json'
 
+// Helper delay function to avoid rate limits
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 function generateEmail(name) {
   const cleaned = name.toLowerCase()
     .replace(/[^a-z0-9\s&]/g, '')
@@ -40,11 +43,12 @@ export async function importHistoricalData(onProgress) {
           total: allStudents.length,
           studentName: student.name,
           successCount,
-          errorCount
+          errorCount,
+          skippedCount
         })
       }
       
-      console.log(`[${i + 1}/${allStudents.length}] Importing ${student.name}...`)
+      console.log(`[${i + 1}/${allStudents.length}] Checking ${student.name}...`)
       
       // Generate email and password
       const email = generateEmail(student.name)
@@ -60,8 +64,10 @@ export async function importHistoricalData(onProgress) {
       if (existingProfile) {
         console.log(`⏭ ${student.name} already exists, skipping...`)
         skippedCount++
-        continue
+        continue  // No delay needed for skips
       }
+      
+      console.log(`[${i + 1}/${allStudents.length}] Importing ${student.name}...`)
       
       // Create auth user (email confirmation is disabled in Supabase settings)
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -91,7 +97,7 @@ export async function importHistoricalData(onProgress) {
       console.log(`✓ Created auth user for ${student.name} with ID: ${userId}`)
 
       // Wait for auth trigger to create profile
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await delay(1000)
 
       // Check if profile was created by trigger
       const { data: createdProfile } = await supabase
@@ -196,13 +202,22 @@ export async function importHistoricalData(onProgress) {
       successCount++
       console.log(`✓ ${student.name} - COMPLETE`)
       
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Add 3-second delay to avoid rate limits (only if more students to process)
+      if (i < allStudents.length - 1) {
+        console.log(`⏳ Waiting 3 seconds to avoid rate limit...`)
+        await delay(3000)
+      }
       
     } catch (error) {
       errorCount++
       errors.push({ student: student.name, error: error.message })
       console.error(`✗ ${student.name}:`, error.message)
+      
+      // Still delay on error to avoid rate limits
+      if (i < allStudents.length - 1) {
+        console.log(`⏳ Waiting 3 seconds after error...`)
+        await delay(3000)
+      }
     }
   }
   
@@ -234,13 +249,19 @@ export async function checkImportStatus() {
       .select('*', { count: 'exact', head: true })
       .ilike('email', '%@ojo-historical.com')
     
+    const totalStudents = studentsData.current_students.length + studentsData.historical_students.length
+    const remaining = totalStudents - (count || 0)
+    
     return {
       imported: count > 0,
-      count: count || 0
+      count: count || 0,
+      total: totalStudents,
+      remaining: remaining,
+      complete: remaining === 0
     }
   } catch (error) {
     console.error('Error checking import status:', error)
-    return { imported: false, count: 0 }
+    return { imported: false, count: 0, total: 0, remaining: 0, complete: false }
   }
 }
 

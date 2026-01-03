@@ -605,8 +605,8 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
       {/* Quick Actions */}
       <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        {/* Import Historical Data Button - Only show if not imported yet */}
-        {!importStatus.imported ? (
+        {/* Import Historical Data Button - Show if import not complete */}
+        {!importStatus.complete ? (
           <div className="import-section">
             <button 
               onClick={handleImportHistoricalData} 
@@ -628,8 +628,14 @@ Do NOT use markdown formatting - just plain text with line breaks.`
               }}
             >
               <Upload size={18} />
-              {importing ? '⏳ Importing...' : '📥 Import Historical Data'}
+              {importing ? '⏳ Importing...' : `📥 Import Remaining (${importStatus.remaining || '?'} left)`}
             </button>
+            
+            {importStatus.count > 0 && !importing && (
+              <div style={{ marginTop: '8px', color: '#666', fontSize: '13px' }}>
+                Already imported: {importStatus.count}/{importStatus.total}
+              </div>
+            )}
             
             {importProgress && (
               <div style={{ 
@@ -644,7 +650,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 </div>
                 <div style={{ color: '#666', fontSize: '14px' }}>
                   Progress: {importProgress.current}/{importProgress.total} 
-                  ({Math.round((importProgress.current / importProgress.total) * 100)}%)
+                  {importProgress.skippedCount > 0 && ` (${importProgress.skippedCount} skipped)`}
                 </div>
                 <div style={{
                   marginTop: '8px',
@@ -672,7 +678,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             color: '#2E7D32',
             fontSize: '14px'
           }}>
-            ✓ {importStatus.count} historical students imported
+            ✓ All {importStatus.count} historical students imported
           </div>
         )}
 
