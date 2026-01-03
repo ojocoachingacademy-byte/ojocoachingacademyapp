@@ -1,40 +1,66 @@
-/* Lesson Card Layout */
+/* =============================================
+   COACH DASHBOARD - LESSON CARD STYLES
+   ============================================= */
+
+/* Lesson Card Container */
 .lesson-card {
   background: white;
-  border-radius: var(--radius-md, 12px);
+  border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .lesson-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   transform: translateY(-2px);
 }
 
+/* Lesson Header - Flexbox Layout */
 .lesson-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 20px;
 }
 
+/* Left side - Lesson Info */
 .lesson-info {
   flex: 1;
   min-width: 0;
 }
 
+.lesson-info h3 {
+  font-size: 18px;
+  color: #4B2C6C;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.lesson-date,
+.lesson-time,
+.lesson-location {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Right side - Actions Container */
 .lesson-card-actions {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
   flex-shrink: 0;
+  min-width: 200px;
 }
 
-/* Status badges row */
+/* Status Badges Row */
 .lesson-status-badges {
   display: flex;
   gap: 8px;
@@ -43,25 +69,28 @@
   justify-content: flex-end;
 }
 
-/* Lesson Actions - dropdown and buttons */
+/* Action Buttons Row */
 .lesson-actions {
   display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: nowrap;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  width: 100%;
 }
 
+/* Status Dropdown */
 .status-dropdown {
-  padding: 8px 14px;
-  border: 1px solid var(--color-primary, #4B2C6C);
+  padding: 8px 16px;
+  border: 2px solid #4B2C6C;
   border-radius: 6px;
   background: white;
-  color: var(--color-primary, #4B2C6C);
+  color: #4B2C6C;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
-  min-width: 110px;
+  min-width: 140px;
+  text-align: center;
 }
 
 .status-dropdown:hover {
@@ -71,38 +100,81 @@
 
 .status-dropdown:focus {
   outline: none;
-  border-color: var(--color-primary, #4B2C6C);
+  border-color: #4B2C6C;
   box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.15);
 }
 
-/* Small button style for lesson actions */
+/* Lesson Action Buttons */
+.lesson-actions .btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  min-width: 140px;
+  text-align: center;
+}
+
+.lesson-actions .btn-primary {
+  background: #4B2C6C;
+  color: white;
+}
+
+.lesson-actions .btn-primary:hover {
+  background: #6A4C8C;
+}
+
 .btn-sm {
   padding: 8px 14px !important;
   font-size: 13px !important;
-  white-space: nowrap;
 }
 
-/* Badge styles in lesson cards */
-.lesson-card .badge {
+/* Badge Styles */
+.badge {
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
   white-space: nowrap;
 }
 
-.lesson-card .badge-success {
-  background-color: rgba(45, 127, 111, 0.15);
-  color: var(--color-secondary, #2D7F6F);
+.badge-success {
+  background: #D4EDDA;
+  color: #155724;
 }
 
-/* Status dots in lesson cards */
-.lesson-card .status-dot {
+.badge-warning {
+  background: #FFF3CD;
+  color: #856404;
+}
+
+/* Status Dots */
+.status-dot {
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.status-scheduled {
+  background-color: rgba(244, 196, 48, 0.2);
+  color: #B8860B;
+}
+
+.status-completed {
+  background-color: rgba(45, 127, 111, 0.2);
+  color: #1B5E20;
+}
+
+.status-cancelled {
+  background-color: rgba(158, 158, 158, 0.2);
+  color: #666;
 }
 
 .status-needed {
@@ -110,25 +182,32 @@
   color: #B8860B;
 }
 
-/* Responsive adjustments */
+/* =============================================
+   RESPONSIVE - Mobile Layout
+   ============================================= */
 @media (max-width: 768px) {
   .lesson-header {
     flex-direction: column;
     gap: 16px;
   }
   
-  .lesson-header > div:last-child {
-    align-items: flex-start;
+  .lesson-card-actions {
     width: 100%;
+    align-items: stretch;
+    min-width: auto;
   }
   
-  .lesson-actions {
-    width: 100%;
+  .lesson-status-badges {
     justify-content: flex-start;
   }
   
+  .lesson-actions {
+    align-items: stretch;
+  }
+  
+  .lesson-actions .btn,
   .status-dropdown {
-    flex: 1;
-    max-width: 150px;
+    width: 100%;
+    min-width: auto;
   }
 }

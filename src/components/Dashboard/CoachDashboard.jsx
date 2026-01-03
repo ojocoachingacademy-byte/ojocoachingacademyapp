@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical } from 'lucide-react'
+import Anthropic from '@anthropic-ai/sdk'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
 import CalendarSync from '../Calendar/CalendarSync'
@@ -321,7 +322,7 @@ export default function CoachDashboard() {
         return `Date: ${date}\nCoach Feedback: ${feedback}\nStudent Learnings: ${learnings}`
       }).join('\n\n---\n\n') || 'No past lessons'
 
-      // Build prompt
+      // Build prompt for Claude
       const prompt = `You are an expert tennis coach. Generate a detailed 60-minute lesson plan.
 
 STUDENT INFO:
@@ -339,51 +340,31 @@ Tactical/Strategy (10 min): [Point play or pattern work]
 Cool Down (5 min): [Final activity]
 
 For each section include specific drills, key coaching points, and progressions.
-Keep it concise and actionable.`
+Keep it concise and actionable. Do NOT use markdown formatting - just plain text with line breaks.`
 
-      // Call Netlify function to generate lesson plan
-      const response = await fetch('/.netlify/functions/generate-lesson-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          studentName,
-          ntrpLevel,
-          goals,
-          pastLessons: last3Lessons
-        })
+      // Direct Anthropic API call
+      const anthropic = new Anthropic({
+        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
+        dangerouslyAllowBrowser: true // For local development - move to backend for production
       })
 
-      // Get response text first to handle empty responses
-      const responseText = await response.text()
-      console.log('API Response status:', response.status)
-      console.log('API Response text:', responseText)
-      
-      // Check if response is empty
-      if (!responseText) {
-        throw new Error('Empty response from server. Please check that the Netlify function is deployed and ANTHROPIC_API_KEY is set.')
-      }
-      
-      // Try to parse as JSON
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (parseError) {
-        console.error('Failed to parse response:', responseText)
-        throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`)
-      }
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate lesson plan')
-      }
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+
+      const generatedPlan = message.content[0].text
       
       // Strip markdown from generated plan
-      setLessonPlan(stripMarkdown(data.lessonPlan))
+      setLessonPlan(stripMarkdown(generatedPlan))
       setIsEditingPlan(false) // Show in display mode first
     } catch (error) {
       console.error('Error generating lesson plan:', error)
-      alert('Error generating lesson plan: ' + error.message + '\n\nMake sure the Netlify function is deployed and ANTHROPIC_API_KEY is configured.')
+      alert('Error generating lesson plan: ' + error.message + '\n\nMake sure VITE_ANTHROPIC_API_KEY is set in your .env file.')
     } finally {
       setGeneratingPlan(false)
     }
@@ -417,44 +398,41 @@ Keep it concise and actionable.`
 
     setRefiningPlan(true)
     try {
-      // Call Netlify function to refine lesson plan
-      const response = await fetch('/.netlify/functions/refine-lesson-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          currentPlan: lessonPlan,
-          feedback: refinementFeedback
-        })
+      // Direct Anthropic API call for refining lesson plan
+      const anthropic = new Anthropic({
+        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
+        dangerouslyAllowBrowser: true
       })
 
-      // Get response text first
-      const responseText = await response.text()
-      console.log('Refine API Response status:', response.status)
-      
-      if (!responseText) {
-        throw new Error('Empty response from server. Check that refine-lesson-plan function is deployed.')
-      }
-      
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (parseError) {
-        throw new Error(`Invalid response: ${responseText.substring(0, 100)}`)
-      }
+      const prompt = `You are an expert tennis coach. Refine this lesson plan based on the feedback provided.
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to refine lesson plan')
-      }
+CURRENT LESSON PLAN:
+${lessonPlan}
+
+COACH'S FEEDBACK/REQUESTED CHANGES:
+${refinementFeedback}
+
+Please provide an updated lesson plan that incorporates the feedback. Keep the same format but adjust content as requested.
+Do NOT use markdown formatting - just plain text with line breaks.`
+
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+
+      const refinedPlan = message.content[0].text
 
       // Strip markdown from refined plan
-      setLessonPlan(stripMarkdown(data.lessonPlan))
+      setLessonPlan(stripMarkdown(refinedPlan))
       setRefinementFeedback('')
       setIsEditingPlan(false) // Show in display mode
     } catch (error) {
       console.error('Error refining lesson plan:', error)
-      alert('Error refining lesson plan: ' + error.message + '\n\nCheck that the Netlify function is deployed.')
+      alert('Error refining lesson plan: ' + error.message + '\n\nMake sure VITE_ANTHROPIC_API_KEY is set in your .env file.')
     } finally {
       setRefiningPlan(false)
     }
