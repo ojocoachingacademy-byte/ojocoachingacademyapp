@@ -18,38 +18,17 @@ const getInitials = (name) => {
     .slice(0, 2)
 }
 
-// Lesson Actions Component - Using dropdown instead of menu to avoid overlap
-const LessonActions = ({ lesson, onUpdateStatus, onOpenPlanModal }) => {
-  return (
-    <div className="lesson-actions" onClick={(e) => e.stopPropagation()}>
-      <select 
-        value={lesson.status}
-        onChange={(e) => onUpdateStatus(lesson.id, e.target.value)}
-        className="status-dropdown"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <option value="scheduled">Scheduled</option>
-        <option value="completed">Completed</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-      
-      {!lesson.lesson_plan && (
-        <button 
-          className="btn btn-sm btn-primary"
-          onClick={(e) => {
-            e.stopPropagation()
-            onOpenPlanModal(lesson)
-          }}
-        >
-          Create Plan
-        </button>
-      )}
-      
-      {lesson.lesson_plan && (
-        <span className="badge badge-success">Plan Ready</span>
-      )}
-    </div>
-  )
+// Helper to format dates consistently
+const formatLessonDate = (dateStr) => {
+  return new Date(dateStr).toLocaleDateString('en-US', { 
+    weekday: 'long', month: 'long', day: 'numeric' 
+  })
+}
+
+const formatLessonTime = (dateStr) => {
+  return new Date(dateStr).toLocaleTimeString('en-US', { 
+    hour: '2-digit', minute: '2-digit' 
+  })
 }
 
 // Helper to get avatar color based on name
@@ -755,45 +734,54 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           upcomingLessons.map((lesson, index) => (
             <div 
               key={lesson.id} 
-              className={`lesson-card stagger-item ${lesson.lesson_plan ? 'has-plan' : ''}`}
+              className="lesson-card upcoming-lesson"
               onClick={() => handleLessonPlanClick(lesson)}
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div className="lesson-header">
                 <div className="lesson-info">
-                  <h3 style={{ margin: '0 0 8px 0', color: 'var(--color-dark)' }}>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
-                  <div className="lesson-date">
-                    {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                  <div className="lesson-time">
-                    <Clock size={16} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-                    {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  <div className="lesson-location">
-                    <Calendar size={16} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-                    {lesson.location}
+                  <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
+                  <div className="lesson-details">
+                    <div className="detail-row">
+                      <Calendar size={16} />
+                      {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </div>
+                    <div className="detail-row">
+                      <Clock size={16} />
+                      {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div className="detail-row">
+                      <Target size={16} />
+                      {lesson.location}
+                    </div>
                   </div>
                 </div>
-                <div className="lesson-card-actions">
-                  <div className="lesson-status-badges">
-                    <span className={`status-dot status-${lesson.status}`}>
-                      {lesson.status}
-                    </span>
-                    {lesson.lesson_plan ? (
-                      <span className="status-dot status-completed">✓ Plan Ready</span>
-                    ) : (
-                      <span className="status-dot status-needed">Plan Needed</span>
-                    )}
-                  </div>
-                  <LessonActions 
-                    lesson={lesson} 
-                    onUpdateStatus={handleUpdateLessonStatus}
-                    onOpenPlanModal={(lesson) => {
-                      setSelectedLesson(lesson)
-                      setLessonPlan('')
-                      setIsEditingPlan(false)
-                    }}
-                  />
+                <div className="lesson-actions" onClick={(e) => e.stopPropagation()}>
+                  <select 
+                    value={lesson.status}
+                    onChange={(e) => handleUpdateLessonStatus(lesson.id, e.target.value)}
+                    className="status-dropdown"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  {lesson.lesson_plan ? (
+                    <span className="badge badge-success">✓ Plan Ready</span>
+                  ) : (
+                    <button 
+                      className="btn-generate-plan"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedLesson(lesson)
+                        setLessonPlan('')
+                        setIsEditingPlan(false)
+                      }}
+                    >
+                      Generate with AI
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -809,45 +797,48 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             {completedLessons.map(lesson => (
               <div 
                 key={lesson.id} 
-                className="lesson-card"
+                className="lesson-card completed-lesson"
                 onClick={() => handleLessonClick(lesson)}
               >
                 <div className="lesson-header">
-                  <div>
-                    <h3 style={{ margin: '0 0 8px 0' }}>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
-                    <div className="lesson-date">
-                      {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </div>
-                    <div className="lesson-time">
-                      <Clock size={16} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-                      {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <div className="lesson-location">
-                      <Calendar size={16} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-                      {lesson.location}
+                  <div className="lesson-info">
+                    <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
+                    <div className="lesson-details">
+                      <div className="detail-row">
+                        <Calendar size={16} />
+                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      </div>
+                      <div className="detail-row">
+                        <Clock size={16} />
+                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="detail-row">
+                        <Target size={16} />
+                        {lesson.location}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                    <span className="status-dot status-completed">Completed</span>
-                    <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: '#666' }}>
+                  <div className="lesson-actions completed-actions">
+                    <span className="badge badge-completed">Completed</span>
+                    <div className="learnings-feedback-row">
                       {lesson.student_learnings ? (
-                        <span style={{ color: 'var(--color-success)' }}>✓ Learnings</span>
+                        <span className="feedback-given">✓ Learnings</span>
                       ) : (
-                        <span style={{ color: '#999' }}>No learnings</span>
+                        <span className="no-learnings">No learnings</span>
                       )}
                       {lesson.coach_feedback ? (
-                        <span style={{ color: 'var(--color-success)' }}>✓ Feedback</span>
+                        <span className="feedback-given">✓ Feedback</span>
                       ) : (
-                        <span 
-                          style={{ color: 'var(--color-warning)', cursor: 'pointer' }}
+                        <button 
+                          className="btn-add-feedback"
                           onClick={(e) => {
                             e.stopPropagation()
                             setSelectedFeedbackLesson(lesson)
                             setCoachFeedback('')
                           }}
                         >
-                          ⚠️ Add feedback
-                        </span>
+                          Add feedback
+                        </button>
                       )}
                     </div>
                   </div>
