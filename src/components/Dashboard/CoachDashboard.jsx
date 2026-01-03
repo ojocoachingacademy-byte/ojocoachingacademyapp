@@ -355,18 +355,35 @@ Keep it concise and actionable.`
         })
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to generate lesson plan')
+      // Get response text first to handle empty responses
+      const responseText = await response.text()
+      console.log('API Response status:', response.status)
+      console.log('API Response text:', responseText)
+      
+      // Check if response is empty
+      if (!responseText) {
+        throw new Error('Empty response from server. Please check that the Netlify function is deployed and ANTHROPIC_API_KEY is set.')
       }
-
-      const data = await response.json()
+      
+      // Try to parse as JSON
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('Failed to parse response:', responseText)
+        throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`)
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate lesson plan')
+      }
+      
       // Strip markdown from generated plan
       setLessonPlan(stripMarkdown(data.lessonPlan))
       setIsEditingPlan(false) // Show in display mode first
     } catch (error) {
       console.error('Error generating lesson plan:', error)
-      alert('Error generating lesson plan: ' + error.message)
+      alert('Error generating lesson plan: ' + error.message + '\n\nMake sure the Netlify function is deployed and ANTHROPIC_API_KEY is configured.')
     } finally {
       setGeneratingPlan(false)
     }
@@ -412,19 +429,32 @@ Keep it concise and actionable.`
         })
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to refine lesson plan' }))
-        throw new Error(errorData.error || 'Failed to refine lesson plan')
+      // Get response text first
+      const responseText = await response.text()
+      console.log('Refine API Response status:', response.status)
+      
+      if (!responseText) {
+        throw new Error('Empty response from server. Check that refine-lesson-plan function is deployed.')
+      }
+      
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        throw new Error(`Invalid response: ${responseText.substring(0, 100)}`)
       }
 
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to refine lesson plan')
+      }
+
       // Strip markdown from refined plan
       setLessonPlan(stripMarkdown(data.lessonPlan))
       setRefinementFeedback('')
       setIsEditingPlan(false) // Show in display mode
     } catch (error) {
       console.error('Error refining lesson plan:', error)
-      alert('Error refining lesson plan: ' + error.message)
+      alert('Error refining lesson plan: ' + error.message + '\n\nCheck that the Netlify function is deployed.')
     } finally {
       setRefiningPlan(false)
     }
