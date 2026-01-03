@@ -9,6 +9,15 @@ function generateEmail(name) {
   return `${cleaned}@historical.student`
 }
 
+// Generate a UUID v4
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 export async function importHistoricalData(onProgress) {
   console.log('🚀 Starting historical data import...')
   console.log(`📊 Current students: ${studentsData.current_students.length}`)
@@ -42,10 +51,11 @@ export async function importHistoricalData(onProgress) {
       
       console.log(`[${i + 1}/${allStudents.length}] Importing ${student.name}...`)
       
-      // Generate email
+      // Generate email and UUID
       const email = generateEmail(student.name)
+      const newUserId = generateUUID()
       
-      // Check if student already exists
+      // Check if student already exists by email
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
@@ -58,117 +68,90 @@ export async function importHistoricalData(onProgress) {
         continue
       }
       
-      // Generate temporary password
-      const password = `Temp${Math.random().toString(36).slice(2, 10)}!`
+      // Determine if current student (has active credits)
+      const isCurrent = studentsData.current_students.find(s => s.name === student.name)
       
-      // Create auth user (this creates the profile automatically via trigger)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: {
-          data: {
-            full_name: student.name,
-            role: 'student'
-          }
-        }
-      })
-      
-      if (authError) {
-        // If email already exists in auth, try to find the profile
-        if (authError.message.includes('already registered') || authError.message.includes('already been used')) {
-          console.log(`⏭ ${student.name} auth already exists, skipping...`)
-          skippedCount++
-          continue
-        }
-        throw authError
-      }
-      
-      if (!authData.user) {
-        throw new Error('No user returned from signup')
-      }
-      
-      const userId = authData.user.id
-      
-      // Wait a bit for profile trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 300))
-      
-      // Update profile with correct data
+      // Insert profile directly (bypassing auth)
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          id: userId,
+        .insert({
+          id: newUserId,
           email: email,
           full_name: student.name,
-          role: 'student'
+          account_type: 'individual',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
       
       if (profileError) {
-        console.warn(`Profile update warning for ${student.name}:`, profileError.message)
+        console.error(`Profile error for ${student.name}:`, profileError)
+        throw new Error(`Profile: ${profileError.message}`)
       }
-      
-      // Determine if current student
-      const isCurrent = studentsData.current_students.find(s => s.name === student.name)
       
       // Create student record
       const { error: studentError } = await supabase
         .from('students')
-        .upsert({
-          id: userId,
+        .insert({
+          id: newUserId,
           lesson_credits: student.current_credits || 0,
           total_revenue: student.revenue || 0,
           total_lessons_purchased: student.total_lessons_purchased || 0,
-          private_coach_notes: `Historical student - imported from lesson log on ${new Date().toLocaleDateString()}\nOriginal email: ${email}`,
-          historical_student_name: isCurrent ? student.name : null
+          private_coach_notes: isCurrent 
+            ? `Active student - imported ${new Date().toLocaleDateString()}`
+            : `Historical student - imported ${new Date().toLocaleDateString()}`,
+          created_at: new Date().toISOString()
         })
       
       if (studentError) {
-        console.warn(`Student record warning for ${student.name}:`, studentError.message)
+        console.error(`Student error for ${student.name}:`, studentError)
+        // Try to clean up the profile we just created
+        await supabase.from('profiles').delete().eq('id', newUserId)
+        throw new Error(`Student: ${studentError.message}`)
       }
       
       // Create payment transactions if student has packages (for current students)
       if (student.packages && student.packages.length > 0) {
         for (const pkg of student.packages) {
-          // Package purchase transaction
-          try {
-            if (pkg.amount > 0 || pkg.size > 0) {
-              await supabase
-                .from('payment_transactions')
-                .insert({
-                  student_id: userId,
-                  payment_date: pkg.date,
-                  amount: pkg.amount || 0,
-                  lesson_credits: pkg.size || 0,
-                  payment_method: 'Historical',
-                  notes: `Historical import - ${pkg.size} lesson package`
-                })
+          if (pkg.amount > 0 || pkg.size > 0) {
+            const { error: txError } = await supabase
+              .from('payment_transactions')
+              .insert({
+                student_id: newUserId,
+                payment_date: pkg.date,
+                amount: pkg.amount || 0,
+                lesson_credits: pkg.size || 0,
+                payment_method: 'Historical',
+                notes: `Historical import - ${pkg.size} lesson package`
+              })
+            
+            if (txError) {
+              console.warn(`Transaction warning for ${student.name}:`, txError.message)
             }
-          } catch (txErr) {
-            console.log(`Transaction table may not exist: ${txErr.message}`)
           }
         }
       } else if (student.revenue > 0) {
         // For historical students without package details, create one summary transaction
-        try {
-          await supabase
-            .from('payment_transactions')
-            .insert({
-              student_id: userId,
-              payment_date: '2024-01-01',
-              amount: student.revenue,
-              lesson_credits: student.total_lessons_purchased,
-              payment_method: 'Historical',
-              notes: 'Historical data - detailed dates not available from log'
-            })
-        } catch (txErr) {
-          console.log(`Summary transaction warning: ${txErr.message}`)
+        const { error: txError } = await supabase
+          .from('payment_transactions')
+          .insert({
+            student_id: newUserId,
+            payment_date: '2024-01-01',
+            amount: student.revenue,
+            lesson_credits: student.total_lessons_purchased,
+            payment_method: 'Historical',
+            notes: 'Historical data - detailed dates not available'
+          })
+        
+        if (txError) {
+          console.warn(`Transaction warning for ${student.name}:`, txError.message)
         }
       }
       
       successCount++
       console.log(`✓ ${student.name}`)
       
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Small delay to avoid overwhelming the database
+      await new Promise(resolve => setTimeout(resolve, 50))
       
     } catch (error) {
       errorCount++
@@ -243,4 +226,3 @@ export async function getImportSummary() {
     return null
   }
 }
-
