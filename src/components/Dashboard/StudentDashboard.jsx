@@ -243,13 +243,16 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Upcoming Lessons */}
-      <div className="section">
-        <h2 className="section-title">Upcoming Lessons</h2>
-        {upcomingLessons.length === 0 ? (
-          <div className="empty-state">No upcoming lessons scheduled.</div>
-        ) : (
-          upcomingLessons.map((lesson, index) => (
+      {/* Lessons Section */}
+      <div className="lessons-section">
+        <h2 className="section-title">My Lessons</h2>
+        <div className="lessons-grid">
+          <div className="lessons-column">
+            <h3>Upcoming Lessons</h3>
+            {upcomingLessons.length === 0 ? (
+              <p className="empty-state">No upcoming lessons scheduled.</p>
+            ) : (
+              upcomingLessons.map((lesson, index) => (
             <div 
               key={lesson.id} 
               className={`lesson-card stagger-item`} 
@@ -688,8 +691,12 @@ export default function StudentDashboard() {
               <button className="btn btn-outline" onClick={handleCloseLearningsModal}>
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={handleSubmitLearnings}>
-                Submit
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSubmitLearnings}
+                disabled={!learning1.trim() || !learning2.trim() || !learning3.trim()}
+              >
+                Submit Learnings
               </button>
             </div>
           </div>
