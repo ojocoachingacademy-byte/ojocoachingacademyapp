@@ -9,6 +9,7 @@ import CalendarSync from '../Calendar/CalendarSync'
 import LessonTemplates from '../Templates/LessonTemplates'
 import { importHistoricalData, checkImportStatus } from '../../utils/importHistoricalData'
 import { parseCsvAndCreateLessonTransactions } from '../../utils/parseCsvAndCreateLessonTransactions'
+import { importLessonDatesFromExcel } from '../../utils/importLessonDatesFromExcel'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -150,6 +151,38 @@ export default function CoachDashboard() {
     } catch (error) {
       console.error('Error creating lesson dates:', error)
       setImporting(false)
+      alert(`❌ Error: ${error.message}`)
+    }
+  }
+
+  const handleExcelUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+    
+    if (!confirm(`Import lesson dates from ${file.name}?`)) {
+      // Reset file input
+      event.target.value = ''
+      return
+    }
+    
+    setImporting(true)
+    try {
+      const result = await importLessonDatesFromExcel(file)
+      setImporting(false)
+      
+      // Reset file input
+      event.target.value = ''
+      
+      if (result.success) {
+        alert(`✅ Success!\n\nImported: ${result.successCount}\nSkipped: ${result.skippedCount}\nErrors: ${result.errorCount}`)
+        window.location.reload()
+      } else {
+        alert(`❌ Error: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error importing Excel:', error)
+      setImporting(false)
+      event.target.value = ''
       alert(`❌ Error: ${error.message}`)
     }
   }
@@ -706,6 +739,33 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           <Calendar size={18} />
           {importing ? 'Processing CSV...' : '📅 Create Lesson Dates from CSV'}
         </button>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleExcelUpload}
+            disabled={importing}
+            id="excel-upload"
+            style={{ display: 'none' }}
+          />
+          <label 
+            htmlFor="excel-upload" 
+            className="btn btn-secondary"
+            style={{ 
+              fontSize: '15px', 
+              padding: '12px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: importing ? 'not-allowed' : 'pointer',
+              opacity: importing ? 0.6 : 1
+            }}
+          >
+            <Upload size={18} />
+            {importing ? '⏳ Importing...' : '📅 Upload Excel to Import Lesson Dates'}
+          </label>
+        </div>
 
         <button 
           className="btn btn-primary"
