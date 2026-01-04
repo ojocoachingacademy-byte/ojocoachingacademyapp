@@ -280,25 +280,47 @@ export default function FinancialDashboard() {
     
     // Year filter
     if (filters.year !== 'All Time') {
-      filtered = filtered.filter(student => {
-        if (!student.lesson_dates || student.lesson_dates.length === 0) return false
-        return student.lesson_dates.some(date => {
-          const year = new Date(date).getFullYear()
-          return year === parseInt(filters.year)
+      const targetYear = parseInt(filters.year)
+      if (!isNaN(targetYear)) {
+        filtered = filtered.filter(student => {
+          if (!student.lesson_dates || student.lesson_dates.length === 0) return false
+          return student.lesson_dates.some(date => {
+            try {
+              // Handle both date strings and Date objects
+              const dateStr = typeof date === 'string' ? date : date?.toISOString?.() || ''
+              if (!dateStr) return false
+              const dateObj = new Date(dateStr)
+              if (isNaN(dateObj.getTime())) return false
+              return dateObj.getFullYear() === targetYear
+            } catch (e) {
+              return false
+            }
+          })
         })
-      })
+      }
     }
     
     // Month filter (requires year to be set)
     if (filters.month !== null && filters.year !== 'All Time') {
-      filtered = filtered.filter(student => {
-        if (!student.lesson_dates || student.lesson_dates.length === 0) return false
-        return student.lesson_dates.some(date => {
-          const d = new Date(date)
-          return d.getFullYear() === parseInt(filters.year) && 
-                 d.getMonth() === filters.month
+      const targetYear = parseInt(filters.year)
+      const targetMonth = filters.month
+      if (!isNaN(targetYear) && !isNaN(targetMonth)) {
+        filtered = filtered.filter(student => {
+          if (!student.lesson_dates || student.lesson_dates.length === 0) return false
+          return student.lesson_dates.some(date => {
+            try {
+              // Handle both date strings and Date objects
+              const dateStr = typeof date === 'string' ? date : date?.toISOString?.() || ''
+              if (!dateStr) return false
+              const dateObj = new Date(dateStr)
+              if (isNaN(dateObj.getTime())) return false
+              return dateObj.getFullYear() === targetYear && dateObj.getMonth() === targetMonth
+            } catch (e) {
+              return false
+            }
+          })
         })
-      })
+      }
     }
     
     // Name search
@@ -324,16 +346,46 @@ export default function FinancialDashboard() {
     
     // Date range filter (active between dates)
     if (filters.dateRangeStart) {
-      filtered = filtered.filter(student => {
-        if (!student.first_lesson_date) return false
-        return new Date(student.first_lesson_date) >= new Date(filters.dateRangeStart)
-      })
+      try {
+        const startDate = new Date(filters.dateRangeStart)
+        if (!isNaN(startDate.getTime())) {
+          startDate.setHours(0, 0, 0, 0) // Normalize to start of day
+          filtered = filtered.filter(student => {
+            if (!student.first_lesson_date) return false
+            try {
+              const firstDate = new Date(student.first_lesson_date)
+              if (isNaN(firstDate.getTime())) return false
+              firstDate.setHours(0, 0, 0, 0)
+              return firstDate >= startDate
+            } catch (e) {
+              return false
+            }
+          })
+        }
+      } catch (e) {
+        console.error('Error parsing dateRangeStart:', e)
+      }
     }
     if (filters.dateRangeEnd) {
-      filtered = filtered.filter(student => {
-        if (!student.last_lesson_date) return false
-        return new Date(student.last_lesson_date) <= new Date(filters.dateRangeEnd)
-      })
+      try {
+        const endDate = new Date(filters.dateRangeEnd)
+        if (!isNaN(endDate.getTime())) {
+          endDate.setHours(23, 59, 59, 999) // Normalize to end of day
+          filtered = filtered.filter(student => {
+            if (!student.last_lesson_date) return false
+            try {
+              const lastDate = new Date(student.last_lesson_date)
+              if (isNaN(lastDate.getTime())) return false
+              lastDate.setHours(23, 59, 59, 999)
+              return lastDate <= endDate
+            } catch (e) {
+              return false
+            }
+          })
+        }
+      } catch (e) {
+        console.error('Error parsing dateRangeEnd:', e)
+      }
     }
     
     // Lead source filter
