@@ -26,6 +26,7 @@ export default function StudentDashboard() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllPast, setShowAllPast] = useState(false)
   const [referralData, setReferralData] = useState({ rank: null, referralCount: 0, referralRevenue: 0, totalReferrers: 0 })
+  const [topReferrers, setTopReferrers] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -128,9 +129,23 @@ export default function StudentDashboard() {
         }
       })
 
-      // Convert to array and sort
+      // Convert to array, add names, and sort
       const referrers = Object.values(referrerMap)
+        .map(referrer => {
+          const referrerProfile = studentsWithProfiles.find(s => s.id === referrer.id)
+          return {
+            ...referrer,
+            name: referrerProfile?.profiles?.full_name || 'Unknown'
+          }
+        })
         .sort((a, b) => b.referralRevenue - a.referralRevenue)
+
+      // Set top 3 referrers with bonus amounts ($100 per referral)
+      const top3 = referrers.slice(0, 3).map(referrer => ({
+        name: referrer.name,
+        bonusAmount: referrer.referralCount * 100 // $100 per referral
+      }))
+      setTopReferrers(top3)
 
       // Find current student's rank and stats
       const studentReferralData = referrerMap[studentId]
@@ -330,6 +345,36 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Referral Leaderboard */}
+      {topReferrers.length > 0 && (
+        <div className="referral-leaderboard-section">
+          <div className="referral-leaderboard-header">
+            <h2 className="referral-leaderboard-title">
+              <Trophy size={20} style={{ marginRight: '8px', color: '#FFD700' }} />
+              Top Referrers - Earn $100 Per Referral!
+            </h2>
+            <p className="referral-leaderboard-subtitle">Refer a friend and get $100 credit when they sign up!</p>
+          </div>
+          <div className="referral-leaderboard-grid">
+            {topReferrers.map((referrer, index) => (
+              <div key={index} className="referral-leaderboard-card">
+                <div className="referral-rank-badge">
+                  {index === 0 && <Trophy size={20} className="trophy-gold-icon" />}
+                  {index === 1 && <Trophy size={20} className="trophy-silver-icon" />}
+                  {index === 2 && <Trophy size={20} className="trophy-bronze-icon" />}
+                  <span className="referral-rank-number">#{index + 1}</span>
+                </div>
+                <div className="referral-leaderboard-name">{referrer.name}</div>
+                <div className="referral-leaderboard-bonus">
+                  ${referrer.bonusAmount.toLocaleString('en-US')}
+                </div>
+                <div className="referral-leaderboard-label">Referral Bonus</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Lessons Section */}
       <div className="lessons-section">

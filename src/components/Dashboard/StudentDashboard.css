@@ -381,6 +381,122 @@
   font-weight: 500;
 }
 
+/* Referral Leaderboard Section */
+.referral-leaderboard-section {
+  background: linear-gradient(135deg, #F8F5FC 0%, #FFFFFF 100%);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: var(--spacing-2xl);
+  border: 2px solid #E8E0F0;
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.1);
+}
+
+.referral-leaderboard-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.referral-leaderboard-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: #4B2C6C;
+  margin: 0 0 8px 0;
+}
+
+.referral-leaderboard-subtitle {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+  font-weight: 500;
+}
+
+.referral-leaderboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.referral-leaderboard-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid #F0F0F0;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.referral-leaderboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.referral-leaderboard-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+}
+
+.referral-rank-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.referral-rank-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4B2C6C;
+}
+
+.trophy-gold-icon {
+  color: #FFD700;
+}
+
+.trophy-silver-icon {
+  color: #C0C0C0;
+}
+
+.trophy-bronze-icon {
+  color: #CD7F32;
+}
+
+.referral-leaderboard-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.referral-leaderboard-bonus {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2E7D32;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.referral-leaderboard-label {
+  font-size: 14px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .referral-widget {
     min-width: 160px;
@@ -389,6 +505,25 @@
   
   .referral-rank {
     font-size: 20px;
+  }
+
+  .referral-leaderboard-section {
+    padding: 24px 16px;
+  }
+
+  .referral-leaderboard-title {
+    font-size: 24px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .referral-leaderboard-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .referral-leaderboard-bonus {
+    font-size: 32px;
   }
 }
 
