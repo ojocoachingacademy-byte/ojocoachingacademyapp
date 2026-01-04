@@ -57,10 +57,16 @@ export default function NotificationList() {
   }
 
   const handleNotificationClick = async (notification) => {
+    // Mark as read first if unread
     if (!notification.read) {
-      await markAsRead(notification.id)
+      try {
+        await markAsRead(notification.id)
+      } catch (error) {
+        console.error('Error marking notification as read:', error)
+      }
     }
 
+    // Navigate after marking as read
     if (notification.link) {
       navigate(notification.link)
     }
@@ -70,19 +76,26 @@ export default function NotificationList() {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ 
-          read: true, 
-          read_at: new Date().toISOString() 
-        })
+        .update({ read: true })
         .eq('id', notificationId)
 
       if (error) throw error
 
+      // Update local state immediately
       setNotifications(prev => prev.map(n => 
         n.id === notificationId ? { ...n, read: true } : n
       ))
+      
+      // Refetch to ensure consistency
+      setTimeout(() => {
+        fetchNotifications()
+      }, 100)
     } catch (error) {
       console.error('Error marking notification as read:', error)
+      // Still update local state even if DB update fails
+      setNotifications(prev => prev.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
+      ))
     }
   }
 
@@ -96,17 +109,22 @@ export default function NotificationList() {
 
       const { error } = await supabase
         .from('notifications')
-        .update({ 
-          read: true, 
-          read_at: new Date().toISOString() 
-        })
+        .update({ read: true })
         .in('id', unreadIds)
 
       if (error) throw error
 
+      // Update local state immediately
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      
+      // Refetch to ensure consistency
+      setTimeout(() => {
+        fetchNotifications()
+      }, 100)
     } catch (error) {
       console.error('Error marking all as read:', error)
+      // Still update local state even if DB update fails
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     }
   }
 
