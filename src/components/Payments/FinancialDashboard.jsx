@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../supabaseClient'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -19,6 +19,22 @@ export default function FinancialDashboard() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
   const [selectedYear, setSelectedYear] = useState('all')
   const [availableYears, setAvailableYears] = useState([])
+  
+  // Table controls state
+  const [visibleColumns, setVisibleColumns] = useState({
+    student: true,
+    totalRevenue: true,
+    lessonsPurchased: true,
+    creditsRemaining: true,
+    avgPerLesson: true,
+    activeDates: true,
+    lessonDates: false
+  })
+  const [sortConfig, setSortConfig] = useState({
+    key: 'totalRevenue',
+    direction: 'desc'
+  })
+  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     fetchFinancialData()
@@ -36,6 +52,7 @@ export default function FinancialDashboard() {
           total_revenue,
           total_lessons_purchased,
           lesson_credits,
+          created_at,
           profiles!inner(full_name, email)
         `)
         .order('total_revenue', { ascending: false })
@@ -67,8 +84,29 @@ export default function FinancialDashboard() {
         console.log('Transactions table not available')
       }
 
-      // 3. Filter data by selected year
-      let filteredStudents = studentData
+      // 3. For each student, calculate active date range from transactions
+      const studentsWithDates = studentData.map(student => {
+        const studentTransactions = allTransactions.filter(t => t.student_id === student.id)
+        const transactionDates = studentTransactions
+          .map(t => t.payment_date || t.created_at)
+          .filter(Boolean)
+          .sort()
+        
+        const firstDate = transactionDates[0]
+        const lastDate = transactionDates[transactionDates.length - 1]
+        
+        return {
+          ...student,
+          transactionDates,
+          activeDateRange: firstDate && lastDate ? {
+            first: firstDate,
+            last: lastDate
+          } : null
+        }
+      })
+
+      // 4. Filter data by selected year
+      let filteredStudents = studentsWithDates
       let filteredTransactions = allTransactions
 
       if (selectedYear !== 'all') {
@@ -78,7 +116,7 @@ export default function FinancialDashboard() {
         )
       }
 
-      // 4. Calculate stats
+      // 5. Calculate stats
       const totalRevenue = filteredStudents.reduce((sum, s) => sum + (parseFloat(s.total_revenue) || 0), 0)
       const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + (s.total_lessons_purchased || 0), 0)
       const activeStudents = filteredStudents.filter(s => (s.lesson_credits || 0) > 0).length
@@ -113,7 +151,7 @@ export default function FinancialDashboard() {
       })
 
       setTransactions(filteredTransactions)
-      setStudentRevenue(filteredStudents)
+      setStudentRevenue(studentsWithDates)
 
     } catch (error) {
       console.error('Error fetching financial data:', error)
@@ -122,10 +160,93 @@ export default function FinancialDashboard() {
     }
   }
 
+  // Sorting logic
+  const sortedStudents = useMemo(() => {
+    let sortableStudents = [...studentRevenue]
+    
+    if (sortConfig.key) {
+      sortableStudents.sort((a, b) => {
+        let aValue, bValue
+        
+        switch(sortConfig.key) {
+          case 'student':
+            aValue = (a.profiles?.full_name || '').toLowerCase()
+            bValue = (b.profiles?.full_name || '').toLowerCase()
+            break
+          case 'totalRevenue':
+            aValue = parseFloat(a.total_revenue || 0)
+            bValue = parseFloat(b.total_revenue || 0)
+            break
+          case 'lessonsPurchased':
+            aValue = a.total_lessons_purchased || 0
+            bValue = b.total_lessons_purchased || 0
+            break
+          case 'creditsRemaining':
+            aValue = a.lesson_credits || 0
+            bValue = b.lesson_credits || 0
+            break
+          case 'avgPerLesson':
+            aValue = a.total_lessons_purchased > 0 ? parseFloat(a.total_revenue || 0) / a.total_lessons_purchased : 0
+            bValue = b.total_lessons_purchased > 0 ? parseFloat(b.total_revenue || 0) / b.total_lessons_purchased : 0
+            break
+          case 'activeDates':
+            aValue = a.activeDateRange?.last || '0'
+            bValue = b.activeDateRange?.last || '0'
+            break
+          default:
+            return 0
+        }
+        
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+    
+    return sortableStudents
+  }, [studentRevenue, sortConfig])
+
+  const displayedStudents = showAll ? sortedStudents : sortedStudents.slice(0, 10)
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }))
+  }
+
+  // Date formatting helpers
+  const formatLessonDate = (dateString) => {
+    if (!dateString) return '-'
+    const date = new Date(dateString)
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().slice(-2)}`
+  }
+
+  const formatActiveDateRange = (range) => {
+    if (!range) return '-'
+    
+    const first = new Date(range.first)
+    const last = new Date(range.last)
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    const firstMonth = months[first.getMonth()]
+    const firstYear = first.getFullYear().toString().slice(-2)
+    
+    const lastMonth = months[last.getMonth()]
+    const lastYear = last.getFullYear().toString().slice(-2)
+    
+    if (firstMonth === lastMonth && firstYear === lastYear) {
+      return `${firstMonth} '${firstYear}`
+    }
+    
+    return `${firstMonth} '${firstYear} - ${lastMonth} '${lastYear}`
+  }
+
   // Export to CSV
   const exportCSV = () => {
-    const headers = ['Student', 'Email', 'Total Revenue', 'Lessons Purchased', 'Credits Remaining', 'Avg Per Lesson']
-    const rows = studentRevenue.map(s => [
+    const headers = ['Student', 'Email', 'Total Revenue', 'Lessons Purchased', 'Credits Remaining', 'Avg Per Lesson', 'Active Dates']
+    const rows = sortedStudents.map(s => [
       s.profiles?.full_name || 'Unknown',
       s.profiles?.email || '',
       (s.total_revenue || 0).toFixed(2),
@@ -133,7 +254,8 @@ export default function FinancialDashboard() {
       s.lesson_credits || 0,
       s.total_lessons_purchased > 0 
         ? ((s.total_revenue || 0) / s.total_lessons_purchased).toFixed(2)
-        : '0.00'
+        : '0.00',
+      formatActiveDateRange(s.activeDateRange)
     ])
     
     const csv = [
@@ -178,7 +300,7 @@ export default function FinancialDashboard() {
     doc.text(`Total Lessons Sold: ${stats.totalLessonsSold}`, 20, 76)
     
     // Table
-    const tableData = studentRevenue.map(s => [
+    const tableData = sortedStudents.map(s => [
       s.profiles?.full_name || 'Unknown',
       `$${parseFloat(s.total_revenue || 0).toFixed(2)}`,
       s.total_lessons_purchased || 0,
@@ -186,12 +308,13 @@ export default function FinancialDashboard() {
       `$${s.total_lessons_purchased > 0 
         ? ((s.total_revenue || 0) / s.total_lessons_purchased).toFixed(2)
         : '0.00'
-      }`
+      }`,
+      formatActiveDateRange(s.activeDateRange)
     ])
     
     doc.autoTable({
       startY: 85,
-      head: [['Student', 'Revenue', 'Lessons', 'Credits', 'Avg/Lesson']],
+      head: [['Student', 'Revenue', 'Lessons', 'Credits', 'Avg/Lesson', 'Active']],
       body: tableData,
       theme: 'striped',
       headStyles: { 
@@ -226,6 +349,12 @@ export default function FinancialDashboard() {
       return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
     }
     return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  // Sort indicator
+  const SortIndicator = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) return <span className="sort-indicator">⇅</span>
+    return <span className="sort-indicator active">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
   }
 
   if (loading) {
@@ -334,49 +463,151 @@ export default function FinancialDashboard() {
           <h2>💼 Revenue by Student</h2>
           <span className="section-count">{studentRevenue.length} students</span>
         </div>
+        
+        {/* Table Controls */}
+        <div className="table-controls">
+          <div className="column-visibility-dropdown">
+            <button className="btn-column-visibility">
+              ⚙️ Columns
+            </button>
+            <div className="column-visibility-menu">
+              {Object.entries({
+                student: 'Student Name',
+                totalRevenue: 'Total Revenue',
+                lessonsPurchased: 'Lessons Purchased',
+                creditsRemaining: 'Credits Remaining',
+                avgPerLesson: 'Avg $/Lesson',
+                activeDates: 'Active Dates',
+                lessonDates: 'Transaction Dates'
+              }).map(([key, label]) => (
+                <label key={key} className="column-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns[key]}
+                    onChange={(e) => setVisibleColumns(prev => ({
+                      ...prev,
+                      [key]: e.target.checked
+                    }))}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {studentRevenue.length === 0 ? (
           <div className="empty-state">
             <p>No student revenue data yet.</p>
           </div>
         ) : (
-          <div className="table-container">
-            <table className="fin-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Total Revenue</th>
-                  <th>Lessons Purchased</th>
-                  <th>Credits Remaining</th>
-                  <th>Avg $/Lesson</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentRevenue.map(student => (
-                  <tr key={student.id}>
-                    <td>
-                      <div className="student-cell">
-                        <div className="student-name">{student.profiles?.full_name || 'Unknown'}</div>
-                        <div className="student-email">{student.profiles?.email || ''}</div>
-                      </div>
-                    </td>
-                    <td className="revenue-cell">${parseFloat(student.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td>{student.total_lessons_purchased || 0}</td>
-                    <td>
-                      <span className={`credits-badge ${(student.lesson_credits || 0) === 0 ? 'low' : (student.lesson_credits || 0) <= 2 ? 'warning' : ''}`}>
-                        {student.lesson_credits || 0}
-                      </span>
-                    </td>
-                    <td>
-                      ${student.total_lessons_purchased > 0 
-                        ? (parseFloat(student.total_revenue || 0) / student.total_lessons_purchased).toFixed(2)
-                        : '0.00'
-                      }
-                    </td>
+          <>
+            <div className="table-container">
+              <table className="fin-table">
+                <thead>
+                  <tr>
+                    {visibleColumns.student && (
+                      <th onClick={() => handleSort('student')} className="sortable">
+                        Student <SortIndicator columnKey="student" />
+                      </th>
+                    )}
+                    {visibleColumns.totalRevenue && (
+                      <th onClick={() => handleSort('totalRevenue')} className="sortable">
+                        Total Revenue <SortIndicator columnKey="totalRevenue" />
+                      </th>
+                    )}
+                    {visibleColumns.lessonsPurchased && (
+                      <th onClick={() => handleSort('lessonsPurchased')} className="sortable">
+                        Lessons <SortIndicator columnKey="lessonsPurchased" />
+                      </th>
+                    )}
+                    {visibleColumns.creditsRemaining && (
+                      <th onClick={() => handleSort('creditsRemaining')} className="sortable">
+                        Credits <SortIndicator columnKey="creditsRemaining" />
+                      </th>
+                    )}
+                    {visibleColumns.avgPerLesson && (
+                      <th onClick={() => handleSort('avgPerLesson')} className="sortable">
+                        Avg $/Lesson <SortIndicator columnKey="avgPerLesson" />
+                      </th>
+                    )}
+                    {visibleColumns.activeDates && (
+                      <th onClick={() => handleSort('activeDates')} className="sortable">
+                        Active Dates <SortIndicator columnKey="activeDates" />
+                      </th>
+                    )}
+                    {visibleColumns.lessonDates && (
+                      <th>Transaction Dates</th>
+                    )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {displayedStudents.map(student => (
+                    <tr key={student.id}>
+                      {visibleColumns.student && (
+                        <td>
+                          <div className="student-cell">
+                            <div className="student-name">{student.profiles?.full_name || 'Unknown'}</div>
+                            <div className="student-email">{student.profiles?.email || ''}</div>
+                          </div>
+                        </td>
+                      )}
+                      {visibleColumns.totalRevenue && (
+                        <td className="revenue-cell">
+                          ${parseFloat(student.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
+                      {visibleColumns.lessonsPurchased && (
+                        <td>{student.total_lessons_purchased || 0}</td>
+                      )}
+                      {visibleColumns.creditsRemaining && (
+                        <td>
+                          <span className={`credits-badge ${(student.lesson_credits || 0) === 0 ? 'low' : (student.lesson_credits || 0) <= 2 ? 'warning' : ''}`}>
+                            {student.lesson_credits || 0}
+                          </span>
+                        </td>
+                      )}
+                      {visibleColumns.avgPerLesson && (
+                        <td>
+                          ${student.total_lessons_purchased > 0 
+                            ? (parseFloat(student.total_revenue || 0) / student.total_lessons_purchased).toFixed(2)
+                            : '0.00'
+                          }
+                        </td>
+                      )}
+                      {visibleColumns.activeDates && (
+                        <td className="active-dates-cell">
+                          {formatActiveDateRange(student.activeDateRange)}
+                        </td>
+                      )}
+                      {visibleColumns.lessonDates && (
+                        <td className="lesson-dates-cell">
+                          {student.transactionDates?.length > 0 
+                            ? student.transactionDates.slice(0, 5).map(date => formatLessonDate(date)).join(', ')
+                              + (student.transactionDates.length > 5 ? ` +${student.transactionDates.length - 5} more` : '')
+                            : '-'
+                          }
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Show All / Show Less Button */}
+            {sortedStudents.length > 10 && (
+              <button 
+                onClick={() => setShowAll(!showAll)}
+                className="btn-show-toggle"
+              >
+                {showAll 
+                  ? '↑ Show Less' 
+                  : `↓ Show All ${sortedStudents.length} Students`
+                }
+              </button>
+            )}
+          </>
         )}
       </div>
 

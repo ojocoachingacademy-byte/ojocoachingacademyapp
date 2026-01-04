@@ -377,6 +377,134 @@
   font-weight: 600;
 }
 
+/* Table Controls */
+.table-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.column-visibility-dropdown {
+  position: relative;
+}
+
+.btn-column-visibility {
+  padding: 8px 16px;
+  background: white;
+  border: 2px solid #E0E0E0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-column-visibility:hover {
+  border-color: #4B2C6C;
+  background: #F8F5FC;
+}
+
+.column-visibility-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  min-width: 220px;
+  z-index: 100;
+  padding: 8px;
+}
+
+.column-visibility-dropdown:hover .column-visibility-menu {
+  display: block;
+}
+
+.column-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.column-checkbox:hover {
+  background: #F5F5F5;
+}
+
+.column-checkbox input {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #4B2C6C;
+}
+
+/* Sortable Headers */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.sortable:hover {
+  background: rgba(75, 44, 108, 0.08);
+}
+
+.sort-indicator {
+  margin-left: 6px;
+  font-size: 12px;
+  color: #999;
+  opacity: 0.5;
+}
+
+.sort-indicator.active {
+  color: #4B2C6C;
+  opacity: 1;
+  font-weight: bold;
+}
+
+/* Date Columns */
+.active-dates-cell {
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.lesson-dates-cell {
+  font-size: 12px;
+  color: #888;
+  max-width: 250px;
+  line-height: 1.4;
+}
+
+/* Show All/Less Button */
+.btn-show-toggle {
+  width: 100%;
+  padding: 14px;
+  margin-top: 16px;
+  background: linear-gradient(135deg, #F8F5FC 0%, #EDE7F6 100%);
+  border: 2px solid #E0D4F7;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4B2C6C;
+  transition: all 0.2s;
+}
+
+.btn-show-toggle:hover {
+  background: linear-gradient(135deg, #EDE7F6 0%, #E0D4F7 100%);
+  border-color: #4B2C6C;
+  transform: translateY(-1px);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .financial-dashboard {
