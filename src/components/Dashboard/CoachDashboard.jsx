@@ -10,6 +10,7 @@ import LessonTemplates from '../Templates/LessonTemplates'
 import { importHistoricalData, checkImportStatus } from '../../utils/importHistoricalData'
 import { parseCsvAndCreateLessonTransactions } from '../../utils/parseCsvAndCreateLessonTransactions'
 import { importLessonDatesFromExcel } from '../../utils/importLessonDatesFromExcel'
+import { updateActiveStudentsCredits } from '../../utils/updateActiveStudentsCredits'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -183,6 +184,27 @@ export default function CoachDashboard() {
       console.error('Error importing Excel:', error)
       setImporting(false)
       event.target.value = ''
+      alert(`❌ Error: ${error.message}`)
+    }
+  }
+
+  const handleUpdateActiveStudents = async () => {
+    if (!confirm('Update credits and active status for all active students?\n\nThis will:\n- Set credits for 17 active students\n- Mark all other students as inactive')) return
+    
+    setImporting(true)
+    try {
+      const result = await updateActiveStudentsCredits()
+      setImporting(false)
+      
+      if (result.success) {
+        alert(`✅ Update Complete!\n\nUpdated: ${result.updatedCount}\nNot found: ${result.notFoundCount}\nErrors: ${result.errorCount}`)
+        window.location.reload()
+      } else {
+        alert(`❌ Error: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating active students:', error)
+      setImporting(false)
       alert(`❌ Error: ${error.message}`)
     }
   }
@@ -766,6 +788,22 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             {importing ? '⏳ Importing...' : '📅 Upload Excel to Import Lesson Dates'}
           </label>
         </div>
+
+        <button 
+          onClick={handleUpdateActiveStudents} 
+          disabled={importing}
+          className="btn btn-secondary"
+          style={{ 
+            fontSize: '15px', 
+            padding: '12px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <Users size={18} />
+          {importing ? 'Updating...' : '🔄 Update Active Students & Credits'}
+        </button>
 
         <button 
           className="btn btn-primary"
