@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt } from 'lucide-react'
 import NotificationBell from '../Notifications/NotificationBell'
 import './Header.css'
 
@@ -76,6 +76,13 @@ export default function Header({ user, isCoach }) {
                       >
                         <DollarSign size={18} />
                         Finances
+                      </button>
+                      <button 
+                        className={`nav-link ${isActive('/coach/expenses') ? 'active' : ''}`}
+                        onClick={() => navigate('/coach/expenses')}
+                      >
+                        <Receipt size={18} />
+                        Expenses
                       </button>
                     </>
                   ) : (

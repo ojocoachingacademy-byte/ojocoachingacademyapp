@@ -31,24 +31,33 @@ export default function CalendarView() {
 
   const fetchLessons = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch lessons
+      const { data: lessonsData, error: lessonsError } = await supabase
         .from('lessons')
-        .select(`
-          *,
-          students (
-            profiles (
-              full_name,
-              email,
-              phone,
-              ntrp_level
-            )
-          )
-        `)
+        .select('*')
         .order('lesson_date', { ascending: true })
 
-      if (error) throw error
+      if (lessonsError) throw lessonsError
 
-      setLessons(data || [])
+      // Get unique student IDs
+      const studentIds = [...new Set((lessonsData || []).map(l => l.student_id).filter(Boolean))]
+      
+      // Fetch profiles for those students
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, ntrp_level')
+        .in('id', studentIds)
+
+      // Enrich lessons with student info
+      const enrichedLessons = (lessonsData || []).map(lesson => {
+        const profile = (profilesData || []).find(p => p.id === lesson.student_id)
+        return {
+          ...lesson,
+          students: profile ? { profiles: profile } : null
+        }
+      })
+
+      setLessons(enrichedLessons)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching lessons:', error)

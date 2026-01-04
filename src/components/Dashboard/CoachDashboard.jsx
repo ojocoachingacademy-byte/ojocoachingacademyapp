@@ -154,75 +154,54 @@ export default function CoachDashboard() {
 
   const fetchCoachData = async () => {
     try {
-      // First, try to get students without join to see if RLS is working
-      const { data: studentsOnly, error: studentsOnlyError } = await supabase
-        .from('students')
-        .select('*')
-      
-      console.log('Students (no join):', studentsOnly?.length || 0, studentsOnlyError)
-
-      // Get all students with profiles join (left join - includes students without profiles)
+      // Fetch only active students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          profiles (full_name, email, ntrp_level, phone)
-        `)
-
+        .select('*')
+        .eq('is_active', true)
+      
       if (studentsError) {
-        console.error('Error fetching students with profiles:', studentsError)
-        // If join fails, try without join and fetch profiles separately
-        console.log('Attempting fallback: fetch students and profiles separately')
-        
-        const { data: fallbackStudents, error: fallbackError } = await supabase
-          .from('students')
-          .select('*')
-        
-        if (fallbackError) {
-          setError(`Error loading students: ${fallbackError.message}`)
-          throw fallbackError
-        }
-
-        // Fetch profiles for each student
-        const studentsWithProfiles = await Promise.all(
-          (fallbackStudents || []).map(async (student) => {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('full_name, email, ntrp_level, phone')
-              .eq('id', student.id)
-              .single()
-            
-            return {
-              ...student,
-              profiles: profileData || null
-            }
-          })
-        )
-
-        setStudents(studentsWithProfiles)
-        console.log('Students loaded (fallback):', studentsWithProfiles.length)
-      } else {
-        setStudents(studentsData || [])
-        console.log('Students loaded (with join):', studentsData?.length || 0)
-        console.log('Sample student:', studentsData?.[0])
+        console.error('Error fetching students:', studentsError)
+        throw studentsError
       }
 
-      // Get all lessons with student and profile info
+      // Fetch profiles for all active students
+      const studentIds = (studentsData || []).map(s => s.id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, ntrp_level, phone')
+        .in('id', studentIds)
+
+      // Merge students with their profiles
+      const studentsWithProfiles = (studentsData || []).map(student => {
+        const profile = (profilesData || []).find(p => p.id === student.id)
+        return { ...student, profiles: profile || null }
+      })
+
+      setStudents(studentsWithProfiles)
+      console.log('Students loaded:', studentsWithProfiles.length)
+
+      // Get all lessons (fetch students/profiles separately to avoid relationship issues)
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('lessons')
-        .select(`
-          *,
-          students (
-            profiles (full_name, ntrp_level)
-          )
-        `)
+        .select('*')
         .order('lesson_date', { ascending: true })
 
       if (lessonsError) {
         console.error('Error fetching lessons:', lessonsError)
         throw lessonsError
       }
-      setLessons(lessonsData || [])
+
+      // Enrich lessons with student/profile info
+      const enrichedLessons = (lessonsData || []).map(lesson => {
+        const student = studentsWithProfiles.find(s => s.id === lesson.student_id)
+        return {
+          ...lesson,
+          students: student ? { profiles: student.profiles } : null
+        }
+      })
+
+      setLessons(enrichedLessons)
 
       setLoading(false)
       setError(null)

@@ -21,18 +21,33 @@ export default function LessonsPage() {
 
   const fetchLessons = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch lessons
+      const { data: lessonsData, error: lessonsError } = await supabase
         .from('lessons')
-        .select(`
-          *,
-          students (
-            profiles (full_name, email)
-          )
-        `)
+        .select('*')
         .order('lesson_date', { ascending: false })
 
-      if (error) throw error
-      setLessons(data || [])
+      if (lessonsError) throw lessonsError
+
+      // Get unique student IDs
+      const studentIds = [...new Set((lessonsData || []).map(l => l.student_id).filter(Boolean))]
+      
+      // Fetch profiles for those students
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', studentIds)
+
+      // Enrich lessons with student info
+      const enrichedLessons = (lessonsData || []).map(lesson => {
+        const profile = (profilesData || []).find(p => p.id === lesson.student_id)
+        return {
+          ...lesson,
+          students: profile ? { profiles: profile } : null
+        }
+      })
+
+      setLessons(enrichedLessons)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching lessons:', error)

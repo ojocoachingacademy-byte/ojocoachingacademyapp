@@ -167,18 +167,22 @@ export default function CalendarSync({ onSyncComplete }) {
       console.log(`Found ${lessonEvents.length} lesson events`)
 
       // Get all students with their emails (optional - for matching if student exists)
-      const { data: students } = await supabase
+      const { data: studentsData } = await supabase
         .from('students')
-        .select(`
-          id,
-          profiles!inner(email, full_name)
-        `)
+        .select('id')
+        .eq('is_active', true)
+
+      const studentIds = (studentsData || []).map(s => s.id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', studentIds)
 
       const studentEmailMap = new Map()
-      if (students) {
-        students.forEach(student => {
-          if (student.profiles?.email) {
-            studentEmailMap.set(student.profiles.email.toLowerCase(), student.id)
+      if (profilesData) {
+        profilesData.forEach(profile => {
+          if (profile.email) {
+            studentEmailMap.set(profile.email.toLowerCase(), profile.id)
           }
         })
       }

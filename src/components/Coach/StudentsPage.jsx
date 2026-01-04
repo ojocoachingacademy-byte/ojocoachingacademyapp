@@ -23,37 +23,32 @@ export default function StudentsPage() {
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch students and profiles separately to avoid relationship ambiguity
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select(`
-          *,
-          profiles (full_name, email, ntrp_level, phone)
-        `)
+        .select('*')
         .order('id', { ascending: true })
 
-      if (error) {
-        // Fallback if join fails
-        const { data: studentsOnly } = await supabase
-          .from('students')
-          .select('*')
-        
-        const studentsWithProfiles = await Promise.all(
-          (studentsOnly || []).map(async (student) => {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('full_name, email, ntrp_level, phone')
-              .eq('id', student.id)
-              .single()
-            
-            return { ...student, profiles: profile || null }
-          })
-        )
-        
-        setStudents(studentsWithProfiles)
-      } else {
-        setStudents(data || [])
+      if (studentsError) {
+        console.error('Error fetching students:', studentsError)
+        setLoading(false)
+        return
       }
-      
+
+      // Fetch profiles for all students
+      const studentIds = (studentsData || []).map(s => s.id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, ntrp_level, phone')
+        .in('id', studentIds)
+
+      // Merge students with their profiles
+      const studentsWithProfiles = (studentsData || []).map(student => {
+        const profile = (profilesData || []).find(p => p.id === student.id)
+        return { ...student, profiles: profile || null }
+      })
+
+      setStudents(studentsWithProfiles)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching students:', error)

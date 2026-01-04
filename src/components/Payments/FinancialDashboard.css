@@ -484,6 +484,35 @@
   line-height: 1.4;
 }
 
+/* Expense and Net Income Cards */
+.fin-stat-card.expenses-card {
+  border-left: 4px solid #D32F2F;
+}
+
+.fin-stat-card.expenses-card .expense-value {
+  color: #D32F2F;
+}
+
+.fin-stat-card.net-card {
+  border-left: 4px solid #2D7F6F;
+}
+
+.fin-stat-card.net-card.positive {
+  border-left-color: #2D7F6F;
+}
+
+.fin-stat-card.net-card.positive .fin-stat-value {
+  color: #2D7F6F;
+}
+
+.fin-stat-card.net-card.negative {
+  border-left-color: #D32F2F;
+}
+
+.fin-stat-card.net-card.negative .fin-stat-value {
+  color: #D32F2F;
+}
+
 /* Lead Source Tag */
 .lead-source-tag {
   display: inline-block;

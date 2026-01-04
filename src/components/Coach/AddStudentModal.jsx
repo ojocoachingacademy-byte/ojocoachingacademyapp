@@ -23,7 +23,7 @@ export default function AddStudentModal({ onClose, onSuccess }) {
   const fetchStudents = async () => {
     const { data } = await supabase
       .from('students')
-      .select('id, profiles!inner(full_name)')
+      .select('id, profiles:id(full_name)')
       .eq('is_active', true)
       .order('id')
     

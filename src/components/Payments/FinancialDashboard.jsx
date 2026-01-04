@@ -15,6 +15,7 @@ export default function FinancialDashboard() {
   })
   const [transactions, setTransactions] = useState([])
   const [studentRevenue, setStudentRevenue] = useState([])
+  const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
   const [selectedYear, setSelectedYear] = useState('all')
@@ -45,7 +46,7 @@ export default function FinancialDashboard() {
     try {
       setLoading(true)
       
-      // 1. Get all students with revenue data
+      // 1. Get all students with revenue data (only active students)
       const { data: students, error: studentsError } = await supabase
         .from('students')
         .select(`
@@ -56,8 +57,10 @@ export default function FinancialDashboard() {
           created_at,
           lead_source,
           referred_by_student_id,
-          profiles!inner(full_name, email)
+          is_active,
+          profiles:id(full_name, email)
         `)
+        .eq('is_active', true)
         .order('total_revenue', { ascending: false })
 
       if (studentsError) {
@@ -143,6 +146,24 @@ export default function FinancialDashboard() {
         ? totalRevenue 
         : filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0)
 
+      // 6. Fetch expenses
+      const { data: expensesData } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('expense_date', { ascending: false })
+
+      // Filter expenses by year
+      let filteredExpenses = expensesData || []
+      if (selectedYear !== 'all') {
+        const year = parseInt(selectedYear)
+        filteredExpenses = filteredExpenses.filter(e => 
+          new Date(e.expense_date).getFullYear() === year
+        )
+      }
+
+      const totalExpenses = filteredExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
+      const netIncome = totalRevenue - totalExpenses
+
       setStats({
         totalRevenue,
         monthlyRevenue,
@@ -150,11 +171,14 @@ export default function FinancialDashboard() {
         totalLessonsSold,
         activeStudents,
         avgRevenuePerStudent: filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0,
-        totalStudents: filteredStudents.length
+        totalStudents: filteredStudents.length,
+        totalExpenses,
+        netIncome
       })
 
       setTransactions(filteredTransactions)
       setStudentRevenue(studentsWithDates)
+      setExpenses(filteredExpenses)
 
     } catch (error) {
       console.error('Error fetching financial data:', error)
@@ -474,6 +498,26 @@ export default function FinancialDashboard() {
           <div className="fin-stat-content">
             <div className="fin-stat-label">Active Students</div>
             <div className="fin-stat-value">{stats.activeStudents} / {stats.totalStudents}</div>
+          </div>
+        </div>
+
+        <div className="fin-stat-card expenses-card">
+          <div className="fin-stat-icon">💸</div>
+          <div className="fin-stat-content">
+            <div className="fin-stat-label">Total Expenses</div>
+            <div className="fin-stat-value expense-value" title={`$${(stats.totalExpenses || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(stats.totalExpenses || 0)}
+            </div>
+          </div>
+        </div>
+
+        <div className={`fin-stat-card net-card ${(stats.netIncome || 0) >= 0 ? 'positive' : 'negative'}`}>
+          <div className="fin-stat-icon">{(stats.netIncome || 0) >= 0 ? '📈' : '📉'}</div>
+          <div className="fin-stat-content">
+            <div className="fin-stat-label">Net Income</div>
+            <div className="fin-stat-value" title={`$${(stats.netIncome || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(stats.netIncome || 0)}
+            </div>
           </div>
         </div>
 

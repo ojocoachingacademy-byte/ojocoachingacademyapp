@@ -63,13 +63,28 @@ export default function StudentDetailPage() {
   }
 
   const fetchAllStudents = async () => {
-    const { data } = await supabase
+    // Fetch students and profiles separately to avoid relationship ambiguity
+    const { data: studentsData } = await supabase
       .from('students')
-      .select('id, profiles!inner(full_name)')
+      .select('id')
       .eq('is_active', true)
       .order('id')
     
-    setAllStudents(data || [])
+    if (studentsData) {
+      const studentIds = studentsData.map(s => s.id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', studentIds)
+      
+      const merged = studentsData.map(s => ({
+        ...s,
+        profiles: (profilesData || []).find(p => p.id === s.id) || null
+      }))
+      setAllStudents(merged)
+    } else {
+      setAllStudents([])
+    }
   }
 
   const fetchStudentData = async () => {
@@ -77,21 +92,27 @@ export default function StudentDetailPage() {
       console.log('=== FETCHING STUDENT DATA (COACH) ===')
       console.log('Student ID:', id)
       
-      const { data, error } = await supabase
+      // Fetch student and profile separately to avoid relationship ambiguity
+      const { data: studentData, error: studentError } = await supabase
         .from('students')
-        .select(`
-          *,
-          profiles (full_name, email, ntrp_level, phone)
-        `)
+        .select('*')
         .eq('id', id)
         .single()
 
-      console.log('Fetch response:', { data, error })
-
-      if (error) {
-        console.error('Fetch error:', error)
-        throw error
+      if (studentError) {
+        console.error('Fetch error:', studentError)
+        throw studentError
       }
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name, email, ntrp_level, phone')
+        .eq('id', id)
+        .single()
+
+      const data = { ...studentData, profiles: profileData }
+
+      console.log('Fetch response:', { data })
       
       console.log('Student data fetched:', data)
       console.log('Development plan in fetched data:', data?.development_plan)
