@@ -338,3 +338,57 @@
   }
 }
 
+/* Referral Widget */
+.referral-widget {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+  min-width: 180px;
+}
+
+.referral-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.referral-widget-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.referral-rank {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  line-height: 1;
+}
+
+.referral-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #555;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .referral-widget {
+    min-width: 160px;
+    padding: 10px 12px;
+  }
+  
+  .referral-rank {
+    font-size: 20px;
+  }
+}
+

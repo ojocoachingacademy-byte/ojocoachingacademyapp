@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Award, Target, Edit2, TrendingUp } from 'lucide-react'
+import { Users, Calendar, Award, Target, Edit2, TrendingUp, Trophy } from 'lucide-react'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
@@ -25,6 +25,7 @@ export default function StudentDashboard() {
   const [user, setUser] = useState(null)
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllPast, setShowAllPast] = useState(false)
+  const [referralData, setReferralData] = useState({ rank: null, referralCount: 0, referralRevenue: 0, totalReferrers: 0 })
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -78,10 +79,79 @@ export default function StudentDashboard() {
       // Development plan is stored in student.development_plan (JSON)
       // It will be loaded from studentData
 
+      // Fetch referral data
+      await fetchReferralData(user.id)
+
       setLoading(false)
     } catch (error) {
       console.error('Error fetching data:', error)
       setLoading(false)
+    }
+  }
+
+  const fetchReferralData = async (studentId) => {
+    try {
+      // Fetch all students to calculate referral rankings
+      const { data: allStudents } = await supabase
+        .from('students')
+        .select('id, total_revenue, referred_by_student_id')
+
+      if (!allStudents) return
+
+      // Fetch profiles for all students
+      const studentIds = allStudents.map(s => s.id)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', studentIds)
+
+      // Merge students with profiles
+      const studentsWithProfiles = allStudents.map(student => ({
+        ...student,
+        profiles: profiles?.find(p => p.id === student.id)
+      }))
+
+      // Calculate referral data
+      const referrerMap = {}
+      studentsWithProfiles.forEach(student => {
+        if (student.referred_by_student_id) {
+          const referrerId = student.referred_by_student_id
+          if (!referrerMap[referrerId]) {
+            referrerMap[referrerId] = {
+              id: referrerId,
+              referralCount: 0,
+              referralRevenue: 0
+            }
+          }
+          referrerMap[referrerId].referralCount++
+          referrerMap[referrerId].referralRevenue += parseFloat(student.total_revenue || 0)
+        }
+      })
+
+      // Convert to array and sort
+      const referrers = Object.values(referrerMap)
+        .sort((a, b) => b.referralRevenue - a.referralRevenue)
+
+      // Find current student's rank and stats
+      const studentReferralData = referrerMap[studentId]
+      if (studentReferralData) {
+        const rank = referrers.findIndex(r => r.id === studentId) + 1
+        setReferralData({
+          rank,
+          referralCount: studentReferralData.referralCount,
+          referralRevenue: studentReferralData.referralRevenue,
+          totalReferrers: referrers.length
+        })
+      } else {
+        setReferralData({
+          rank: null,
+          referralCount: 0,
+          referralRevenue: 0,
+          totalReferrers: referrers.length
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching referral data:', error)
     }
   }
 
@@ -202,17 +272,34 @@ export default function StudentDashboard() {
     <div className="student-dashboard">
       {/* Header */}
       <div className="dashboard-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
           <h1 className="welcome-message">Welcome, {profile?.full_name}! 🎾</h1>
-          <button 
-            onClick={() => setShowBookingModal(true)}
-            className="btn btn-primary"
-            disabled={!student || student.lesson_credits === 0}
-            style={{ marginLeft: '16px' }}
-          >
-            <Calendar size={18} style={{ marginRight: '8px' }} />
-            Book a Lesson
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            {/* Referral Leaderboard Widget */}
+            {referralData.referralCount > 0 && (
+              <div className="referral-widget">
+                <div className="referral-widget-header">
+                  <Trophy size={16} />
+                  <span>Referral Rank</span>
+                </div>
+                <div className="referral-widget-content">
+                  <div className="referral-rank">#{referralData.rank}</div>
+                  <div className="referral-stats">
+                    <span>{referralData.referralCount} referral{referralData.referralCount !== 1 ? 's' : ''}</span>
+                    <span>${referralData.referralRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <button 
+              onClick={() => setShowBookingModal(true)}
+              className="btn btn-primary"
+              disabled={!student || student.lesson_credits === 0}
+            >
+              <Calendar size={18} style={{ marginRight: '8px' }} />
+              Book a Lesson
+            </button>
+          </div>
         </div>
       </div>
       

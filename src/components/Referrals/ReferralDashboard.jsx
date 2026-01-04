@@ -229,9 +229,9 @@ export default function ReferralDashboard() {
                   <tr>
                     <th>Rank</th>
                     <th>Referrer</th>
-                    <th>Referrals</th>
-                    <th>Total Revenue</th>
-                    <th>Avg Revenue/Referral</th>
+                    <th className="text-center">Referrals</th>
+                    <th className="text-right">Total Revenue</th>
+                    <th className="text-right">Avg Revenue/Referral</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -311,8 +311,8 @@ export default function ReferralDashboard() {
                     <th>Referrer</th>
                     <th></th>
                     <th>Referred Student</th>
-                    <th>Revenue</th>
-                    <th>Status</th>
+                    <th className="text-right">Revenue</th>
+                    <th className="text-center">Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -349,7 +349,7 @@ export default function ReferralDashboard() {
                           maximumFractionDigits: 2 
                         })}
                       </td>
-                      <td>
+                      <td className="status-cell">
                         {detail.isActive ? (
                           <span className="badge badge-active">Active</span>
                         ) : (
