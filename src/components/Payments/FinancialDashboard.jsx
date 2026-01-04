@@ -101,14 +101,6 @@ export default function FinancialDashboard() {
           .select('*')
           .order('created_at', { ascending: false })
 
-        console.log('=== TRANSACTION DEBUG ===')
-        console.log('txError:', txError)
-        console.log('txData count:', txData?.length || 0)
-        if (txData && txData.length > 0) {
-          console.log('Sample transaction:', txData[0])
-          console.log('Transaction columns:', Object.keys(txData[0]))
-        }
-
         if (!txError && txData) {
           allTransactions = txData
           
@@ -122,50 +114,62 @@ export default function FinancialDashboard() {
         console.log('Transactions table not available:', e)
       }
 
-      // 3. For each student, calculate active date range from transactions
-      const studentsWithDates = studentData.map(student => {
-        const studentTransactions = allTransactions.filter(t => t.student_id === student.id)
-        
-        console.log(`Student ${student.profiles?.full_name || student.id}: ${studentTransactions.length} transactions`)
-        
-        // Try multiple possible date column names
-        const transactionDates = studentTransactions
-          .map(t => {
-            // Try common date column names - check created_at first since that's what we insert
-            const date = t.created_at || t.payment_date || t.date || t.transaction_date
-            if (date) {
-              const isoDate = new Date(date).toISOString()
-              console.log(`  Transaction date found: ${date} -> ${isoDate}`)
-              return isoDate
+      // 3. For each student, fetch lesson dates from lesson_transactions
+      const studentsWithDates = await Promise.all(
+        studentData.map(async (student) => {
+          try {
+            // Fetch lesson_taken transactions for this student
+            const { data: lessonTransactions } = await supabase
+              .from('lesson_transactions')
+              .select('transaction_date')
+              .eq('student_id', student.id)
+              .eq('transaction_type', 'lesson_taken')
+              .order('transaction_date', { ascending: true })
+            
+            const lessonDates = (lessonTransactions || []).map(t => t.transaction_date).filter(Boolean)
+            
+            const firstDate = lessonDates[0] || null
+            const lastDate = lessonDates.length > 0 ? lessonDates[lessonDates.length - 1] : null
+            
+            return {
+              ...student,
+              transactionDates: lessonDates,
+              lesson_dates: lessonDates,
+              first_lesson_date: firstDate,
+              last_lesson_date: lastDate,
+              activeDateRange: firstDate && lastDate ? {
+                first: firstDate,
+                last: lastDate
+              } : null
             }
-            return null
-          })
-          .filter(Boolean)
-          .sort()
-        
-        console.log(`  Transaction dates array:`, transactionDates)
-        
-        const firstDate = transactionDates[0]
-        const lastDate = transactionDates[transactionDates.length - 1]
-        
-        // If no transactions, use student created_at as fallback
-        const fallbackDate = student.created_at ? new Date(student.created_at).toISOString() : null
-        console.log(`  Fallback date (student.created_at): ${student.created_at} -> ${fallbackDate}`)
-        
-        const activeFirstDate = firstDate || fallbackDate
-        const activeLastDate = lastDate || fallbackDate
-        
-        console.log(`  Final active range: ${activeFirstDate} to ${activeLastDate}`)
-        
-        return {
-          ...student,
-          transactionDates,
-          activeDateRange: activeFirstDate && activeLastDate ? {
-            first: activeFirstDate,
-            last: activeLastDate
-          } : null
-        }
-      })
+          } catch (error) {
+            console.error(`Error fetching lesson dates for student ${student.id}:`, error)
+            // Return student without dates if fetch fails
+            return {
+              ...student,
+              transactionDates: [],
+              lesson_dates: [],
+              first_lesson_date: null,
+              last_lesson_date: null,
+              activeDateRange: null
+            }
+          }
+        })
+      )
+
+      // Extract available years from lesson dates
+      const allLessonDates = studentsWithDates
+        .flatMap(s => s.lesson_dates || [])
+        .filter(Boolean)
+      
+      const yearsFromLessons = [...new Set(
+        allLessonDates.map(date => new Date(date).getFullYear())
+      )].sort((a, b) => b - a)
+      
+      // Use lesson dates years, or fallback to payment transaction years if no lesson dates
+      if (yearsFromLessons.length > 0) {
+        setAvailableYears(yearsFromLessons)
+      }
 
       // 4. Filter data by selected year
       let filteredStudents = studentsWithDates
@@ -284,8 +288,8 @@ export default function FinancialDashboard() {
             bValue = b.activeDateRange?.last || '0'
             break
           case 'lessonDates':
-            aValue = a.transactionDates?.[0] || '0'
-            bValue = b.transactionDates?.[0] || '0'
+            aValue = a.lesson_dates?.[0] || a.transactionDates?.[0] || '0'
+            bValue = b.lesson_dates?.[0] || b.transactionDates?.[0] || '0'
             break
           case 'leadSource':
             aValue = (a.lead_source || '').toLowerCase()
@@ -736,9 +740,18 @@ export default function FinancialDashboard() {
                       )}
                       {visibleColumns.lessonDates && (
                         <td className="lesson-dates-cell">
-                          {student.transactionDates?.length > 0 
-                            ? student.transactionDates.slice(0, 5).map(date => formatLessonDate(date)).join(', ')
-                              + (student.transactionDates.length > 5 ? ` +${student.transactionDates.length - 5} more` : '')
+                          {student.lesson_dates?.length > 0 
+                            ? (
+                              <div>
+                                <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                                  {student.lesson_dates.length} lesson{student.lesson_dates.length !== 1 ? 's' : ''}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>
+                                  {student.lesson_dates.slice(0, 3).map(date => formatLessonDate(date)).join(', ')}
+                                  {student.lesson_dates.length > 3 && ` +${student.lesson_dates.length - 3} more`}
+                                </div>
+                              </div>
+                            )
                             : '-'
                           }
                         </td>
