@@ -689,17 +689,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
               </div>
             )}
           </div>
-        ) : (
-          <div style={{ 
-            padding: '8px 16px', 
-            background: '#E8F5E9', 
-            borderRadius: '8px',
-            color: '#2E7D32',
-            fontSize: '14px'
-          }}>
-            ✓ All {importStatus.count} historical students imported
-          </div>
-        )}
+        ) : null}
 
         <button 
           onClick={handleCreateLessonDates} 
