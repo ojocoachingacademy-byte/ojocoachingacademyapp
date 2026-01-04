@@ -221,15 +221,22 @@ export default function CoachDashboard() {
       setStudents(studentsWithProfiles)
       console.log('Students loaded:', studentsWithProfiles.length)
 
-      // Get all lessons (fetch students/profiles separately to avoid relationship issues)
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('lessons')
-        .select('*')
-        .order('lesson_date', { ascending: true })
+      // Get lessons only for active students
+      const activeStudentIds = studentsWithProfiles.map(s => s.id)
+      let lessonsData = []
+      
+      if (activeStudentIds.length > 0) {
+        const { data, error: lessonsError } = await supabase
+          .from('lessons')
+          .select('*')
+          .in('student_id', activeStudentIds)
+          .order('lesson_date', { ascending: true })
 
-      if (lessonsError) {
-        console.error('Error fetching lessons:', lessonsError)
-        throw lessonsError
+        if (lessonsError) {
+          console.error('Error fetching lessons:', lessonsError)
+          throw lessonsError
+        }
+        lessonsData = data || []
       }
 
       // Enrich lessons with student/profile info

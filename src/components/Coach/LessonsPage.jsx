@@ -21,15 +21,32 @@ export default function LessonsPage() {
 
   const fetchLessons = async () => {
     try {
-      // Fetch lessons
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('lessons')
-        .select('*')
-        .order('lesson_date', { ascending: false })
+      // First, get all active student IDs
+      const { data: activeStudents, error: studentsError } = await supabase
+        .from('students')
+        .select('id')
+        .eq('is_active', true)
 
-      if (lessonsError) throw lessonsError
+      if (studentsError) {
+        console.error('Error fetching active students:', studentsError)
+      }
 
-      // Get unique student IDs
+      const activeStudentIds = (activeStudents || []).map(s => s.id)
+
+      // Fetch lessons only for active students
+      let lessonsData = []
+      if (activeStudentIds.length > 0) {
+        const { data, error: lessonsError } = await supabase
+          .from('lessons')
+          .select('*')
+          .in('student_id', activeStudentIds)
+          .order('lesson_date', { ascending: false })
+
+        if (lessonsError) throw lessonsError
+        lessonsData = data || []
+      }
+
+      // Get unique student IDs from the filtered lessons
       const studentIds = [...new Set((lessonsData || []).map(l => l.student_id).filter(Boolean))]
       
       // Fetch profiles for those students
