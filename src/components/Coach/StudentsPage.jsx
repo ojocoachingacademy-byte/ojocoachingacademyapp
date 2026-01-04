@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Search, Award, Calendar, User } from 'lucide-react'
+import { Search, Award, Calendar, User, Edit2, Check, X } from 'lucide-react'
 import './StudentsPage.css'
 
 export default function StudentsPage() {
@@ -11,6 +11,8 @@ export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [levelFilter, setLevelFilter] = useState('all')
   const [sortBy, setSortBy] = useState('name')
+  const [editingCredits, setEditingCredits] = useState(null) // student id being edited
+  const [editCreditsValue, setEditCreditsValue] = useState(0)
 
   useEffect(() => {
     fetchStudents()
@@ -101,6 +103,40 @@ export default function StudentsPage() {
     return name.substring(0, 2).toUpperCase()
   }
 
+  const handleEditCredits = (e, student) => {
+    e.stopPropagation() // Prevent navigating to student detail
+    setEditingCredits(student.id)
+    setEditCreditsValue(student.lesson_credits || 0)
+  }
+
+  const handleSaveCredits = async (e, studentId) => {
+    e.stopPropagation()
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ lesson_credits: parseInt(editCreditsValue) || 0 })
+        .eq('id', studentId)
+
+      if (error) throw error
+
+      // Update local state
+      setStudents(prev => prev.map(s => 
+        s.id === studentId 
+          ? { ...s, lesson_credits: parseInt(editCreditsValue) || 0 }
+          : s
+      ))
+      setEditingCredits(null)
+    } catch (error) {
+      console.error('Error updating credits:', error)
+      alert('Failed to update credits')
+    }
+  }
+
+  const handleCancelEdit = (e) => {
+    e.stopPropagation()
+    setEditingCredits(null)
+  }
+
   if (loading) {
     return <div className="page-container">Loading...</div>
   }
@@ -181,9 +217,43 @@ export default function StudentsPage() {
                     <Award size={16} />
                     <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>
                   </div>
-                  <div className="detail-item">
+                  <div className="detail-item credits-item">
                     <Calendar size={16} />
-                    <span>{student.lesson_credits || 0} Credits</span>
+                    {editingCredits === student.id ? (
+                      <div className="credits-edit" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editCreditsValue}
+                          onChange={(e) => setEditCreditsValue(e.target.value)}
+                          className="credits-input"
+                          autoFocus
+                        />
+                        <button 
+                          className="credits-btn save"
+                          onClick={(e) => handleSaveCredits(e, student.id)}
+                          title="Save"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button 
+                          className="credits-btn cancel"
+                          onClick={handleCancelEdit}
+                          title="Cancel"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span 
+                        className="credits-display"
+                        onClick={(e) => handleEditCredits(e, student)}
+                        title="Click to edit credits"
+                      >
+                        {student.lesson_credits || 0} Credits
+                        <Edit2 size={12} className="edit-icon" />
+                      </span>
+                    )}
                   </div>
                 </div>
                 {student.profiles?.email && (

@@ -148,6 +148,85 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Credits Edit */
+.credits-item {
+  position: relative;
+}
+
+.credits-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.credits-display:hover {
+  background: rgba(75, 44, 108, 0.1);
+}
+
+.credits-display .edit-icon {
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--color-primary);
+}
+
+.credits-display:hover .edit-icon {
+  opacity: 1;
+}
+
+.credits-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.credits-input {
+  width: 60px;
+  padding: 4px 8px;
+  font-size: 14px;
+  border: 2px solid var(--color-primary);
+  border-radius: 4px;
+  text-align: center;
+  outline: none;
+}
+
+.credits-input:focus {
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.2);
+}
+
+.credits-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.credits-btn.save {
+  background: #28a745;
+  color: white;
+}
+
+.credits-btn.save:hover {
+  background: #218838;
+}
+
+.credits-btn.cancel {
+  background: #dc3545;
+  color: white;
+}
+
+.credits-btn.cancel:hover {
+  background: #c82333;
+}
+
 @media (max-width: 768px) {
   .page-container {
     padding: var(--spacing-md);
