@@ -101,39 +101,61 @@ export default function FinancialDashboard() {
           .select('*')
           .order('created_at', { ascending: false })
 
+        console.log('=== TRANSACTION DEBUG ===')
+        console.log('txError:', txError)
+        console.log('txData count:', txData?.length || 0)
+        if (txData && txData.length > 0) {
+          console.log('Sample transaction:', txData[0])
+          console.log('Transaction columns:', Object.keys(txData[0]))
+        }
+
         if (!txError && txData) {
           allTransactions = txData
           
           // Extract available years from transactions
           const years = [...new Set(
-            txData.map(t => new Date(t.created_at).getFullYear())
+            txData.map(t => new Date(t.created_at || t.payment_date || t.date).getFullYear())
           )].sort((a, b) => b - a)
           setAvailableYears(years)
         }
       } catch (e) {
-        console.log('Transactions table not available')
+        console.log('Transactions table not available:', e)
       }
 
       // 3. For each student, calculate active date range from transactions
       const studentsWithDates = studentData.map(student => {
         const studentTransactions = allTransactions.filter(t => t.student_id === student.id)
+        
+        console.log(`Student ${student.profiles?.full_name || student.id}: ${studentTransactions.length} transactions`)
+        
         // Try multiple possible date column names
         const transactionDates = studentTransactions
           .map(t => {
-            // Try common date column names
-            const date = t.payment_date || t.created_at || t.date || t.transaction_date
-            return date ? new Date(date).toISOString() : null
+            // Try common date column names - check created_at first since that's what we insert
+            const date = t.created_at || t.payment_date || t.date || t.transaction_date
+            if (date) {
+              const isoDate = new Date(date).toISOString()
+              console.log(`  Transaction date found: ${date} -> ${isoDate}`)
+              return isoDate
+            }
+            return null
           })
           .filter(Boolean)
           .sort()
+        
+        console.log(`  Transaction dates array:`, transactionDates)
         
         const firstDate = transactionDates[0]
         const lastDate = transactionDates[transactionDates.length - 1]
         
         // If no transactions, use student created_at as fallback
         const fallbackDate = student.created_at ? new Date(student.created_at).toISOString() : null
+        console.log(`  Fallback date (student.created_at): ${student.created_at} -> ${fallbackDate}`)
+        
         const activeFirstDate = firstDate || fallbackDate
         const activeLastDate = lastDate || fallbackDate
+        
+        console.log(`  Final active range: ${activeFirstDate} to ${activeLastDate}`)
         
         return {
           ...student,
