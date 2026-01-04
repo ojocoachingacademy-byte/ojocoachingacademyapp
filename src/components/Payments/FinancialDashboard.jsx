@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import './FinancialDashboard.css'
 
 export default function FinancialDashboard() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState({
     totalRevenue: 0,
     monthlyRevenue: 0,
@@ -709,7 +711,15 @@ export default function FinancialDashboard() {
                       {visibleColumns.student && (
                         <td>
                           <div className="student-cell">
-                            <div className="student-name">{student.profiles?.full_name || 'Unknown'}</div>
+                            <div 
+                              className="student-name" 
+                              style={{ cursor: 'pointer', color: '#4B2C6C', textDecoration: 'underline' }}
+                              onClick={() => navigate(`/coach/students/${student.id}`)}
+                              onMouseEnter={(e) => e.target.style.color = '#6A4C8C'}
+                              onMouseLeave={(e) => e.target.style.color = '#4B2C6C'}
+                            >
+                              {student.profiles?.full_name || 'Unknown'}
+                            </div>
                             <div className="student-email">{student.profiles?.email || ''}</div>
                           </div>
                         </td>

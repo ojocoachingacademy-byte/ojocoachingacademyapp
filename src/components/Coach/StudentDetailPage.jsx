@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
@@ -29,6 +29,7 @@ export default function StudentDetailPage() {
   const [editingLeadSource, setEditingLeadSource] = useState(false)
   const [leadSourceForm, setLeadSourceForm] = useState({ leadSource: '', referredBy: '' })
   const [allStudents, setAllStudents] = useState([])
+  const [financialData, setFinancialData] = useState(null)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -86,6 +87,44 @@ export default function StudentDetailPage() {
       setAllStudents([])
     }
   }
+
+  const fetchFinancialData = async () => {
+    if (!id || !student) return
+    
+    try {
+      // Fetch lesson dates from lesson_transactions
+      const { data: lessonTransactions } = await supabase
+        .from('lesson_transactions')
+        .select('transaction_date')
+        .eq('student_id', id)
+        .eq('transaction_type', 'lesson_taken')
+        .order('transaction_date', { ascending: true })
+      
+      const lessonDates = (lessonTransactions || []).map(t => t.transaction_date).filter(Boolean)
+      
+      const totalRevenue = parseFloat(student.total_revenue || 0)
+      const totalLessonsPurchased = student.total_lessons_purchased || 0
+      const avgPerLesson = totalLessonsPurchased > 0 ? totalRevenue / totalLessonsPurchased : 0
+      
+      setFinancialData({
+        totalRevenue: totalRevenue,
+        totalLessonsPurchased: totalLessonsPurchased,
+        lessonCredits: student.lesson_credits || 0,
+        lessonDates: lessonDates,
+        firstLessonDate: lessonDates[0] || null,
+        lastLessonDate: lessonDates.length > 0 ? lessonDates[lessonDates.length - 1] : null,
+        avgPerLesson: avgPerLesson
+      })
+    } catch (error) {
+      console.error('Error fetching financial data:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (student && activeTab === 'financial') {
+      fetchFinancialData()
+    }
+  }, [student, activeTab, id])
 
   const fetchStudentData = async () => {
     try {
@@ -706,6 +745,13 @@ export default function StudentDetailPage() {
           <TrendingUp size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
           Progress
         </button>
+        <button 
+          className={`tab ${activeTab === 'financial' ? 'active' : ''}`}
+          onClick={() => setActiveTab('financial')}
+        >
+          <DollarSign size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+          Financial
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -961,6 +1007,124 @@ export default function StudentDetailPage() {
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'financial' && (
+          <div className="financial-section">
+            <h3 style={{ color: '#4B2C6C', marginBottom: '24px' }}>Financial Information</h3>
+            
+            {financialData ? (
+              <div className="financial-stats-grid">
+                <div className="financial-stat-card">
+                  <div className="financial-stat-label">Total Revenue</div>
+                  <div className="financial-stat-value">
+                    ${parseFloat(financialData.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                
+                <div className="financial-stat-card">
+                  <div className="financial-stat-label">Lessons Purchased</div>
+                  <div className="financial-stat-value">{financialData.totalLessonsPurchased || 0}</div>
+                </div>
+                
+                <div className="financial-stat-card">
+                  <div className="financial-stat-label">Credits Remaining</div>
+                  <div className="financial-stat-value">{financialData.lessonCredits || 0}</div>
+                </div>
+                
+                <div className="financial-stat-card">
+                  <div className="financial-stat-label">Average $/Lesson</div>
+                  <div className="financial-stat-value">
+                    ${financialData.avgPerLesson.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>Loading financial data...</div>
+            )}
+
+            {financialData && (
+              <>
+                <div className="financial-dates-section" style={{ marginTop: '32px' }}>
+                  <h4 style={{ color: '#4B2C6C', marginBottom: '16px' }}>Active Dates</h4>
+                  {financialData.firstLessonDate && financialData.lastLessonDate ? (
+                    <div style={{ padding: '16px', background: '#F8F5FC', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>First Lesson</div>
+                          <div style={{ fontWeight: '600', color: '#333' }}>
+                            {new Date(financialData.firstLessonDate).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Last Lesson</div>
+                          <div style={{ fontWeight: '600', color: '#333' }}>
+                            {new Date(financialData.lastLessonDate).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Total Lessons</div>
+                          <div style={{ fontWeight: '600', color: '#333' }}>
+                            {financialData.lessonDates.length}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px', background: '#F8F5FC', borderRadius: '8px', color: '#999' }}>
+                      No lesson dates available
+                    </div>
+                  )}
+                </div>
+
+                {financialData.lessonDates.length > 0 && (
+                  <div className="financial-lesson-dates" style={{ marginTop: '32px' }}>
+                    <h4 style={{ color: '#4B2C6C', marginBottom: '16px' }}>All Lesson Dates ({financialData.lessonDates.length})</h4>
+                    <div style={{ 
+                      padding: '16px', 
+                      background: '#F8F5FC', 
+                      borderRadius: '8px',
+                      maxHeight: '400px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
+                        gap: '8px' 
+                      }}>
+                        {financialData.lessonDates.map((date, index) => (
+                          <div 
+                            key={index}
+                            style={{ 
+                              padding: '8px', 
+                              background: 'white', 
+                              borderRadius: '4px',
+                              fontSize: '13px',
+                              textAlign: 'center'
+                            }}
+                          >
+                            {new Date(date).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

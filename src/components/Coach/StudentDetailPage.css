@@ -515,3 +515,50 @@
   background: #6A4C8C;
 }
 
+/* Financial Section */
+.financial-section {
+  padding: 24px 0;
+}
+
+.financial-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.financial-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #E0E0E0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.financial-stat-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.financial-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #4B2C6C;
+}
+
+.financial-dates-section,
+.financial-lesson-dates {
+  margin-top: 24px;
+}
+
+.financial-dates-section h4,
+.financial-lesson-dates h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
