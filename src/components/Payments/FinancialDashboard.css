@@ -524,6 +524,27 @@
   font-weight: 600;
 }
 
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.active {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.status-badge.inactive {
+  background: #FFEBEE;
+  color: #C62828;
+}
+
 /* Referrers Table */
 .referrers-table .referrer-name {
   font-weight: 600;

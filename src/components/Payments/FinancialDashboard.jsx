@@ -32,7 +32,8 @@ export default function FinancialDashboard() {
     avgPerLesson: true,
     activeDates: true,
     lessonDates: false,
-    leadSource: false
+    leadSource: false,
+    status: false
   })
   const [sortConfig, setSortConfig] = useState({
     key: 'totalRevenue',
@@ -300,6 +301,11 @@ export default function FinancialDashboard() {
           case 'leadSource':
             aValue = (a.lead_source || '').toLowerCase()
             bValue = (b.lead_source || '').toLowerCase()
+            break
+          case 'status':
+            // Sort by is_active: true (active) comes before false (inactive)
+            aValue = a.is_active !== false ? 1 : 0
+            bValue = b.is_active !== false ? 1 : 0
             break
           default:
             return 0
@@ -635,7 +641,8 @@ export default function FinancialDashboard() {
                 avgPerLesson: 'Avg $/Lesson',
                 activeDates: 'Active Dates',
                 lessonDates: 'Transaction Dates',
-                leadSource: 'Lead Source'
+                leadSource: 'Lead Source',
+                status: 'Status'
               }).map(([key, label]) => (
                 <label key={key} className="column-checkbox">
                   <input
@@ -701,6 +708,11 @@ export default function FinancialDashboard() {
                     {visibleColumns.leadSource && (
                       <th onClick={() => handleSort('leadSource')} className="sortable">
                         Lead Source <SortIndicator columnKey="leadSource" />
+                      </th>
+                    )}
+                    {visibleColumns.status && (
+                      <th onClick={() => handleSort('status')} className="sortable">
+                        Status <SortIndicator columnKey="status" />
                       </th>
                     )}
                   </tr>
@@ -775,6 +787,15 @@ export default function FinancialDashboard() {
                           {student.lead_source ? (
                             <span className="lead-source-tag">{student.lead_source}</span>
                           ) : '-'}
+                        </td>
+                      )}
+                      {visibleColumns.status && (
+                        <td>
+                          {student.is_active !== false ? (
+                            <span className="status-badge active">Active</span>
+                          ) : (
+                            <span className="status-badge inactive">Inactive</span>
+                          )}
                         </td>
                       )}
                     </tr>
