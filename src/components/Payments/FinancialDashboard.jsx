@@ -57,10 +57,9 @@ export default function FinancialDashboard() {
         console.error('Error fetching total students count:', e)
       }
 
-      // 2. Get active students with revenue data
+      // 2. Get ALL students with revenue data (Financial Dashboard shows all students)
       let studentData = []
       try {
-        // Try with is_active filter first
         const { data: students, error: studentsError } = await supabase
           .from('students')
           .select(`
@@ -73,19 +72,12 @@ export default function FinancialDashboard() {
             referred_by_student_id,
             is_active
           `)
-          .eq('is_active', true)
           .order('total_revenue', { ascending: false })
 
         if (studentsError) {
-          // Fallback: try without is_active filter
-          const { data: fallbackStudents } = await supabase
-            .from('students')
-            .select('id, total_revenue, total_lessons_purchased, lesson_credits, created_at, lead_source, referred_by_student_id')
-            .order('total_revenue', { ascending: false })
-          studentData = fallbackStudents || []
-        } else {
-          studentData = students || []
+          throw studentsError
         }
+        studentData = students || []
 
         // Fetch profiles separately
         if (studentData.length > 0) {
@@ -196,7 +188,8 @@ export default function FinancialDashboard() {
       // 6. Calculate stats
       const totalRevenue = filteredStudents.reduce((sum, s) => sum + (parseFloat(s.total_revenue) || 0), 0)
       const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + (s.total_lessons_purchased || 0), 0)
-      const activeStudentsCount = filteredStudents.length // Count of active students (already filtered)
+      // Count active students from all students (Financial Dashboard shows all students)
+      const activeStudentsCount = filteredStudents.filter(s => s.is_active !== false).length
 
       // Monthly revenue calculation
       let monthlyRevenue = 0
