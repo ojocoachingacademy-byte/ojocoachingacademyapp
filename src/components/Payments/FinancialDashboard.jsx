@@ -469,12 +469,17 @@ export default function FinancialDashboard() {
     const activeCount = filteredStudents.filter(s => s.is_active !== false).length
     const avgRevenuePerStudent = filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0
     
+    // Calculate average lessons per student (based on actual lessons taken)
+    const totalLessonsTaken = filteredStudents.reduce((sum, s) => sum + (s.lesson_dates?.length || 0), 0)
+    const avgLessonsPerStudent = filteredStudents.length > 0 ? totalLessonsTaken / filteredStudents.length : 0
+    
     return {
       totalRevenue,
       totalLessonsSold,
       activeStudents: activeCount,
       totalStudents: filteredStudents.length,
-      avgRevenuePerStudent
+      avgRevenuePerStudent,
+      avgLessonsPerStudent
     }
   }, [filteredStudents])
 
@@ -772,6 +777,16 @@ export default function FinancialDashboard() {
             <div className="fin-stat-label">Avg Revenue/Student {filteredStudents.length !== studentRevenue.length ? `(Filtered)` : ''}</div>
             <div className="fin-stat-value" title={`$${filteredStats.avgRevenuePerStudent.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
               {formatCurrency(filteredStats.avgRevenuePerStudent)}
+            </div>
+          </div>
+        </div>
+
+        <div className="fin-stat-card avg-lessons-card">
+          <div className="fin-stat-icon">📈</div>
+          <div className="fin-stat-content">
+            <div className="fin-stat-label">Avg Lessons/Student {filteredStudents.length !== studentRevenue.length ? `(Filtered)` : ''}</div>
+            <div className="fin-stat-value" title={filteredStats.avgLessonsPerStudent.toFixed(1)}>
+              {filteredStats.avgLessonsPerStudent.toFixed(1)}
             </div>
           </div>
         </div>
