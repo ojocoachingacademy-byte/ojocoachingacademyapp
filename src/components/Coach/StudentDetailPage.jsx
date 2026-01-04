@@ -7,6 +7,8 @@ import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 import AddPackageModal from '../Payments/AddPackageModal'
 import MergeHistoricalModal from '../History/MergeHistoricalModal'
+import MergeProfilesModal from './MergeProfilesModal'
+import SelectProfileModal from './SelectProfileModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -25,6 +27,8 @@ export default function StudentDetailPage() {
   const [editingNotes, setEditingNotes] = useState(false)
   const [showAddPackage, setShowAddPackage] = useState(false)
   const [showMergeModal, setShowMergeModal] = useState(false)
+  const [showMergeProfilesModal, setShowMergeProfilesModal] = useState(false)
+  const [selectedProfileToMerge, setSelectedProfileToMerge] = useState(null)
   const [referringStudent, setReferringStudent] = useState(null)
   const [editingLeadSource, setEditingLeadSource] = useState(false)
   const [leadSourceForm, setLeadSourceForm] = useState({ leadSource: '', referredBy: '' })
@@ -687,6 +691,24 @@ export default function StudentDetailPage() {
                         Link History
                       </button>
                     )}
+                    <button 
+                      onClick={() => setShowMergeProfilesModal(true)}
+                      style={{ 
+                        background: '#9C27B0',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      <Link2 size={18} />
+                      Merge Profiles
+                    </button>
                     <button 
                       className="btn btn-primary btn-sm"
                       onClick={() => setEditingProfile(true)}
@@ -1533,6 +1555,34 @@ export default function StudentDetailPage() {
           onSuccess={() => {
             fetchStudentData()
             setShowMergeModal(false)
+          }}
+        />
+      )}
+
+      {/* Select Profile Modal for Merging */}
+      {showMergeProfilesModal && student && (
+        <SelectProfileModal
+          currentProfileId={student.id}
+          onSelect={(selectedProfileId) => {
+            setSelectedProfileToMerge(selectedProfileId)
+            setShowMergeProfilesModal(false)
+          }}
+          onClose={() => setShowMergeProfilesModal(false)}
+        />
+      )}
+
+      {/* Merge Profiles Modal */}
+      {selectedProfileToMerge && student && (
+        <MergeProfilesModal
+          oldProfileId={student.id}
+          newProfileId={selectedProfileToMerge}
+          onClose={() => {
+            setSelectedProfileToMerge(null)
+          }}
+          onSuccess={() => {
+            fetchStudentData()
+            setSelectedProfileToMerge(null)
+            navigate('/coach/students')
           }}
         />
       )}

@@ -8,7 +8,6 @@ import '../shared/Modal.css'
 import CalendarSync from '../Calendar/CalendarSync'
 import LessonTemplates from '../Templates/LessonTemplates'
 import { importHistoricalData, checkImportStatus } from '../../utils/importHistoricalData'
-import { updateActiveStudentsCredits } from '../../utils/updateActiveStudentsCredits'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -130,27 +129,6 @@ export default function CoachDashboard() {
       setImporting(false)
       setImportProgress(null)
       alert(`❌ Import failed: ${error.message}`)
-    }
-  }
-
-  const handleUpdateActiveStudents = async () => {
-    if (!confirm('Update credits and active status for all active students?\n\nThis will:\n- Set credits for 17 active students\n- Mark all other students as inactive')) return
-    
-    setImporting(true)
-    try {
-      const result = await updateActiveStudentsCredits()
-      setImporting(false)
-      
-      if (result.success) {
-        alert(`✅ Update Complete!\n\nUpdated: ${result.updatedCount}\nNot found: ${result.notFoundCount}\nErrors: ${result.errorCount}`)
-        window.location.reload()
-      } else {
-        alert(`❌ Error: ${result.error}`)
-      }
-    } catch (error) {
-      console.error('Error updating active students:', error)
-      setImporting(false)
-      alert(`❌ Error: ${error.message}`)
     }
   }
 
@@ -697,22 +675,6 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             )}
           </div>
         ) : null}
-
-        <button 
-          onClick={handleUpdateActiveStudents} 
-          disabled={importing}
-          className="btn btn-secondary"
-          style={{ 
-            fontSize: '15px', 
-            padding: '12px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <Users size={18} />
-          {importing ? 'Updating...' : '🔄 Update Active Students & Credits'}
-        </button>
 
         <button 
           className="btn btn-primary"
