@@ -484,6 +484,29 @@
   line-height: 1.4;
 }
 
+/* Lead Source Tag */
+.lead-source-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #E3F2FD;
+  color: #1976D2;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Referrers Table */
+.referrers-table .referrer-name {
+  font-weight: 600;
+  color: #4B2C6C;
+}
+
+.referrers-table .referral-count {
+  text-align: center;
+  font-weight: 600;
+  color: #2D7F6F;
+}
+
 /* Show All/Less Button */
 .btn-show-toggle {
   width: 100%;

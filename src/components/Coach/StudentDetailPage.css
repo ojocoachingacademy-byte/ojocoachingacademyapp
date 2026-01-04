@@ -50,6 +50,73 @@
   font-size: 14px;
 }
 
+/* Lead Source Section */
+.lead-source-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #E0E0E0;
+}
+
+.lead-source-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lead-source-badge-large {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #E3F2FD;
+  color: #1976D2;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.no-lead-source {
+  color: #999;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.referral-link {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #E8F5E9;
+  color: #388E3C;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.referral-link:hover {
+  background: #C8E6C9;
+}
+
+.btn-edit-lead-source {
+  background: none;
+  border: none;
+  color: #4B2C6C;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-edit-lead-source:hover {
+  background: #F0F0F0;
+}
+
+.lead-source-edit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .contact-item svg {
   color: var(--color-primary);
 }

@@ -25,6 +25,10 @@ export default function StudentDetailPage() {
   const [editingNotes, setEditingNotes] = useState(false)
   const [showAddPackage, setShowAddPackage] = useState(false)
   const [showMergeModal, setShowMergeModal] = useState(false)
+  const [referringStudent, setReferringStudent] = useState(null)
+  const [editingLeadSource, setEditingLeadSource] = useState(false)
+  const [leadSourceForm, setLeadSourceForm] = useState({ leadSource: '', referredBy: '' })
+  const [allStudents, setAllStudents] = useState([])
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -39,7 +43,34 @@ export default function StudentDetailPage() {
   useEffect(() => {
     fetchStudentData()
     fetchLessons()
+    fetchAllStudents()
   }, [id])
+
+  useEffect(() => {
+    if (student?.referred_by_student_id) {
+      fetchReferringStudent()
+    }
+  }, [student?.referred_by_student_id])
+
+  const fetchReferringStudent = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', student.referred_by_student_id)
+      .single()
+    
+    setReferringStudent(data)
+  }
+
+  const fetchAllStudents = async () => {
+    const { data } = await supabase
+      .from('students')
+      .select('id, profiles!inner(full_name)')
+      .eq('is_active', true)
+      .order('id')
+    
+    setAllStudents(data || [])
+  }
 
   const fetchStudentData = async () => {
     try {
@@ -265,6 +296,48 @@ export default function StudentDetailPage() {
       alert('Error updating status: ' + error.message)
     }
   }
+
+  const saveLeadSource = async () => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ 
+          lead_source: leadSourceForm.leadSource || null,
+          referred_by_student_id: leadSourceForm.leadSource === 'Referral' ? leadSourceForm.referredBy : null
+        })
+        .eq('id', id)
+
+      if (error) throw error
+      
+      setStudent(prev => ({ 
+        ...prev, 
+        lead_source: leadSourceForm.leadSource,
+        referred_by_student_id: leadSourceForm.leadSource === 'Referral' ? leadSourceForm.referredBy : null
+      }))
+      setEditingLeadSource(false)
+      
+      // Refresh referring student if needed
+      if (leadSourceForm.leadSource === 'Referral' && leadSourceForm.referredBy) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('id', leadSourceForm.referredBy)
+          .single()
+        setReferringStudent(data)
+      } else {
+        setReferringStudent(null)
+      }
+    } catch (error) {
+      console.error('Error saving lead source:', error)
+      alert('Error saving: ' + error.message)
+    }
+  }
+
+  const leadSourceOptions = [
+    'Referral', 'Groupon', 'Findtennislessons', 'Playyourcourt', 
+    'In Person', 'TeachMe', 'Thumbtack', 'Facebook', 'Instagram', 
+    'Google', 'Website', 'Other'
+  ]
 
   if (loading) {
     return <div className="page-container">Loading...</div>
@@ -510,6 +583,68 @@ export default function StudentDetailPage() {
                     <Calendar size={16} />
                     <span>{student.lesson_credits || 0} Credits</span>
                   </div>
+                </div>
+
+                {/* Lead Source Section */}
+                <div className="lead-source-section">
+                  {editingLeadSource ? (
+                    <div className="lead-source-edit">
+                      <select
+                        className="input"
+                        value={leadSourceForm.leadSource}
+                        onChange={(e) => setLeadSourceForm({...leadSourceForm, leadSource: e.target.value})}
+                        style={{ minWidth: '150px' }}
+                      >
+                        <option value="">Select lead source...</option>
+                        {leadSourceOptions.map(source => (
+                          <option key={source} value={source}>{source}</option>
+                        ))}
+                      </select>
+                      {leadSourceForm.leadSource === 'Referral' && (
+                        <select
+                          className="input"
+                          value={leadSourceForm.referredBy}
+                          onChange={(e) => setLeadSourceForm({...leadSourceForm, referredBy: e.target.value})}
+                          style={{ minWidth: '150px' }}
+                        >
+                          <option value="">Select referring student...</option>
+                          {allStudents.filter(s => s.id !== id).map(s => (
+                            <option key={s.id} value={s.id}>{s.profiles?.full_name}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button onClick={saveLeadSource} className="btn btn-primary btn-sm">Save</button>
+                      <button onClick={() => setEditingLeadSource(false)} className="btn btn-outline btn-sm">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="lead-source-display">
+                      {student.lead_source ? (
+                        <span className="lead-source-badge-large">{student.lead_source}</span>
+                      ) : (
+                        <span className="no-lead-source">No lead source set</span>
+                      )}
+                      {referringStudent && (
+                        <span 
+                          className="referral-link"
+                          onClick={() => navigate(`/coach/students/${student.referred_by_student_id}`)}
+                        >
+                          Referred by: {referringStudent.full_name}
+                        </span>
+                      )}
+                      <button 
+                        onClick={() => {
+                          setLeadSourceForm({
+                            leadSource: student.lead_source || '',
+                            referredBy: student.referred_by_student_id || ''
+                          })
+                          setEditingLeadSource(true)
+                        }} 
+                        className="btn-edit-lead-source"
+                      >
+                        ✏️ Edit
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}

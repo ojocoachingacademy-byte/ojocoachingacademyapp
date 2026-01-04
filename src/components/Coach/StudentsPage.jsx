@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Search, Award, Calendar, User, Edit2, Check, X } from 'lucide-react'
+import { Search, Award, Calendar, User, Edit2, Check, X, UserPlus } from 'lucide-react'
+import AddStudentModal from './AddStudentModal'
 import './StudentsPage.css'
 
 export default function StudentsPage() {
@@ -14,6 +15,7 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState('active') // 'all', 'active', 'inactive'
   const [editingCredits, setEditingCredits] = useState(null) // student id being edited
   const [editCreditsValue, setEditCreditsValue] = useState(0)
+  const [showAddStudent, setShowAddStudent] = useState(false)
 
   useEffect(() => {
     fetchStudents()
@@ -152,8 +154,17 @@ export default function StudentsPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Students</h1>
-        <div className="student-count">{filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}</div>
+        <div>
+          <h1>Students</h1>
+          <div className="student-count">{filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}</div>
+        </div>
+        <button 
+          className="btn btn-primary add-student-btn"
+          onClick={() => setShowAddStudent(true)}
+        >
+          <UserPlus size={18} />
+          Add Student
+        </button>
       </div>
 
       {/* Filters */}
@@ -280,10 +291,26 @@ export default function StudentsPage() {
                 {student.profiles?.email && (
                   <div className="student-email">{student.profiles.email}</div>
                 )}
+                {student.lead_source && (
+                  <div className="lead-source-badge">
+                    {student.lead_source}
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Add Student Modal */}
+      {showAddStudent && (
+        <AddStudentModal
+          onClose={() => setShowAddStudent(false)}
+          onSuccess={() => {
+            fetchStudents()
+            setShowAddStudent(false)
+          }}
+        />
       )}
     </div>
   )

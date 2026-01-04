@@ -28,7 +28,8 @@ export default function FinancialDashboard() {
     creditsRemaining: true,
     avgPerLesson: true,
     activeDates: true,
-    lessonDates: false
+    lessonDates: false,
+    leadSource: false
   })
   const [sortConfig, setSortConfig] = useState({
     key: 'totalRevenue',
@@ -53,6 +54,8 @@ export default function FinancialDashboard() {
           total_lessons_purchased,
           lesson_credits,
           created_at,
+          lead_source,
+          referred_by_student_id,
           profiles!inner(full_name, email)
         `)
         .order('total_revenue', { ascending: false })
@@ -357,6 +360,34 @@ export default function FinancialDashboard() {
     return <span className="sort-indicator active">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
   }
 
+  // Calculate top referrers
+  const calculateTopReferrers = () => {
+    const referrerMap = {}
+    
+    studentRevenue.forEach(student => {
+      if (student.referred_by_student_id) {
+        if (!referrerMap[student.referred_by_student_id]) {
+          // Find the referrer's name
+          const referrer = studentRevenue.find(s => s.id === student.referred_by_student_id)
+          referrerMap[student.referred_by_student_id] = {
+            id: student.referred_by_student_id,
+            name: referrer?.profiles?.full_name || 'Unknown',
+            referralCount: 0,
+            referralRevenue: 0
+          }
+        }
+        referrerMap[student.referred_by_student_id].referralCount++
+        referrerMap[student.referred_by_student_id].referralRevenue += parseFloat(student.total_revenue || 0)
+      }
+    })
+    
+    return Object.values(referrerMap)
+      .sort((a, b) => b.referralRevenue - a.referralRevenue)
+      .slice(0, 10)
+  }
+
+  const topReferrers = calculateTopReferrers()
+
   if (loading) {
     return (
       <div className="financial-dashboard">
@@ -478,7 +509,8 @@ export default function FinancialDashboard() {
                 creditsRemaining: 'Credits Remaining',
                 avgPerLesson: 'Avg $/Lesson',
                 activeDates: 'Active Dates',
-                lessonDates: 'Transaction Dates'
+                lessonDates: 'Transaction Dates',
+                leadSource: 'Lead Source'
               }).map(([key, label]) => (
                 <label key={key} className="column-checkbox">
                   <input
@@ -539,6 +571,9 @@ export default function FinancialDashboard() {
                     {visibleColumns.lessonDates && (
                       <th>Transaction Dates</th>
                     )}
+                    {visibleColumns.leadSource && (
+                      <th>Lead Source</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -589,6 +624,13 @@ export default function FinancialDashboard() {
                           }
                         </td>
                       )}
+                      {visibleColumns.leadSource && (
+                        <td>
+                          {student.lead_source ? (
+                            <span className="lead-source-tag">{student.lead_source}</span>
+                          ) : '-'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -610,6 +652,36 @@ export default function FinancialDashboard() {
           </>
         )}
       </div>
+
+      {/* Top Referrers */}
+      {topReferrers.length > 0 && (
+        <div className="fin-section">
+          <div className="section-header">
+            <h2>🤝 Top Referrers</h2>
+            <span className="section-count">{topReferrers.length} referrer{topReferrers.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="table-container">
+            <table className="fin-table referrers-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Referrals</th>
+                  <th>Revenue from Referrals</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topReferrers.map(referrer => (
+                  <tr key={referrer.id}>
+                    <td className="referrer-name">{referrer.name}</td>
+                    <td className="referral-count">{referrer.referralCount}</td>
+                    <td className="revenue-cell">${referrer.referralRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Transaction History */}
       <div className="fin-section">
