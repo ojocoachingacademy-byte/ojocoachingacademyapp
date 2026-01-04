@@ -41,6 +41,19 @@ export default function FinancialDashboard() {
   })
   const [showAll, setShowAll] = useState(false)
 
+  // Comprehensive filter state
+  const [filters, setFilters] = useState({
+    year: 'All Time',
+    month: null,
+    searchQuery: '',
+    revenueMin: '',
+    revenueMax: '',
+    dateRangeStart: '',
+    dateRangeEnd: '',
+    leadSources: [],
+    showActiveOnly: false
+  })
+
   useEffect(() => {
     fetchFinancialData()
   }, [selectedMonth, selectedYear])
@@ -261,9 +274,86 @@ export default function FinancialDashboard() {
     }
   }
 
+  // Filtering logic
+  const filteredStudents = useMemo(() => {
+    let filtered = [...studentRevenue]
+    
+    // Year filter
+    if (filters.year !== 'All Time') {
+      filtered = filtered.filter(student => {
+        if (!student.lesson_dates || student.lesson_dates.length === 0) return false
+        return student.lesson_dates.some(date => {
+          const year = new Date(date).getFullYear()
+          return year === parseInt(filters.year)
+        })
+      })
+    }
+    
+    // Month filter (requires year to be set)
+    if (filters.month !== null && filters.year !== 'All Time') {
+      filtered = filtered.filter(student => {
+        if (!student.lesson_dates || student.lesson_dates.length === 0) return false
+        return student.lesson_dates.some(date => {
+          const d = new Date(date)
+          return d.getFullYear() === parseInt(filters.year) && 
+                 d.getMonth() === filters.month
+        })
+      })
+    }
+    
+    // Name search
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase()
+      filtered = filtered.filter(student => 
+        (student.profiles?.full_name || '').toLowerCase().includes(query) ||
+        (student.profiles?.email || '').toLowerCase().includes(query)
+      )
+    }
+    
+    // Revenue range
+    if (filters.revenueMin) {
+      filtered = filtered.filter(student => 
+        parseFloat(student.total_revenue || 0) >= parseFloat(filters.revenueMin)
+      )
+    }
+    if (filters.revenueMax) {
+      filtered = filtered.filter(student => 
+        parseFloat(student.total_revenue || 0) <= parseFloat(filters.revenueMax)
+      )
+    }
+    
+    // Date range filter (active between dates)
+    if (filters.dateRangeStart) {
+      filtered = filtered.filter(student => {
+        if (!student.first_lesson_date) return false
+        return new Date(student.first_lesson_date) >= new Date(filters.dateRangeStart)
+      })
+    }
+    if (filters.dateRangeEnd) {
+      filtered = filtered.filter(student => {
+        if (!student.last_lesson_date) return false
+        return new Date(student.last_lesson_date) <= new Date(filters.dateRangeEnd)
+      })
+    }
+    
+    // Lead source filter
+    if (filters.leadSources.length > 0) {
+      filtered = filtered.filter(student => 
+        student.lead_source && filters.leadSources.includes(student.lead_source)
+      )
+    }
+    
+    // Active only filter
+    if (filters.showActiveOnly) {
+      filtered = filtered.filter(student => student.is_active !== false)
+    }
+    
+    return filtered
+  }, [studentRevenue, filters])
+
   // Sorting logic
   const sortedStudents = useMemo(() => {
-    let sortableStudents = [...studentRevenue]
+    let sortableStudents = [...filteredStudents]
     
     if (sortConfig.key) {
       sortableStudents.sort((a, b) => {
@@ -318,7 +408,23 @@ export default function FinancialDashboard() {
     }
     
     return sortableStudents
-  }, [studentRevenue, sortConfig])
+  }, [filteredStudents, sortConfig])
+
+  // Calculate stats from filtered data
+  const filteredStats = useMemo(() => {
+    const totalRevenue = filteredStudents.reduce((sum, s) => sum + parseFloat(s.total_revenue || 0), 0)
+    const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + parseInt(s.total_lessons_purchased || 0), 0)
+    const activeCount = filteredStudents.filter(s => s.is_active !== false).length
+    const avgRevenuePerStudent = filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0
+    
+    return {
+      totalRevenue,
+      totalLessonsSold,
+      activeStudents: activeCount,
+      totalStudents: filteredStudents.length,
+      avgRevenuePerStudent
+    }
+  }, [filteredStudents])
 
   const displayedStudents = showAll ? sortedStudents : sortedStudents.slice(0, 10)
 
@@ -553,9 +659,9 @@ export default function FinancialDashboard() {
         <div className="fin-stat-card revenue-card">
           <div className="fin-stat-icon">💵</div>
           <div className="fin-stat-content">
-            <div className="fin-stat-label">Total Revenue</div>
-            <div className="fin-stat-value" title={`$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
-              {formatCurrency(stats.totalRevenue)}
+            <div className="fin-stat-label">Total Revenue {filteredStudents.length !== studentRevenue.length ? `(Filtered)` : ''}</div>
+            <div className="fin-stat-value" title={`$${filteredStats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(filteredStats.totalRevenue)}
             </div>
           </div>
         </div>
@@ -575,16 +681,16 @@ export default function FinancialDashboard() {
         <div className="fin-stat-card lessons-card">
           <div className="fin-stat-icon">🎾</div>
           <div className="fin-stat-content">
-            <div className="fin-stat-label">Lessons Sold</div>
-            <div className="fin-stat-value">{stats.totalLessonsSold}</div>
+            <div className="fin-stat-label">Lessons Sold {filteredStudents.length !== studentRevenue.length ? `(Filtered)` : ''}</div>
+            <div className="fin-stat-value">{filteredStats.totalLessonsSold}</div>
           </div>
         </div>
 
         <div className="fin-stat-card active-card">
           <div className="fin-stat-icon">👥</div>
           <div className="fin-stat-content">
-            <div className="fin-stat-label">Active Students</div>
-            <div className="fin-stat-value">{stats.activeStudents} / {stats.totalStudents}</div>
+            <div className="fin-stat-label">Active Students {filteredStudents.length !== studentRevenue.length ? `(Filtered)` : ''}</div>
+            <div className="fin-stat-value">{filteredStats.activeStudents} / {filteredStats.totalStudents}</div>
           </div>
         </div>
 
@@ -611,9 +717,9 @@ export default function FinancialDashboard() {
         <div className="fin-stat-card average-card">
           <div className="fin-stat-icon">📊</div>
           <div className="fin-stat-content">
-            <div className="fin-stat-label">Avg Revenue/Student</div>
-            <div className="fin-stat-value" title={`$${stats.avgRevenuePerStudent.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
-              {formatCurrency(stats.avgRevenuePerStudent)}
+            <div className="fin-stat-label">Avg Revenue/Student {filteredStudents.length !== studentRevenue.length ? `(Filtered)` : ''}</div>
+            <div className="fin-stat-value" title={`$${filteredStats.avgRevenuePerStudent.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}>
+              {formatCurrency(filteredStats.avgRevenuePerStudent)}
             </div>
           </div>
         </div>
@@ -623,7 +729,150 @@ export default function FinancialDashboard() {
       <div className="fin-section">
         <div className="section-header">
           <h2>💼 Revenue by Student</h2>
-          <span className="section-count">{studentRevenue.length} students</span>
+          <span className="section-count">{filteredStudents.length} of {studentRevenue.length} students</span>
+        </div>
+        
+        {/* Filters Section */}
+        <div className="filters-section">
+          <div className="filter-row">
+            {/* Year Dropdown */}
+            <select 
+              value={filters.year} 
+              onChange={(e) => setFilters({...filters, year: e.target.value, month: null})}
+              className="filter-select"
+            >
+              <option value="All Time">All Time</option>
+              {availableYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            
+            {/* Month Dropdown - Only enabled when year is selected */}
+            <select 
+              value={filters.month !== null ? filters.month : ''} 
+              onChange={(e) => setFilters({...filters, month: e.target.value !== '' ? parseInt(e.target.value) : null})}
+              className="filter-select"
+              disabled={filters.year === 'All Time'}
+            >
+              <option value="">All Months</option>
+              <option value="0">January</option>
+              <option value="1">February</option>
+              <option value="2">March</option>
+              <option value="3">April</option>
+              <option value="4">May</option>
+              <option value="5">June</option>
+              <option value="6">July</option>
+              <option value="7">August</option>
+              <option value="8">September</option>
+              <option value="9">October</option>
+              <option value="10">November</option>
+              <option value="11">December</option>
+            </select>
+            
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={filters.searchQuery}
+              onChange={(e) => setFilters({...filters, searchQuery: e.target.value})}
+              className="filter-search"
+            />
+            
+            {/* Revenue Range */}
+            <input
+              type="number"
+              placeholder="Min Revenue"
+              value={filters.revenueMin}
+              onChange={(e) => setFilters({...filters, revenueMin: e.target.value})}
+              className="filter-number"
+            />
+            <input
+              type="number"
+              placeholder="Max Revenue"
+              value={filters.revenueMax}
+              onChange={(e) => setFilters({...filters, revenueMax: e.target.value})}
+              className="filter-number"
+            />
+          </div>
+          
+          <div className="filter-row">
+            {/* Date Range */}
+            <input
+              type="date"
+              value={filters.dateRangeStart}
+              onChange={(e) => setFilters({...filters, dateRangeStart: e.target.value})}
+              className="filter-date"
+              placeholder="Active from"
+            />
+            <input
+              type="date"
+              value={filters.dateRangeEnd}
+              onChange={(e) => setFilters({...filters, dateRangeEnd: e.target.value})}
+              className="filter-date"
+              placeholder="Active until"
+            />
+            
+            {/* Lead Source Filter */}
+            <select
+              value={filters.leadSources.length > 0 ? filters.leadSources[0] : ''}
+              onChange={(e) => setFilters({
+                ...filters, 
+                leadSources: e.target.value ? [e.target.value] : []
+              })}
+              className="filter-select"
+            >
+              <option value="">All Lead Sources</option>
+              <option value="Groupon">Groupon</option>
+              <option value="Findtennislessons">Findtennislessons</option>
+              <option value="Playyourcourt">Playyourcourt</option>
+              <option value="Referral">Referral</option>
+              <option value="In Person">In Person</option>
+              <option value="TeachMe">TeachMe</option>
+              <option value="Thumbtack">Thumbtack</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Other">Other</option>
+            </select>
+            
+            {/* Active Only Toggle */}
+            <label className="filter-checkbox">
+              <input
+                type="checkbox"
+                checked={filters.showActiveOnly}
+                onChange={(e) => setFilters({...filters, showActiveOnly: e.target.checked})}
+              />
+              Active Students Only
+            </label>
+            
+            {/* Clear Filters Button */}
+            <button 
+              onClick={() => setFilters({
+                year: 'All Time',
+                month: null,
+                searchQuery: '',
+                revenueMin: '',
+                revenueMax: '',
+                dateRangeStart: '',
+                dateRangeEnd: '',
+                leadSources: [],
+                showActiveOnly: false
+              })}
+              className="btn-clear-filters"
+            >
+              Clear All Filters
+            </button>
+          </div>
+          
+          {/* Filter Summary */}
+          {Object.values(filters).some(v => {
+            if (Array.isArray(v)) return v.length > 0
+            if (v === null) return false
+            return v !== '' && v !== 'All Time' && v !== false
+          }) && (
+            <div className="filter-summary">
+              Showing {filteredStudents.length} of {studentRevenue.length} students
+            </div>
+          )}
         </div>
         
         {/* Table Controls */}
