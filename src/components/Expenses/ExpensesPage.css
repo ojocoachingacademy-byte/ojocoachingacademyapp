@@ -41,21 +41,19 @@
 }
 
 .expense-stat-card.total {
-  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
-  color: white;
+  border-left: 4px solid #D32F2F;
 }
 
 .expense-stat-card.total svg {
-  color: white;
+  color: #D32F2F;
 }
 
 .expense-stat-card.count {
-  background: linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%);
-  color: white;
+  border-left: 4px solid #666;
 }
 
 .expense-stat-card.count svg {
-  color: white;
+  color: #666;
 }
 
 .expense-stat-card.category {
@@ -64,7 +62,7 @@
 
 .expense-stat-card .stat-label {
   font-size: 13px;
-  opacity: 0.9;
+  color: #666;
   margin-bottom: 4px;
 }
 
