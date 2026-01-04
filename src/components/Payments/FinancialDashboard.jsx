@@ -46,7 +46,18 @@ export default function FinancialDashboard() {
     try {
       setLoading(true)
       
-      // 1. Get all students with revenue data
+      // 1. Get total count of all students first
+      let totalStudentsCount = 0
+      try {
+        const { count } = await supabase
+          .from('students')
+          .select('*', { count: 'exact', head: true })
+        totalStudentsCount = count || 0
+      } catch (e) {
+        console.error('Error fetching total students count:', e)
+      }
+
+      // 2. Get active students with revenue data
       let studentData = []
       try {
         // Try with is_active filter first
@@ -93,7 +104,7 @@ export default function FinancialDashboard() {
         console.error('Error fetching students:', e)
       }
 
-      // 2. Try to get transactions (table may not exist)
+      // 3. Try to get transactions (table may not exist)
       let allTransactions = []
       try {
         const { data: txData, error: txError } = await supabase
@@ -114,7 +125,7 @@ export default function FinancialDashboard() {
         console.log('Transactions table not available:', e)
       }
 
-      // 3. For each student, fetch lesson dates from lesson_transactions
+      // 4. For each student, fetch lesson dates from lesson_transactions
       const studentsWithDates = await Promise.all(
         studentData.map(async (student) => {
           try {
@@ -171,7 +182,7 @@ export default function FinancialDashboard() {
         setAvailableYears(yearsFromLessons)
       }
 
-      // 4. Filter data by selected year
+      // 5. Filter data by selected year
       let filteredStudents = studentsWithDates
       let filteredTransactions = allTransactions
 
@@ -182,10 +193,10 @@ export default function FinancialDashboard() {
         )
       }
 
-      // 5. Calculate stats
+      // 6. Calculate stats
       const totalRevenue = filteredStudents.reduce((sum, s) => sum + (parseFloat(s.total_revenue) || 0), 0)
       const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + (s.total_lessons_purchased || 0), 0)
-      const activeStudents = filteredStudents.filter(s => (s.lesson_credits || 0) > 0).length
+      const activeStudentsCount = filteredStudents.length // Count of active students (already filtered)
 
       // Monthly revenue calculation
       let monthlyRevenue = 0
@@ -206,7 +217,7 @@ export default function FinancialDashboard() {
         ? totalRevenue 
         : filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0)
 
-      // 6. Fetch expenses (table may not exist yet)
+      // 7. Fetch expenses (table may not exist yet)
       let filteredExpenses = []
       let totalExpenses = 0
       try {
@@ -236,9 +247,9 @@ export default function FinancialDashboard() {
         monthlyRevenue,
         yearRevenue,
         totalLessonsSold,
-        activeStudents,
+        activeStudents: activeStudentsCount,
         avgRevenuePerStudent: filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0,
-        totalStudents: filteredStudents.length,
+        totalStudents: totalStudentsCount,
         totalExpenses,
         netIncome
       })
