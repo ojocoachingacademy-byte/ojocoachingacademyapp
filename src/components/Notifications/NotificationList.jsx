@@ -107,15 +107,23 @@ export default function NotificationList() {
       const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
       if (unreadIds.length === 0) return
 
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .in('id', unreadIds)
-
-      if (error) throw error
-
-      // Update local state immediately
+      // Update local state immediately for better UX
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+
+      // Update notifications individually in parallel
+      const updatePromises = unreadIds.map(id =>
+        supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('id', id)
+      )
+      
+      const results = await Promise.all(updatePromises)
+      const errors = results.filter(r => r.error)
+      
+      if (errors.length > 0) {
+        console.error('Some notifications failed to update:', errors)
+      }
       
       // Refetch to ensure consistency
       setTimeout(() => {
@@ -123,8 +131,10 @@ export default function NotificationList() {
       }, 100)
     } catch (error) {
       console.error('Error marking all as read:', error)
-      // Still update local state even if DB update fails
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      // State already updated, refetch to sync with server
+      setTimeout(() => {
+        fetchNotifications()
+      }, 100)
     }
   }
 
