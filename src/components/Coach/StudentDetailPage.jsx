@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
@@ -30,6 +30,12 @@ export default function StudentDetailPage() {
   const [leadSourceForm, setLeadSourceForm] = useState({ leadSource: '', referredBy: '' })
   const [allStudents, setAllStudents] = useState([])
   const [financialData, setFinancialData] = useState(null)
+  const [editingRevenue, setEditingRevenue] = useState(false)
+  const [editingLessonsPurchased, setEditingLessonsPurchased] = useState(false)
+  const [editingCredits, setEditingCredits] = useState(false)
+  const [editRevenueValue, setEditRevenueValue] = useState('')
+  const [editLessonsPurchasedValue, setEditLessonsPurchasedValue] = useState('')
+  const [editCreditsValue, setEditCreditsValue] = useState('')
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -117,6 +123,74 @@ export default function StudentDetailPage() {
       })
     } catch (error) {
       console.error('Error fetching financial data:', error)
+    }
+  }
+
+  const handleSaveRevenue = async () => {
+    try {
+      const revenue = parseFloat(editRevenueValue) || 0
+      const { error } = await supabase
+        .from('students')
+        .update({ total_revenue: revenue })
+        .eq('id', id)
+
+      if (error) throw error
+
+      // Update local state
+      setStudent(prev => ({ ...prev, total_revenue: revenue }))
+      setFinancialData(prev => ({
+        ...prev,
+        totalRevenue: revenue,
+        avgPerLesson: prev.totalLessonsPurchased > 0 ? revenue / prev.totalLessonsPurchased : 0
+      }))
+      setEditingRevenue(false)
+    } catch (error) {
+      console.error('Error saving revenue:', error)
+      alert('Error saving revenue: ' + error.message)
+    }
+  }
+
+  const handleSaveLessonsPurchased = async () => {
+    try {
+      const lessonsPurchased = parseInt(editLessonsPurchasedValue) || 0
+      const { error } = await supabase
+        .from('students')
+        .update({ total_lessons_purchased: lessonsPurchased })
+        .eq('id', id)
+
+      if (error) throw error
+
+      // Update local state
+      setStudent(prev => ({ ...prev, total_lessons_purchased: lessonsPurchased }))
+      setFinancialData(prev => ({
+        ...prev,
+        totalLessonsPurchased: lessonsPurchased,
+        avgPerLesson: lessonsPurchased > 0 ? prev.totalRevenue / lessonsPurchased : 0
+      }))
+      setEditingLessonsPurchased(false)
+    } catch (error) {
+      console.error('Error saving lessons purchased:', error)
+      alert('Error saving lessons purchased: ' + error.message)
+    }
+  }
+
+  const handleSaveCredits = async () => {
+    try {
+      const credits = parseInt(editCreditsValue) || 0
+      const { error } = await supabase
+        .from('students')
+        .update({ lesson_credits: credits })
+        .eq('id', id)
+
+      if (error) throw error
+
+      // Update local state
+      setStudent(prev => ({ ...prev, lesson_credits: credits }))
+      setFinancialData(prev => ({ ...prev, lessonCredits: credits }))
+      setEditingCredits(false)
+    } catch (error) {
+      console.error('Error saving credits:', error)
+      alert('Error saving credits: ' + error.message)
     }
   }
 
@@ -1018,19 +1092,141 @@ export default function StudentDetailPage() {
               <div className="financial-stats-grid">
                 <div className="financial-stat-card">
                   <div className="financial-stat-label">Total Revenue</div>
-                  <div className="financial-stat-value">
-                    ${parseFloat(financialData.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
+                  {editingRevenue ? (
+                    <div className="financial-stat-edit">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editRevenueValue}
+                        onChange={(e) => setEditRevenueValue(e.target.value)}
+                        className="financial-edit-input"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveRevenue()
+                          if (e.key === 'Escape') setEditingRevenue(false)
+                        }}
+                      />
+                      <button 
+                        className="financial-edit-btn save"
+                        onClick={handleSaveRevenue}
+                        title="Save"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button 
+                        className="financial-edit-btn cancel"
+                        onClick={() => setEditingRevenue(false)}
+                        title="Cancel"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      className="financial-stat-value editable"
+                      onClick={() => {
+                        setEditRevenueValue(financialData.totalRevenue.toString())
+                        setEditingRevenue(true)
+                      }}
+                      title="Click to edit"
+                    >
+                      ${parseFloat(financialData.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <Edit2 size={14} style={{ marginLeft: '8px', opacity: 0.6 }} />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="financial-stat-card">
                   <div className="financial-stat-label">Lessons Purchased</div>
-                  <div className="financial-stat-value">{financialData.totalLessonsPurchased || 0}</div>
+                  {editingLessonsPurchased ? (
+                    <div className="financial-stat-edit">
+                      <input
+                        type="number"
+                        min="0"
+                        value={editLessonsPurchasedValue}
+                        onChange={(e) => setEditLessonsPurchasedValue(e.target.value)}
+                        className="financial-edit-input"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveLessonsPurchased()
+                          if (e.key === 'Escape') setEditingLessonsPurchased(false)
+                        }}
+                      />
+                      <button 
+                        className="financial-edit-btn save"
+                        onClick={handleSaveLessonsPurchased}
+                        title="Save"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button 
+                        className="financial-edit-btn cancel"
+                        onClick={() => setEditingLessonsPurchased(false)}
+                        title="Cancel"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      className="financial-stat-value editable"
+                      onClick={() => {
+                        setEditLessonsPurchasedValue(financialData.totalLessonsPurchased.toString())
+                        setEditingLessonsPurchased(true)
+                      }}
+                      title="Click to edit"
+                    >
+                      {financialData.totalLessonsPurchased || 0}
+                      <Edit2 size={14} style={{ marginLeft: '8px', opacity: 0.6 }} />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="financial-stat-card">
                   <div className="financial-stat-label">Credits Remaining</div>
-                  <div className="financial-stat-value">{financialData.lessonCredits || 0}</div>
+                  {editingCredits ? (
+                    <div className="financial-stat-edit">
+                      <input
+                        type="number"
+                        min="0"
+                        value={editCreditsValue}
+                        onChange={(e) => setEditCreditsValue(e.target.value)}
+                        className="financial-edit-input"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveCredits()
+                          if (e.key === 'Escape') setEditingCredits(false)
+                        }}
+                      />
+                      <button 
+                        className="financial-edit-btn save"
+                        onClick={handleSaveCredits}
+                        title="Save"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button 
+                        className="financial-edit-btn cancel"
+                        onClick={() => setEditingCredits(false)}
+                        title="Cancel"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      className="financial-stat-value editable"
+                      onClick={() => {
+                        setEditCreditsValue(financialData.lessonCredits.toString())
+                        setEditingCredits(true)
+                      }}
+                      title="Click to edit"
+                    >
+                      {financialData.lessonCredits || 0}
+                      <Edit2 size={14} style={{ marginLeft: '8px', opacity: 0.6 }} />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="financial-stat-card">

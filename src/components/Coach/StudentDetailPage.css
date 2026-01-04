@@ -550,6 +550,70 @@
   color: #4B2C6C;
 }
 
+.financial-stat-value.editable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.2s;
+}
+
+.financial-stat-value.editable:hover {
+  opacity: 0.8;
+}
+
+.financial-stat-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.financial-edit-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #4B2C6C;
+  border-radius: 4px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #4B2C6C;
+  font-family: inherit;
+}
+
+.financial-edit-input:focus {
+  outline: none;
+  border-color: #6A4C8C;
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
+}
+
+.financial-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.financial-edit-btn.save {
+  background: #4B2C6C;
+  color: white;
+}
+
+.financial-edit-btn.save:hover {
+  background: #6A4C8C;
+}
+
+.financial-edit-btn.cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.financial-edit-btn.cancel:hover {
+  background: #e0e0e0;
+}
+
 .financial-dates-section,
 .financial-lesson-dates {
   margin-top: 24px;
