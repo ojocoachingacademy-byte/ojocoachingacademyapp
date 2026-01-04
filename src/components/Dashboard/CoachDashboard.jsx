@@ -154,29 +154,47 @@ export default function CoachDashboard() {
 
   const fetchCoachData = async () => {
     try {
-      // Fetch only active students
-      const { data: studentsData, error: studentsError } = await supabase
+      // Fetch students - try with is_active filter, fallback if column doesn't exist
+      let studentsData = []
+      
+      // First try with is_active filter
+      let { data, error } = await supabase
         .from('students')
         .select('*')
         .eq('is_active', true)
       
-      if (studentsError) {
-        console.error('Error fetching students:', studentsError)
-        throw studentsError
+      if (error) {
+        // Fallback: fetch all students if is_active column doesn't exist
+        console.log('Fallback: fetching all students')
+        const fallback = await supabase
+          .from('students')
+          .select('*')
+        data = fallback.data
+        error = fallback.error
       }
+      
+      if (error) {
+        console.error('Error fetching students:', error)
+        setError(`Error loading students: ${error.message}`)
+      }
+      
+      studentsData = data || []
 
-      // Fetch profiles for all active students
-      const studentIds = (studentsData || []).map(s => s.id)
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, ntrp_level, phone')
-        .in('id', studentIds)
+      // Fetch profiles for students
+      let studentsWithProfiles = []
+      if (studentsData.length > 0) {
+        const studentIds = studentsData.map(s => s.id)
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, ntrp_level, phone')
+          .in('id', studentIds)
 
-      // Merge students with their profiles
-      const studentsWithProfiles = (studentsData || []).map(student => {
-        const profile = (profilesData || []).find(p => p.id === student.id)
-        return { ...student, profiles: profile || null }
-      })
+        // Merge students with their profiles
+        studentsWithProfiles = studentsData.map(student => {
+          const profile = (profilesData || []).find(p => p.id === student.id)
+          return { ...student, profiles: profile || null }
+        })
+      }
 
       setStudents(studentsWithProfiles)
       console.log('Students loaded:', studentsWithProfiles.length)

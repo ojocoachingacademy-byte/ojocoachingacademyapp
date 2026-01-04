@@ -45,10 +45,16 @@ export default function ExpensesPage() {
         .select('*')
         .order('expense_date', { ascending: false })
 
-      if (error) throw error
-      setExpenses(data || [])
+      if (error) {
+        // Table might not exist yet - show empty state
+        console.log('Expenses table not available yet. Please run the SQL to create it.')
+        setExpenses([])
+      } else {
+        setExpenses(data || [])
+      }
     } catch (error) {
       console.error('Error fetching expenses:', error)
+      setExpenses([])
     } finally {
       setLoading(false)
     }

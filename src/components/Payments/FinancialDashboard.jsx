@@ -46,28 +46,52 @@ export default function FinancialDashboard() {
     try {
       setLoading(true)
       
-      // 1. Get all students with revenue data (only active students)
-      const { data: students, error: studentsError } = await supabase
-        .from('students')
-        .select(`
-          id,
-          total_revenue,
-          total_lessons_purchased,
-          lesson_credits,
-          created_at,
-          lead_source,
-          referred_by_student_id,
-          is_active,
-          profiles:id(full_name, email)
-        `)
-        .eq('is_active', true)
-        .order('total_revenue', { ascending: false })
+      // 1. Get all students with revenue data
+      let studentData = []
+      try {
+        // Try with is_active filter first
+        const { data: students, error: studentsError } = await supabase
+          .from('students')
+          .select(`
+            id,
+            total_revenue,
+            total_lessons_purchased,
+            lesson_credits,
+            created_at,
+            lead_source,
+            referred_by_student_id,
+            is_active
+          `)
+          .eq('is_active', true)
+          .order('total_revenue', { ascending: false })
 
-      if (studentsError) {
-        console.error('Error fetching students:', studentsError)
+        if (studentsError) {
+          // Fallback: try without is_active filter
+          const { data: fallbackStudents } = await supabase
+            .from('students')
+            .select('id, total_revenue, total_lessons_purchased, lesson_credits, created_at, lead_source, referred_by_student_id')
+            .order('total_revenue', { ascending: false })
+          studentData = fallbackStudents || []
+        } else {
+          studentData = students || []
+        }
+
+        // Fetch profiles separately
+        if (studentData.length > 0) {
+          const studentIds = studentData.map(s => s.id)
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', studentIds)
+
+          studentData = studentData.map(s => ({
+            ...s,
+            profiles: (profiles || []).find(p => p.id === s.id) || null
+          }))
+        }
+      } catch (e) {
+        console.error('Error fetching students:', e)
       }
-
-      const studentData = students || []
 
       // 2. Try to get transactions (table may not exist)
       let allTransactions = []
@@ -146,22 +170,29 @@ export default function FinancialDashboard() {
         ? totalRevenue 
         : filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0)
 
-      // 6. Fetch expenses
-      const { data: expensesData } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('expense_date', { ascending: false })
+      // 6. Fetch expenses (table may not exist yet)
+      let filteredExpenses = []
+      let totalExpenses = 0
+      try {
+        const { data: expensesData, error: expError } = await supabase
+          .from('expenses')
+          .select('*')
+          .order('expense_date', { ascending: false })
 
-      // Filter expenses by year
-      let filteredExpenses = expensesData || []
-      if (selectedYear !== 'all') {
-        const year = parseInt(selectedYear)
-        filteredExpenses = filteredExpenses.filter(e => 
-          new Date(e.expense_date).getFullYear() === year
-        )
+        if (!expError && expensesData) {
+          filteredExpenses = expensesData
+          if (selectedYear !== 'all') {
+            const year = parseInt(selectedYear)
+            filteredExpenses = filteredExpenses.filter(e => 
+              new Date(e.expense_date).getFullYear() === year
+            )
+          }
+          totalExpenses = filteredExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
+        }
+      } catch (e) {
+        console.log('Expenses table not available yet')
       }
 
-      const totalExpenses = filteredExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
       const netIncome = totalRevenue - totalExpenses
 
       setStats({

@@ -23,32 +23,37 @@ export default function StudentsPage() {
 
   const fetchStudents = async () => {
     try {
-      // Fetch students and profiles separately to avoid relationship ambiguity
-      const { data: studentsData, error: studentsError } = await supabase
+      // Fetch students - try with all columns, fallback if needed
+      let studentsData = []
+      const { data, error } = await supabase
         .from('students')
         .select('*')
         .order('id', { ascending: true })
 
-      if (studentsError) {
-        console.error('Error fetching students:', studentsError)
+      if (error) {
+        console.error('Error fetching students:', error)
         setLoading(false)
         return
       }
 
+      studentsData = data || []
+
       // Fetch profiles for all students
-      const studentIds = (studentsData || []).map(s => s.id)
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, ntrp_level, phone')
-        .in('id', studentIds)
+      if (studentsData.length > 0) {
+        const studentIds = studentsData.map(s => s.id)
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, ntrp_level, phone')
+          .in('id', studentIds)
 
-      // Merge students with their profiles
-      const studentsWithProfiles = (studentsData || []).map(student => {
-        const profile = (profilesData || []).find(p => p.id === student.id)
-        return { ...student, profiles: profile || null }
-      })
+        // Merge students with their profiles
+        studentsData = studentsData.map(student => {
+          const profile = (profilesData || []).find(p => p.id === student.id)
+          return { ...student, profiles: profile || null }
+        })
+      }
 
-      setStudents(studentsWithProfiles)
+      setStudents(studentsData)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching students:', error)
