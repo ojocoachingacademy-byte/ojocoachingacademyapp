@@ -117,20 +117,30 @@ export default function FinancialDashboard() {
       // 3. For each student, calculate active date range from transactions
       const studentsWithDates = studentData.map(student => {
         const studentTransactions = allTransactions.filter(t => t.student_id === student.id)
+        // Try multiple possible date column names
         const transactionDates = studentTransactions
-          .map(t => t.payment_date || t.created_at)
+          .map(t => {
+            // Try common date column names
+            const date = t.payment_date || t.created_at || t.date || t.transaction_date
+            return date ? new Date(date).toISOString() : null
+          })
           .filter(Boolean)
           .sort()
         
         const firstDate = transactionDates[0]
         const lastDate = transactionDates[transactionDates.length - 1]
         
+        // If no transactions, use student created_at as fallback
+        const fallbackDate = student.created_at ? new Date(student.created_at).toISOString() : null
+        const activeFirstDate = firstDate || fallbackDate
+        const activeLastDate = lastDate || fallbackDate
+        
         return {
           ...student,
           transactionDates,
-          activeDateRange: firstDate && lastDate ? {
-            first: firstDate,
-            last: lastDate
+          activeDateRange: activeFirstDate && activeLastDate ? {
+            first: activeFirstDate,
+            last: activeLastDate
           } : null
         }
       })
@@ -250,6 +260,14 @@ export default function FinancialDashboard() {
           case 'activeDates':
             aValue = a.activeDateRange?.last || '0'
             bValue = b.activeDateRange?.last || '0'
+            break
+          case 'lessonDates':
+            aValue = a.transactionDates?.[0] || '0'
+            bValue = b.transactionDates?.[0] || '0'
+            break
+          case 'leadSource':
+            aValue = (a.lead_source || '').toLowerCase()
+            bValue = (b.lead_source || '').toLowerCase()
             break
           default:
             return 0
@@ -644,10 +662,14 @@ export default function FinancialDashboard() {
                       </th>
                     )}
                     {visibleColumns.lessonDates && (
-                      <th>Transaction Dates</th>
+                      <th onClick={() => handleSort('lessonDates')} className="sortable">
+                        Transaction Dates <SortIndicator columnKey="lessonDates" />
+                      </th>
                     )}
                     {visibleColumns.leadSource && (
-                      <th>Lead Source</th>
+                      <th onClick={() => handleSort('leadSource')} className="sortable">
+                        Lead Source <SortIndicator columnKey="leadSource" />
+                      </th>
                     )}
                   </tr>
                 </thead>
