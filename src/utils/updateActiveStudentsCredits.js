@@ -25,10 +25,10 @@ export async function updateActiveStudentsCredits() {
   console.log('🔄 Updating active students credits and status...')
   
   try {
-    // First, get all students
+    // First, get all students (fetch separately to avoid relationship ambiguity)
     const { data: allStudents, error: fetchError } = await supabase
       .from('students')
-      .select('id, profiles!inner(full_name)')
+      .select('id')
     
     if (fetchError) {
       throw new Error(`Failed to fetch students: ${fetchError.message}`)
