@@ -4,20 +4,20 @@
       "name": "David",
       "revenue": 2100,
       "total_lessons_purchased": 35,
-      "lessons_taken": 27,
       "current_credits": 3,
+      "is_active": true,
       "packages": [
         {"date": "2024-01-21", "amount": 600, "size": 10, "dates_taken": ["2024-01-21", "2024-02-18", "2024-02-25", "2024-03-10", "2024-04-07", "2024-04-28", "2024-05-12", "2024-06-09", "2024-06-16", "2024-06-23"]},
         {"date": "2024-07-14", "amount": 600, "size": 10, "dates_taken": ["2024-07-14", "2024-07-21", "2024-07-28"]},
-        {"date": "2025-08-17", "amount": 600, "size": 10, "dates_taken": ["2025-08-17", "2025-08-24", "2025-09-14", "2025-10-05", "2025-10-19", "2025-11-09", "2025-12-21"]},
-        {"date": "2024-01-01", "amount": 300, "size": 5, "dates_taken": []}
+        {"date": "2025-08-17", "amount": 600, "size": 10, "dates_taken": ["2025-08-17", "2025-08-24", "2025-09-14", "2025-10-05", "2025-10-19", "2025-11-09", "2025-12-21"]}
       ]
     },
     {
       "name": "Gideon",
       "revenue": 1300,
       "total_lessons_purchased": 20,
-      "current_credits": 17,
+      "current_credits": 4,
+      "is_active": true,
       "packages": [
         {"date": "2025-10-19", "amount": 325, "size": 5, "dates_taken": ["2025-10-19", "2025-12-14"]},
         {"date": "2025-12-21", "amount": 325, "size": 5, "dates_taken": ["2025-12-21"]},
@@ -29,7 +29,8 @@
       "name": "Eric",
       "revenue": 1175,
       "total_lessons_purchased": 18,
-      "current_credits": 17,
+      "current_credits": 4,
+      "is_active": true,
       "packages": [
         {"date": "2025-11-02", "amount": 325, "size": 5, "dates_taken": []},
         {"date": "2025-11-30", "amount": 325, "size": 5, "dates_taken": []},
@@ -42,6 +43,7 @@
       "revenue": 325,
       "total_lessons_purchased": 5,
       "current_credits": 5,
+      "is_active": true,
       "packages": [
         {"date": "2025-10-26", "amount": 325, "size": 5, "dates_taken": []}
       ]
@@ -50,7 +52,8 @@
       "name": "Tharak",
       "revenue": 2000,
       "total_lessons_purchased": 40,
-      "current_credits": 38,
+      "current_credits": 18,
+      "is_active": true,
       "packages": [
         {"date": "2025-11-30", "amount": 1000, "size": 20, "dates_taken": ["2025-11-30", "2025-12-07"]},
         {"date": "2025-12-14", "amount": 1000, "size": 20, "dates_taken": []}
@@ -60,7 +63,8 @@
       "name": "Garrett",
       "revenue": 1800,
       "total_lessons_purchased": 36,
-      "current_credits": 28,
+      "current_credits": 10,
+      "is_active": true,
       "packages": [
         {"date": "2024-11-01", "amount": 400, "size": 6, "dates_taken": ["2024-11-02", "2024-11-09", "2024-11-16", "2024-11-23"]},
         {"date": "2024-12-01", "amount": 600, "size": 10, "dates_taken": ["2024-12-07", "2024-12-14", "2024-12-21", "2024-12-28"]},
@@ -72,7 +76,8 @@
       "name": "Tom",
       "revenue": 1625,
       "total_lessons_purchased": 25,
-      "current_credits": 22,
+      "current_credits": 5,
+      "is_active": true,
       "packages": [
         {"date": "2024-10-01", "amount": 325, "size": 5, "dates_taken": []},
         {"date": "2025-11-30", "amount": 325, "size": 5, "dates_taken": ["2025-11-30", "2025-12-14"]},
@@ -85,7 +90,8 @@
       "name": "Karen",
       "revenue": 650,
       "total_lessons_purchased": 10,
-      "current_credits": 10,
+      "current_credits": 5,
+      "is_active": true,
       "packages": [
         {"date": "2025-12-14", "amount": 325, "size": 5, "dates_taken": []},
         {"date": "2025-12-21", "amount": 325, "size": 5, "dates_taken": []}
@@ -95,7 +101,8 @@
       "name": "Kathy and Kelly",
       "revenue": 800,
       "total_lessons_purchased": 10,
-      "current_credits": 10,
+      "current_credits": 5,
+      "is_active": true,
       "packages": [
         {"date": "2025-12-07", "amount": 400, "size": 5, "dates_taken": []},
         {"date": "2025-12-21", "amount": 400, "size": 5, "dates_taken": []}
@@ -105,7 +112,8 @@
       "name": "Chang",
       "revenue": 535,
       "total_lessons_purchased": 8,
-      "current_credits": 8,
+      "current_credits": 5,
+      "is_active": true,
       "packages": [
         {"date": "2025-12-07", "amount": 325, "size": 5, "dates_taken": []},
         {"date": "2025-12-14", "amount": 210, "size": 3, "dates_taken": []}
@@ -116,6 +124,7 @@
       "revenue": 1200,
       "total_lessons_purchased": 20,
       "current_credits": 20,
+      "is_active": true,
       "packages": [
         {"date": "2025-12-21", "amount": 1200, "size": 20, "dates_taken": []}
       ]
@@ -124,7 +133,8 @@
       "name": "Ryan",
       "revenue": 1300,
       "total_lessons_purchased": 25,
-      "current_credits": 21,
+      "current_credits": 3,
+      "is_active": true,
       "packages": [
         {"date": "2024-12-01", "amount": 600, "size": 10, "dates_taken": []},
         {"date": "2025-12-07", "amount": 600, "size": 10, "dates_taken": ["2025-12-07", "2025-12-21"]},
@@ -136,6 +146,7 @@
       "revenue": 0,
       "total_lessons_purchased": 3,
       "current_credits": 3,
+      "is_active": true,
       "packages": [
         {"date": "2025-12-07", "amount": 0, "size": 3, "dates_taken": []}
       ]
@@ -145,6 +156,7 @@
       "revenue": 325,
       "total_lessons_purchased": 5,
       "current_credits": 5,
+      "is_active": true,
       "packages": [
         {"date": "2025-12-16", "amount": 325, "size": 5, "dates_taken": []}
       ]
@@ -154,6 +166,7 @@
       "revenue": 0,
       "total_lessons_purchased": 0,
       "current_credits": 0,
+      "is_active": true,
       "packages": []
     },
     {
@@ -161,6 +174,7 @@
       "revenue": 0,
       "total_lessons_purchased": 0,
       "current_credits": 0,
+      "is_active": true,
       "packages": []
     }
   ],

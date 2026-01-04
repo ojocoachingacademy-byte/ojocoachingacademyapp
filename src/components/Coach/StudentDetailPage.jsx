@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2 } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
@@ -248,6 +248,24 @@ export default function StudentDetailPage() {
     }
   }
 
+  const toggleActiveStatus = async () => {
+    try {
+      const newStatus = !student.is_active
+      const { error } = await supabase
+        .from('students')
+        .update({ is_active: newStatus })
+        .eq('id', id)
+
+      if (error) throw error
+      
+      setStudent(prev => ({ ...prev, is_active: newStatus }))
+      alert(`Student marked as ${newStatus ? 'Active' : 'Inactive'}`)
+    } catch (error) {
+      console.error('Error toggling status:', error)
+      alert('Error updating status: ' + error.message)
+    }
+  }
+
   if (loading) {
     return <div className="page-container">Loading...</div>
   }
@@ -387,8 +405,43 @@ export default function StudentDetailPage() {
             ) : (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h1>{student.profiles?.full_name || 'Unknown Student'}</h1>
+                  <div>
+                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {student.profiles?.full_name || 'Unknown Student'}
+                      <span 
+                        style={{ 
+                          fontSize: '12px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontWeight: 600,
+                          background: student.is_active !== false ? '#D4EDDA' : '#F8D7DA',
+                          color: student.is_active !== false ? '#155724' : '#721C24'
+                        }}
+                      >
+                        {student.is_active !== false ? 'Active' : 'Inactive'}
+                      </span>
+                    </h1>
+                  </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={toggleActiveStatus}
+                      style={{ 
+                        background: student.is_active !== false ? '#F8D7DA' : '#D4EDDA',
+                        color: student.is_active !== false ? '#721C24' : '#155724',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500
+                      }}
+                    >
+                      {student.is_active !== false ? <UserX size={18} /> : <UserCheck size={18} />}
+                      {student.is_active !== false ? 'Mark Inactive' : 'Mark Active'}
+                    </button>
                     <button 
                       className="btn btn-success btn-sm"
                       onClick={() => setShowAddPackage(true)}

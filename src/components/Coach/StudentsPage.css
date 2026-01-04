@@ -85,6 +85,18 @@
   font-weight: 600;
 }
 
+.inactive-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #F8D7DA;
+  color: #721C24;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .student-avatar {
   width: 60px;
   height: 60px;

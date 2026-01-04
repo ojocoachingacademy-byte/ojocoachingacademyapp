@@ -11,6 +11,7 @@ export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [levelFilter, setLevelFilter] = useState('all')
   const [sortBy, setSortBy] = useState('name')
+  const [statusFilter, setStatusFilter] = useState('active') // 'all', 'active', 'inactive'
   const [editingCredits, setEditingCredits] = useState(null) // student id being edited
   const [editCreditsValue, setEditCreditsValue] = useState(0)
 
@@ -60,6 +61,11 @@ export default function StudentsPage() {
 
   const getFilteredAndSortedStudents = () => {
     let filtered = students.filter(student => {
+      // Status filter (is_active defaults to true if not set)
+      const isActive = student.is_active !== false
+      if (statusFilter === 'active' && !isActive) return false
+      if (statusFilter === 'inactive' && isActive) return false
+
       // Search filter
       const name = student.profiles?.full_name || 'Unknown'
       if (searchTerm && !name.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -164,6 +170,16 @@ export default function StudentsPage() {
         </div>
         <select
           className="input"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ maxWidth: '200px' }}
+        >
+          <option value="active">Active Students</option>
+          <option value="inactive">Inactive Students</option>
+          <option value="all">All Students</option>
+        </select>
+        <select
+          className="input"
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
           style={{ maxWidth: '200px' }}
@@ -202,6 +218,11 @@ export default function StudentsPage() {
               className="student-card"
               onClick={() => navigate(`/coach/students/${student.id}`)}
             >
+              {student.is_active === false && (
+                <div className="inactive-badge" title="Inactive Student">
+                  Inactive
+                </div>
+              )}
               {student.private_coach_notes && (
                 <div className="notes-indicator" title="Has private notes">
                   🔒 Notes
