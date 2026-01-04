@@ -8,6 +8,7 @@ import '../shared/Modal.css'
 import CalendarSync from '../Calendar/CalendarSync'
 import LessonTemplates from '../Templates/LessonTemplates'
 import { importHistoricalData, checkImportStatus } from '../../utils/importHistoricalData'
+import { parseCsvAndCreateLessonTransactions } from '../../utils/parseCsvAndCreateLessonTransactions'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -129,6 +130,27 @@ export default function CoachDashboard() {
       setImporting(false)
       setImportProgress(null)
       alert(`❌ Import failed: ${error.message}`)
+    }
+  }
+
+  const handleCreateLessonDates = async () => {
+    if (!confirm('Parse CSV and create lesson_taken transactions for all students?')) return
+    
+    setImporting(true)
+    try {
+      const result = await parseCsvAndCreateLessonTransactions()
+      setImporting(false)
+      
+      if (result.success) {
+        alert(`✅ Success! Created lesson transactions for ${result.successCount} students.\nSkipped: ${result.skippedCount}\nErrors: ${result.errorCount}`)
+        window.location.reload()
+      } else {
+        alert(`❌ Error: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating lesson dates:', error)
+      setImporting(false)
+      alert(`❌ Error: ${error.message}`)
     }
   }
 
@@ -678,6 +700,22 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             ✓ All {importStatus.count} historical students imported
           </div>
         )}
+
+        <button 
+          onClick={handleCreateLessonDates} 
+          disabled={importing}
+          className="btn btn-secondary"
+          style={{ 
+            fontSize: '15px', 
+            padding: '12px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <Calendar size={18} />
+          {importing ? 'Processing CSV...' : '📅 Create Lesson Dates from CSV'}
+        </button>
 
         <button 
           className="btn btn-primary"
