@@ -174,8 +174,9 @@ export async function parseCsvAndCreateLessonTransactions() {
           // Table might not exist, try payment_transactions instead
           const { data: paymentTransactions } = await supabase
             .from('payment_transactions')
-            .select('created_at')
+            .select('id')
             .eq('student_id', profile.id)
+            .limit(1)
           
           existing = paymentTransactions || []
         }

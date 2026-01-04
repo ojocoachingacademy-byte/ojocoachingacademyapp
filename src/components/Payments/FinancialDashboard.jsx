@@ -118,7 +118,7 @@ export default function FinancialDashboard() {
         const { data: txData, error: txError } = await supabase
           .from('payment_transactions')
           .select('*')
-          .order('created_at', { ascending: false })
+          .order('payment_date', { ascending: false })
 
         if (!txError && txData) {
           allTransactions = txData
