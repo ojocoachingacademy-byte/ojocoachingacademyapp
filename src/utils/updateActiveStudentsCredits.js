@@ -63,16 +63,21 @@ export async function updateActiveStudentsCredits() {
     let notFoundCount = 0
     let errorCount = 0
     
-    // First, mark all students as inactive
-    const { error: inactiveError } = await supabase
-      .from('students')
-      .update({ is_active: false })
-    
-    if (inactiveError) {
-      console.error('Error marking all students inactive:', inactiveError.message)
-    } else {
-      console.log(`✅ Marked all students as inactive (will reactivate active ones)`)
+    // First, mark all students as inactive (using a WHERE clause that matches all)
+    // Update in batches to avoid issues
+    const batchSize = 50
+    for (let i = 0; i < studentIds.length; i += batchSize) {
+      const batch = studentIds.slice(i, i + batchSize)
+      const { error: inactiveError } = await supabase
+        .from('students')
+        .update({ is_active: false })
+        .in('id', batch)
+      
+      if (inactiveError) {
+        console.error(`Error marking batch ${i / batchSize + 1} inactive:`, inactiveError.message)
+      }
     }
+    console.log(`✅ Marked all ${studentIds.length} students as inactive (will reactivate active ones)`)
     
     // Update each active student
     for (const activeStudent of activeStudentsData) {
