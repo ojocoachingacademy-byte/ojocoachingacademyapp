@@ -135,7 +135,9 @@
 .clinics-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 8px;
+  min-height: 0; /* Important for flex scrolling */
 }
 
 .clinic-card {
