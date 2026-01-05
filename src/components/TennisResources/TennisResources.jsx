@@ -39,12 +39,12 @@ const TENNIS_CLINICS = [
   },
   {
     id: 4,
-    name: 'Rancho Bernardo Tennis Club',
-    address: '16789 Bernardo Center Dr, San Diego, CA 92128',
+    name: 'Rancho Bernardo Swim & Tennis Club',
+    address: '16955 Bernardo Oaks Dr, San Diego, CA 92128',
     lat: 33.0214,
     lng: -117.0744,
-    phone: '(858) 487-1192',
-    website: 'https://www.rbtennis.com',
+    phone: '(858) 487-5002',
+    website: 'https://www.rbstc.com',
     clinicDays: 'Tuesday, Thursday',
     clinicTime: '6:00 PM - 8:00 PM'
   },
@@ -437,7 +437,24 @@ export default function TennisResources() {
                       <div className="clinic-details">
                         <div className="clinic-detail-item">
                           <Clock size={14} />
-                          <span>{clinic.clinicDays} • {clinic.clinicTime}</span>
+                          <span>
+                            {clinic.clinicDays.split(', ').map((day, index, array) => (
+                              <span key={day}>
+                                <a 
+                                  href={clinic.website} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="clinic-day-link"
+                                >
+                                  {day}
+                                </a>
+                                {index < array.length - 1 && ', '}
+                              </span>
+                            ))}
+                            {' • '}
+                            {clinic.clinicTime}
+                          </span>
                         </div>
                         {clinic.phone && (
                           <div className="clinic-detail-item">

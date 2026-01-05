@@ -214,6 +214,18 @@
   text-decoration: underline;
 }
 
+.clinic-day-link {
+  color: #4B2C6C;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.clinic-day-link:hover {
+  text-decoration: underline;
+  color: #6A4C93;
+}
+
 .clinics-map-container {
   position: relative;
   background: white;
