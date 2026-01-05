@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import { getWebsiteReferralStats } from '../../utils/referralDataSync'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import './FinancialDashboard.css'
@@ -18,6 +19,7 @@ export default function FinancialDashboard() {
   const [transactions, setTransactions] = useState([])
   const [studentRevenue, setStudentRevenue] = useState([])
   const [expenses, setExpenses] = useState([])
+  const [websiteReferralRevenue, setWebsiteReferralRevenue] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
   const [selectedYear, setSelectedYear] = useState('all')
@@ -463,7 +465,7 @@ export default function FinancialDashboard() {
   }, [filteredStudents, sortConfig])
 
   // Calculate stats from filtered data
-  const filteredStats = useMemo(() => {
+  const filteredStats = useMemo(async () => {
     const totalRevenue = filteredStudents.reduce((sum, s) => sum + parseFloat(s.total_revenue || 0), 0)
     const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + parseInt(s.total_lessons_purchased || 0), 0)
     const activeCount = filteredStudents.filter(s => s.is_active !== false).length
@@ -473,15 +475,28 @@ export default function FinancialDashboard() {
     const totalLessonsTaken = filteredStudents.reduce((sum, s) => sum + (s.lesson_dates?.length || 0), 0)
     const avgLessonsPerStudent = filteredStudents.length > 0 ? totalLessonsTaken / filteredStudents.length : 0
     
+    // Get website referral revenue
+    let websiteReferralRevenue = 0
+    try {
+      const { getWebsiteReferralStats } = await import('../../utils/referralDataSync')
+      const websiteStats = await getWebsiteReferralStats()
+      websiteReferralRevenue = websiteStats.totalRevenue || 0
+    } catch (error) {
+      console.error('Error fetching website referral stats:', error)
+    }
+    
+    const totalRevenueWithWebsite = totalRevenue + websiteReferralRevenue
+    
     return {
-      totalRevenue,
+      totalRevenue: totalRevenueWithWebsite,
       totalLessonsSold,
       activeStudents: activeCount,
       totalStudents: filteredStudents.length,
       avgRevenuePerStudent,
-      avgLessonsPerStudent
+      avgLessonsPerStudent,
+      websiteReferralRevenue
     }
-  }, [filteredStudents])
+  }, [filteredStudents, websiteReferralRevenue])
 
   const displayedStudents = showAll ? sortedStudents : sortedStudents.slice(0, 10)
 

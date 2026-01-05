@@ -110,6 +110,17 @@ export default function AddStudentModal({ onClose, onSuccess }) {
         if (studentError) throw studentError
       }
 
+      // Award referral credit if this is a referral
+      if (formData.leadSource === 'Referral' && formData.referredByStudentId) {
+        try {
+          const { awardReferralCredit } = await import('../../utils/processReferralReward')
+          await awardReferralCredit(formData.referredByStudentId, authData.user.id)
+        } catch (rewardError) {
+          console.error('Error awarding referral credit:', rewardError)
+          // Don't fail the student creation if reward fails
+        }
+      }
+
       // If they paid, create transaction
       if (formData.initialAmount > 0) {
         await supabase

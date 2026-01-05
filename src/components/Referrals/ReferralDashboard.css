@@ -70,6 +70,13 @@
   color: #4B2C6C;
 }
 
+.referral-stat-breakdown {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
 .referral-section {
   background: white;
   border-radius: 12px;

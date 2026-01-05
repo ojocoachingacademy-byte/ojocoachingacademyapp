@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { Users, Trophy, TrendingUp, Gift, UserCheck, ArrowRight } from 'lucide-react'
+import { getCombinedReferralStats, getWebsiteReferrals } from '../../utils/referralDataSync'
+import { Users, Trophy, TrendingUp, Gift, UserCheck, ArrowRight, Globe } from 'lucide-react'
 import './ReferralDashboard.css'
 
 export default function ReferralDashboard() {
@@ -14,6 +15,8 @@ export default function ReferralDashboard() {
     activeReferrers: 0,
     avgRevenuePerReferral: 0
   })
+  const [combinedStats, setCombinedStats] = useState(null)
+  const [websiteReferrals, setWebsiteReferrals] = useState([])
   const [referrerData, setReferrerData] = useState([])
   const [referralDetails, setReferralDetails] = useState([])
 
@@ -57,6 +60,14 @@ export default function ReferralDashboard() {
         // Calculate referral data
         calculateReferralMetrics(studentsWithProfiles)
       }
+
+      // Fetch combined stats (app + website)
+      const combined = await getCombinedReferralStats()
+      setCombinedStats(combined)
+
+      // Fetch website referrals
+      const websiteRefs = await getWebsiteReferrals()
+      setWebsiteReferrals(websiteRefs)
     } catch (error) {
       console.error('Error fetching referral data:', error)
       alert('Error loading referral data: ' + error.message)
@@ -165,7 +176,14 @@ export default function ReferralDashboard() {
             </div>
             <div className="referral-stat-content">
               <div className="referral-stat-label">Total Referrals</div>
-              <div className="referral-stat-value">{referralStats.totalReferrals}</div>
+              <div className="referral-stat-value">
+                {combinedStats ? combinedStats.combined.totalReferrals : referralStats.totalReferrals}
+              </div>
+              {combinedStats && (
+                <div className="referral-stat-breakdown">
+                  App: {combinedStats.appReferrals.totalReferrals} | Website: {combinedStats.websiteReferrals.totalReferrals}
+                </div>
+              )}
             </div>
           </div>
 
@@ -176,11 +194,16 @@ export default function ReferralDashboard() {
             <div className="referral-stat-content">
               <div className="referral-stat-label">Total Referral Revenue</div>
               <div className="referral-stat-value">
-                ${referralStats.totalReferralRevenue.toLocaleString('en-US', { 
+                ${(combinedStats ? combinedStats.combined.totalRevenue : referralStats.totalReferralRevenue).toLocaleString('en-US', { 
                   minimumFractionDigits: 2, 
                   maximumFractionDigits: 2 
                 })}
               </div>
+              {combinedStats && (
+                <div className="referral-stat-breakdown">
+                  App: ${combinedStats.appReferrals.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | Website: ${combinedStats.websiteReferrals.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -291,6 +314,57 @@ export default function ReferralDashboard() {
             </div>
           )}
         </div>
+
+        {/* Website Referrals */}
+        {websiteReferrals.length > 0 && (
+          <div className="referral-section">
+            <div className="section-header">
+              <h2>
+                <Globe size={20} style={{ marginRight: '8px', display: 'inline' }} />
+                Website Referrals
+              </h2>
+              <span className="section-count">{websiteReferrals.length} booking{websiteReferrals.length !== 1 ? 's' : ''} with referral codes</span>
+            </div>
+
+            <div className="table-container">
+              <table className="referral-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Email</th>
+                    <th>Referral Code</th>
+                    <th>Package</th>
+                    <th className="text-right">Price</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {websiteReferrals.map((booking, index) => (
+                    <tr key={booking.id || index}>
+                      <td>
+                        <strong>{booking.customer_first_name} {booking.customer_last_name}</strong>
+                      </td>
+                      <td>{booking.customer_email}</td>
+                      <td>
+                        <span className="badge badge-referrals">{booking.referral_code}</span>
+                      </td>
+                      <td>{booking.package_name}</td>
+                      <td className="revenue-cell">
+                        ${parseFloat(booking.price || 0).toLocaleString('en-US', { 
+                          minimumFractionDigits: 2, 
+                          maximumFractionDigits: 2 
+                        })}
+                      </td>
+                      <td>
+                        {new Date(booking.created_at || booking.timestamp).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Referral Details */}
         <div className="referral-section">
