@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { getCombinedReferralStats, getWebsiteReferrals } from '../../utils/referralDataSync'
-import { Users, Trophy, TrendingUp, Gift, UserCheck, ArrowRight, Globe } from 'lucide-react'
+import { processPendingReferralRewards } from '../../utils/processReferralReward'
+import { Users, Trophy, TrendingUp, Gift, UserCheck, ArrowRight, Globe, RefreshCw } from 'lucide-react'
 import './ReferralDashboard.css'
 
 export default function ReferralDashboard() {
@@ -19,10 +20,34 @@ export default function ReferralDashboard() {
   const [websiteReferrals, setWebsiteReferrals] = useState([])
   const [referrerData, setReferrerData] = useState([])
   const [referralDetails, setReferralDetails] = useState([])
+  const [processingRewards, setProcessingRewards] = useState(false)
 
   useEffect(() => {
     fetchReferralData()
   }, [])
+
+  const handleProcessRewards = async () => {
+    if (!confirm('Process referral rewards for all pending referrals? This will award 1 credit to each referrer.')) {
+      return
+    }
+
+    setProcessingRewards(true)
+    try {
+      const result = await processPendingReferralRewards()
+      if (result.success) {
+        alert(`✅ Processed ${result.processed} referral rewards successfully!\n${result.failed > 0 ? `⚠️ ${result.failed} failed` : ''}`)
+        // Refresh data
+        fetchReferralData()
+      } else {
+        alert(`❌ Error processing rewards: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error processing rewards:', error)
+      alert(`❌ Error: ${error.message}`)
+    } finally {
+      setProcessingRewards(false)
+    }
+  }
 
   const fetchReferralData = async () => {
     try {
