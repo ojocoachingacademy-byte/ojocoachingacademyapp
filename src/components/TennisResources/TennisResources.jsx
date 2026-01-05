@@ -237,12 +237,17 @@ export default function TennisResources() {
         throw new Error('Google Maps Map constructor not available')
       }
 
+      // Advanced Markers require a Map ID
+      // Create a default map ID or use a custom one from env
+      const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
+      
       const map = new window.google.maps.Map(mapRef.current, {
         center: sanDiegoCenter,
         zoom: 11,
         mapTypeControl: true,
         streetViewControl: false,
-        fullscreenControl: true
+        fullscreenControl: true,
+        mapId: mapId // Required for Advanced Markers
       })
 
       mapInstanceRef.current = map
