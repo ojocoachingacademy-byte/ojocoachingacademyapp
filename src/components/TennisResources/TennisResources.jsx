@@ -106,14 +106,37 @@ export default function TennisResources() {
 
   useEffect(() => {
     // Load Google Maps script
-    if (!window.google) {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
+      setLocationError('Google Maps API key not configured. Please add VITE_GOOGLE_MAPS_API_KEY to your .env file.')
+      return
+    }
+
+    if (!window.google || !window.google.maps) {
+      // Check if script is already being loaded
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+      if (existingScript) {
+        existingScript.addEventListener('load', () => {
+          setMapLoaded(true)
+          initializeMap()
+        })
+        return
+      }
+
       const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY'}&libraries=places`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
       script.async = true
       script.defer = true
       script.onload = () => {
-        setMapLoaded(true)
-        initializeMap()
+        if (window.google && window.google.maps) {
+          setMapLoaded(true)
+          initializeMap()
+        } else {
+          setLocationError('Failed to load Google Maps. Please check your API key.')
+        }
+      }
+      script.onerror = () => {
+        setLocationError('Failed to load Google Maps script. Please check your API key and internet connection.')
       }
       document.head.appendChild(script)
     } else {
@@ -158,7 +181,11 @@ export default function TennisResources() {
   }
 
   const initializeMap = () => {
-    if (!window.google || !mapRef.current) return
+    if (!window.google || !window.google.maps || !window.google.maps.Map || !mapRef.current) {
+      console.error('Google Maps API not loaded properly')
+      setLocationError('Google Maps failed to initialize. Please refresh the page.')
+      return
+    }
 
     // Center on San Diego
     const sanDiegoCenter = { lat: 32.7157, lng: -117.1611 }
