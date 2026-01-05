@@ -128,20 +128,45 @@ export default function TennisResources() {
       script.async = true
       script.defer = true
       script.onload = () => {
-        if (window.google && window.google.maps) {
-          setMapLoaded(true)
-          initializeMap()
-        } else {
-          setLocationError('Failed to load Google Maps. Please check your API key.')
+        // Wait for Google Maps to be fully initialized
+        const checkMapsReady = () => {
+          if (window.google && window.google.maps && window.google.maps.Map) {
+            setMapLoaded(true)
+            initializeMap()
+          } else {
+            // Retry after a short delay
+            setTimeout(checkMapsReady, 100)
+          }
         }
+        checkMapsReady()
       }
       script.onerror = () => {
         setLocationError('Failed to load Google Maps script. Please check your API key and internet connection.')
       }
       document.head.appendChild(script)
-    } else {
+    } else if (window.google && window.google.maps && window.google.maps.Map) {
       setMapLoaded(true)
-      initializeMap()
+      // Small delay to ensure everything is ready
+      setTimeout(() => {
+        initializeMap()
+      }, 100)
+    } else {
+      // Maps might still be loading, wait a bit
+      const checkInterval = setInterval(() => {
+        if (window.google && window.google.maps && window.google.maps.Map) {
+          clearInterval(checkInterval)
+          setMapLoaded(true)
+          initializeMap()
+        }
+      }, 100)
+      
+      // Stop checking after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        if (!window.google?.maps?.Map) {
+          setLocationError('Google Maps API not available. Please check your API key configuration.')
+        }
+      }, 5000)
     }
 
     // Get user's location
