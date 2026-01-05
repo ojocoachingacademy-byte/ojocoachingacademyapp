@@ -1,0 +1,33 @@
+      // Advanced Markers require a valid Map ID from Google Cloud Console
+      // Only use Advanced Markers if mapId is provided via env var
+      const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+      
+      const mapConfig = {
+        center: sanDiegoCenter,
+        zoom: 11,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true
+      }
+      
+      // Only add mapId if provided (required for Advanced Markers)
+      // Without mapId, we'll use legacy markers which work fine
+      if (mapId) {
+        mapConfig.mapId = mapId
+      }
+      
+      const map = new window.google.maps.Map(mapRef.current, mapConfig)
+
+      mapInstanceRef.current = map
+      // Store mapId for later use in marker creation
+      mapInstanceRef.current._mapId = mapId
+
+      // Check if we can use Advanced Markers (requires mapId and marker library)
+      const useAdvancedMarkers = mapId && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement
+
+      // Add markers for tennis clinics
+      TENNIS_CLINICS.forEach(clinic => {
+        // Use AdvancedMarkerElement only if mapId is available, otherwise use legacy Marker
+        let marker
+        if (useAdvancedMarkers) {
+

@@ -237,26 +237,38 @@ export default function TennisResources() {
         throw new Error('Google Maps Map constructor not available')
       }
 
-      // Advanced Markers require a Map ID
-      // Create a default map ID or use a custom one from env
-      const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
+      // Advanced Markers require a valid Map ID from Google Cloud Console
+      // Only use Advanced Markers if mapId is provided via env var
+      const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
       
-      const map = new window.google.maps.Map(mapRef.current, {
+      const mapConfig = {
         center: sanDiegoCenter,
         zoom: 11,
         mapTypeControl: true,
         streetViewControl: false,
-        fullscreenControl: true,
-        mapId: mapId // Required for Advanced Markers
-      })
+        fullscreenControl: true
+      }
+      
+      // Only add mapId if provided (required for Advanced Markers)
+      // Without mapId, we'll use legacy markers which work fine
+      if (mapId) {
+        mapConfig.mapId = mapId
+      }
+      
+      const map = new window.google.maps.Map(mapRef.current, mapConfig)
 
       mapInstanceRef.current = map
+      // Store mapId for later use in marker creation
+      mapInstanceRef.current._mapId = mapId
+
+      // Check if we can use Advanced Markers (requires mapId and marker library)
+      const useAdvancedMarkers = mapId && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement
 
       // Add markers for tennis clinics
       TENNIS_CLINICS.forEach(clinic => {
-        // Use AdvancedMarkerElement if available, otherwise fall back to Marker
+        // Use AdvancedMarkerElement only if mapId is available, otherwise use legacy Marker
         let marker
-        if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+        if (useAdvancedMarkers) {
           // Use AdvancedMarkerElement (new API)
           const pinElement = new window.google.maps.marker.PinElement({
             background: '#4B2C6C',
