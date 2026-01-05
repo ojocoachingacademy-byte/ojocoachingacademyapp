@@ -20,6 +20,7 @@ import ExpensesPage from './components/Expenses/ExpensesPage'
 import ReferralDashboard from './components/Referrals/ReferralDashboard'
 import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
 import TestimonialsManagement from './components/Testimonials/TestimonialsManagement'
+import TennisResources from './components/TennisResources/TennisResources'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 
@@ -125,6 +126,10 @@ function App() {
         <Route 
           path="/hitting-partners" 
           element={session ? <HittingPartners /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/tennis-resources" 
+          element={session ? <TennisResources /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/messages" 
