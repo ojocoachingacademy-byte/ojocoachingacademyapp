@@ -4,6 +4,7 @@ import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, Doll
 import NotificationBell from '../Notifications/NotificationBell'
 import DropdownNav from './DropdownNav'
 import './Header.css'
+import './DropdownNav.css'
 
 export default function Header({ user, isCoach }) {
   const navigate = useNavigate()

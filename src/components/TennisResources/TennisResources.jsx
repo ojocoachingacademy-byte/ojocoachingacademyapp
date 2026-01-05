@@ -208,7 +208,7 @@ export default function TennisResources() {
         title: clinic.name,
         icon: {
           url: 'http://maps.google.com/mapfiles/ms/icons/tennis.png',
-          scaledSize: new window.google.maps.Size(32, 32)
+          scaledSize: window.google.maps?.Size ? new window.google.maps.Size(32, 32) : undefined
         }
       })
 
@@ -262,7 +262,8 @@ export default function TennisResources() {
     })
 
     // Add circle to show accuracy
-    new window.google.maps.Circle({
+    if (window.google?.maps?.Circle) {
+      new window.google.maps.Circle({
       strokeColor: '#4285F4',
       strokeOpacity: 0.3,
       strokeWeight: 2,
