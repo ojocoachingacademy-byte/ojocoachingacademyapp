@@ -35,17 +35,29 @@ For security, restrict the API key:
    - Select "Maps JavaScript API"
    - Save
 
-### Step 3: Add to Environment Variables
+### Step 3: Create Map ID (Optional - for Advanced Markers)
+
+Advanced Markers require a Map ID. To use them:
+
+1. In Google Cloud Console, go to "Maps" → "Map Styles"
+2. Create a new map style or use default
+3. Copy the Map ID (format: `xxxxxxxxxxxxx`)
+
+**Note:** If you don't set a Map ID, the app will use legacy markers (which still work fine).
+
+### Step 4: Add to Environment Variables
 
 Add to your `.env` file:
 
 ```env
 VITE_GOOGLE_MAPS_API_KEY=your_api_key_here
+VITE_GOOGLE_MAPS_MAP_ID=your_map_id_here  # Optional - for Advanced Markers
 ```
 
 Or in Netlify:
 - Go to Site Settings → Environment Variables
 - Add: `VITE_GOOGLE_MAPS_API_KEY` = `your_api_key_here`
+- Add: `VITE_GOOGLE_MAPS_MAP_ID` = `your_map_id_here` (Optional)
 
 ### Step 4: Test
 
