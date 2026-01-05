@@ -18,6 +18,7 @@ import StudentLessonsPage from './components/Dashboard/StudentLessonsPage'
 import FinancialDashboard from './components/Payments/FinancialDashboard'
 import ExpensesPage from './components/Expenses/ExpensesPage'
 import ReferralDashboard from './components/Referrals/ReferralDashboard'
+import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 
@@ -111,6 +112,10 @@ function App() {
         <Route 
           path="/coach/referrals" 
           element={session && isCoach ? <ReferralDashboard /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/coach/test/referral-integration" 
+          element={session && isCoach ? <ReferralIntegrationTest /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/hitting-partners" 

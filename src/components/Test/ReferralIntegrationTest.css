@@ -1,0 +1,263 @@
+.referral-test-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.test-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.test-header h1 {
+  color: #4B2C6C;
+  margin-bottom: 0.5rem;
+}
+
+.test-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.btn-test {
+  padding: 12px 24px;
+  background: #4B2C6C;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn-test:hover:not(:disabled) {
+  background: #5a3a7c;
+}
+
+.btn-test:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  font-size: 18px;
+  color: #666;
+}
+
+.test-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.test-section h2 {
+  color: #4B2C6C;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #E8E0F0;
+  padding-bottom: 0.5rem;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.result-card {
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 2px solid;
+}
+
+.result-card.success {
+  background: #E8F5E9;
+  border-color: #4CAF50;
+  color: #2E7D32;
+}
+
+.result-card.error {
+  background: #FFEBEE;
+  border-color: #F44336;
+  color: #C62828;
+}
+
+.errors-section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #FFF3E0;
+  border-left: 4px solid #FF9800;
+  border-radius: 4px;
+}
+
+.errors-section h3 {
+  margin-top: 0;
+  color: #E65100;
+}
+
+.errors-section ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.5rem;
+}
+
+.errors-section li {
+  margin: 0.5rem 0;
+  color: #E65100;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #F8F5FC 0%, #FFFFFF 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid #E8E0F0;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4B2C6C;
+}
+
+.top-referrers {
+  margin-top: 2rem;
+}
+
+.top-referrers h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.top-referrers table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.top-referrers th {
+  background: #4B2C6C;
+  color: white;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.top-referrers td {
+  padding: 12px;
+  border-bottom: 1px solid #E8E0F0;
+}
+
+.top-referrers tr:hover {
+  background: #F8F5FC;
+}
+
+.referrals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.referral-item {
+  background: #F8F5FC;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #E8E0F0;
+}
+
+.referral-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.referral-code {
+  background: #4B2C6C;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.referral-details {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 14px;
+  color: #666;
+}
+
+.more-indicator {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  margin-top: 1rem;
+}
+
+.instructions {
+  background: #E3F2FD;
+  border: 2px solid #2196F3;
+}
+
+.instructions h2 {
+  color: #1976D2;
+  border-bottom-color: #90CAF9;
+}
+
+.instructions ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.instructions li {
+  margin: 0.75rem 0;
+  color: #1565C0;
+}
+
+@media (max-width: 768px) {
+  .referral-test-page {
+    padding: 1rem;
+  }
+
+  .test-actions {
+    flex-direction: column;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .referral-details {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
