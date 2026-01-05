@@ -11,11 +11,13 @@
 
 ```bash
 # If you haven't cloned it yet:
-git clone https://github.com/ojocoachingacademy-byte/ojocoachingacademy
-cd ojocoachingacademy
+git clone https://github.com/ojocoachingacademy-byte/ojocoachingacademy "Tennis Coaching"
+cd "Tennis Coaching"
 
-# If you already have it cloned, just navigate there:
-cd ojocoachingacademy
+# If you already have it cloned (folder is called "Tennis Coaching"), just navigate there:
+cd "Tennis Coaching"
+# Or if it's in a different location:
+cd path/to/Tennis Coaching
 ```
 
 ### 3. Run the Extraction Script
@@ -35,7 +37,7 @@ node scripts/extract-testimonials-from-folder.js
 **Option C: Run directly from app repo (if you're there):**
 ```bash
 # From app repo directory
-cd ../ojocoachingacademy
+cd "../Tennis Coaching"
 node ../ojo-coaching-academy-app/scripts/extract-testimonials-from-folder.js
 ```
 
