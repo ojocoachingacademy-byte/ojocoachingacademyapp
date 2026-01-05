@@ -238,38 +238,59 @@ export default function TennisResources() {
       mapInstanceRef.current = map
 
       // Add markers for tennis clinics
-    TENNIS_CLINICS.forEach(clinic => {
-      const marker = new window.google.maps.Marker({
-        position: { lat: clinic.lat, lng: clinic.lng },
-        map: map,
-        title: clinic.name,
-        icon: {
-          url: 'http://maps.google.com/mapfiles/ms/icons/tennis.png',
-          scaledSize: window.google.maps?.Size ? new window.google.maps.Size(32, 32) : undefined
+      TENNIS_CLINICS.forEach(clinic => {
+        // Use AdvancedMarkerElement if available, otherwise fall back to Marker
+        let marker
+        if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+          // Use AdvancedMarkerElement (new API)
+          const pinElement = new window.google.maps.marker.PinElement({
+            background: '#4B2C6C',
+            borderColor: '#FFFFFF',
+            glyphColor: '#FFFFFF',
+            scale: 1.2
+          })
+          
+          marker = new window.google.maps.marker.AdvancedMarkerElement({
+            map: map,
+            position: { lat: clinic.lat, lng: clinic.lng },
+            title: clinic.name,
+            content: pinElement.element
+          })
+        } else {
+          // Fallback to legacy Marker
+          marker = new window.google.maps.Marker({
+            position: { lat: clinic.lat, lng: clinic.lng },
+            map: map,
+            title: clinic.name,
+            icon: {
+              url: 'http://maps.google.com/mapfiles/ms/icons/tennis.png',
+              scaledSize: window.google.maps?.Size ? new window.google.maps.Size(32, 32) : undefined
+            }
+          })
         }
+
+        if (window.google.maps.InfoWindow) {
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div class="map-info-window">
+                <h3>${clinic.name}</h3>
+                <p>${clinic.address}</p>
+                <p><strong>Clinic Days:</strong> ${clinic.clinicDays}</p>
+                <p><strong>Time:</strong> ${clinic.clinicTime}</p>
+                <p><strong>Phone:</strong> <a href="tel:${clinic.phone}">${clinic.phone}</a></p>
+                ${clinic.website ? `<p><a href="${clinic.website}" target="_blank">Visit Website</a></p>` : ''}
+              </div>
+            `
+          })
+
+          // Add click listener (works for both Marker and AdvancedMarkerElement)
+          marker.addListener('click', () => {
+            infoWindow.open(map, marker)
+          })
+        }
+
+        markersRef.current.push(marker)
       })
-
-      if (window.google.maps.InfoWindow) {
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div class="map-info-window">
-              <h3>${clinic.name}</h3>
-              <p>${clinic.address}</p>
-              <p><strong>Clinic Days:</strong> ${clinic.clinicDays}</p>
-              <p><strong>Time:</strong> ${clinic.clinicTime}</p>
-              <p><strong>Phone:</strong> <a href="tel:${clinic.phone}">${clinic.phone}</a></p>
-              ${clinic.website ? `<p><a href="${clinic.website}" target="_blank">Visit Website</a></p>` : ''}
-            </div>
-          `
-        })
-
-        marker.addListener('click', () => {
-          infoWindow.open(map, marker)
-        })
-      }
-
-      markersRef.current.push(marker)
-    })
 
     // Add user location marker if available
     if (userLocation) {
@@ -355,10 +376,16 @@ export default function TennisResources() {
       mapInstanceRef.current.setZoom(15)
       
       // Trigger marker click to show info window
-      const marker = markersRef.current.find(m => 
-        m.getPosition().lat() === clinic.lat && 
-        m.getPosition().lng() === clinic.lng
-      )
+      const marker = markersRef.current.find(m => {
+        if (m.getPosition) {
+          // Legacy Marker
+          return m.getPosition().lat() === clinic.lat && m.getPosition().lng() === clinic.lng
+        } else if (m.position) {
+          // AdvancedMarkerElement
+          return m.position.lat === clinic.lat && m.position.lng === clinic.lng
+        }
+        return false
+      })
       if (marker && window.google.maps.event) {
         window.google.maps.event.trigger(marker, 'click')
       }
