@@ -241,7 +241,7 @@ export default function TennisResources() {
   }
 
   const updateUserMarker = (location) => {
-    if (!mapInstanceRef.current) return
+    if (!mapInstanceRef.current || !window.google?.maps) return
 
     // Remove existing user marker
     if (userMarkerRef.current) {
@@ -254,7 +254,7 @@ export default function TennisResources() {
       map: mapInstanceRef.current,
       title: 'Your Location',
       icon: {
-        path: window.google.maps.SymbolPath.CIRCLE,
+        path: window.google.maps.SymbolPath?.CIRCLE || 'circle',
         scale: 8,
         fillColor: '#4285F4',
         fillOpacity: 1,
@@ -264,17 +264,18 @@ export default function TennisResources() {
     })
 
     // Add circle to show accuracy
-    if (window.google?.maps?.Circle) {
+    if (window.google.maps.Circle) {
       new window.google.maps.Circle({
-      strokeColor: '#4285F4',
-      strokeOpacity: 0.3,
-      strokeWeight: 2,
-      fillColor: '#4285F4',
-      fillOpacity: 0.1,
-      map: mapInstanceRef.current,
-      center: location,
-      radius: 500 // 500 meters
-    })
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.3,
+        strokeWeight: 2,
+        fillColor: '#4285F4',
+        fillOpacity: 0.1,
+        map: mapInstanceRef.current,
+        center: location,
+        radius: 500 // 500 meters
+      })
+    }
   }
 
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
