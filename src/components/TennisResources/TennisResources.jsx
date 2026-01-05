@@ -342,8 +342,12 @@ export default function TennisResources() {
       }
     }
 
-    // Add new user marker - use AdvancedMarkerElement if available
-    if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+    // Check if we can use Advanced Markers (requires mapId)
+    const mapId = mapInstanceRef.current?._mapId
+    const useAdvancedMarkers = mapId && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement
+    
+    // Add new user marker - use AdvancedMarkerElement only if mapId is available
+    if (useAdvancedMarkers) {
       const pinElement = new window.google.maps.marker.PinElement({
         background: '#4285F4',
         borderColor: '#FFFFFF',
