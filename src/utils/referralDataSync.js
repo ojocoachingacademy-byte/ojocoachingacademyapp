@@ -131,16 +131,31 @@ export async function getReferralRedemptions() {
 export async function getCombinedReferralStats() {
   try {
     // Get app referrals (from students table)
-    const { data: students, error: studentsError } = await supabase
+    const { data: studentsData, error: studentsError } = await supabase
       .from('students')
       .select(`
         id,
         referred_by_student_id,
-        total_revenue,
-        profiles!inner(full_name)
+        total_revenue
       `)
 
     if (studentsError) throw studentsError
+
+    // Fetch profiles separately
+    let students = studentsData || []
+    if (students.length > 0) {
+      const studentIds = students.map(s => s.id)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', studentIds)
+
+      // Merge students with profiles
+      students = students.map(student => ({
+        ...student,
+        profiles: profilesData?.find(p => p.id === student.id)
+      }))
+    }
 
     // Calculate app referral stats
     const appReferrerMap = {}

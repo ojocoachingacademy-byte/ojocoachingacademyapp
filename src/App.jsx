@@ -115,7 +115,7 @@ function App() {
         />
         <Route 
           path="/coach/test/referral-integration" 
-          element={session && isCoach ? <ReferralIntegrationTest /> : <Navigate to="/login" />} 
+          element={session ? <ReferralIntegrationTest /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/hitting-partners" 
