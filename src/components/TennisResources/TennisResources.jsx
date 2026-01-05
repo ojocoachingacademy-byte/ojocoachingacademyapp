@@ -174,9 +174,19 @@ export default function TennisResources() {
 
     return () => {
       // Cleanup markers
-      markersRef.current.forEach(marker => marker.setMap(null))
+      markersRef.current.forEach(marker => {
+        if (marker.setMap) {
+          marker.setMap(null)
+        } else if (marker.map) {
+          marker.map = null
+        }
+      })
       if (userMarkerRef.current) {
-        userMarkerRef.current.setMap(null)
+        if (userMarkerRef.current.setMap) {
+          userMarkerRef.current.setMap(null)
+        } else if (userMarkerRef.current.map) {
+          userMarkerRef.current.map = null
+        }
       }
     }
   }, [])
