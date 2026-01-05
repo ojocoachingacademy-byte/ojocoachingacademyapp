@@ -222,17 +222,22 @@ export default function TennisResources() {
     const sanDiegoCenter = { lat: 32.7157, lng: -117.1611 }
 
     try {
+      // Double-check Map is available
+      if (!window.google.maps.Map) {
+        throw new Error('Google Maps Map constructor not available')
+      }
+
       const map = new window.google.maps.Map(mapRef.current, {
-      center: sanDiegoCenter,
-      zoom: 11,
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true
-    })
+        center: sanDiegoCenter,
+        zoom: 11,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true
+      })
 
-    mapInstanceRef.current = map
+      mapInstanceRef.current = map
 
-    // Add markers for tennis clinics
+      // Add markers for tennis clinics
     TENNIS_CLINICS.forEach(clinic => {
       const marker = new window.google.maps.Marker({
         position: { lat: clinic.lat, lng: clinic.lng },
