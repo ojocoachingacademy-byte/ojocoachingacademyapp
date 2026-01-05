@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp } from 'lucide-react'
 import NotificationBell from '../Notifications/NotificationBell'
 import './Header.css'
 
@@ -90,6 +90,13 @@ export default function Header({ user, isCoach }) {
                       >
                         <UserCheck size={18} />
                         Referrals
+                      </button>
+                      <button 
+                        className={`nav-link ${isActive('/coach/testimonials') ? 'active' : ''}`}
+                        onClick={() => navigate('/coach/testimonials')}
+                      >
+                        <ThumbsUp size={18} />
+                        Testimonials
                       </button>
                     </>
                   ) : (

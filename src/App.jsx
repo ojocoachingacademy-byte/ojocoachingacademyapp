@@ -19,6 +19,7 @@ import FinancialDashboard from './components/Payments/FinancialDashboard'
 import ExpensesPage from './components/Expenses/ExpensesPage'
 import ReferralDashboard from './components/Referrals/ReferralDashboard'
 import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
+import TestimonialsManagement from './components/Testimonials/TestimonialsManagement'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 
@@ -116,6 +117,10 @@ function App() {
         <Route 
           path="/coach/test/referral-integration" 
           element={session ? <ReferralIntegrationTest /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/coach/testimonials" 
+          element={session && isCoach ? <TestimonialsManagement /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/hitting-partners" 
