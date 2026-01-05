@@ -275,6 +275,11 @@ export default function TennisResources() {
     if (userLocation) {
       updateUserMarker(userLocation)
     }
+
+    } catch (error) {
+      console.error('Error initializing map:', error)
+      setLocationError('Failed to initialize map. Please check your API key and refresh the page.')
+    }
   }
 
   const updateUserMarker = (location) => {
@@ -290,14 +295,17 @@ export default function TennisResources() {
       position: location,
       map: mapInstanceRef.current,
       title: 'Your Location',
-      icon: {
-        path: window.google.maps.SymbolPath?.CIRCLE || 'circle',
-        scale: 8,
-        fillColor: '#4285F4',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2
-      }
+        icon: window.google.maps.SymbolPath ? {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#4285F4',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2
+        } : {
+          url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+          scaledSize: window.google.maps?.Size ? new window.google.maps.Size(16, 16) : undefined
+        }
     })
 
     // Add circle to show accuracy
