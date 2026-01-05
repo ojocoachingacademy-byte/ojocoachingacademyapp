@@ -177,6 +177,9 @@ export default function TestimonialsManagement() {
           </div>
         </div>
 
+        {/* Analytics Section */}
+        <TestimonialsAnalytics />
+
         <div className="testimonials-filters">
           <button
             className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
