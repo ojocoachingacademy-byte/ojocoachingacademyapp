@@ -249,13 +249,27 @@ export default function StudentDashboard() {
           .from('lessons')
           .update({ status: 'completed' })
           .eq('id', lesson.id)
-          .then(({ error }) => {
-            if (error) console.error('Error updating lesson status:', error)
-            else fetchStudentData() // Refresh to get updated status
+          .then(async ({ error }) => {
+            if (error) {
+              console.error('Error updating lesson status:', error)
+            } else {
+              // Check if testimonial request should be created
+              // The database trigger will create it, but we can also check client-side
+              // and send email notification
+              if (student && pastLessons.length + 1 >= 5) {
+                try {
+                  const { checkAndCreateTestimonialRequest } = await import('../../utils/checkAndCreateTestimonialRequest')
+                  await checkAndCreateTestimonialRequest(student.id, pastLessons.length + 1)
+                } catch (err) {
+                  console.error('Error checking testimonial request:', err)
+                }
+              }
+              fetchStudentData() // Refresh to get updated status
+            }
           })
       }
     })
-  }, [lessons])
+  }, [lessons, student, pastLessons.length])
 
   if (loading) {
     return (
