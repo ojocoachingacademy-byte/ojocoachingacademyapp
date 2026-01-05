@@ -308,14 +308,34 @@ export default function TennisResources() {
 
     // Remove existing user marker
     if (userMarkerRef.current) {
-      userMarkerRef.current.setMap(null)
+      if (userMarkerRef.current.setMap) {
+        userMarkerRef.current.setMap(null)
+      } else if (userMarkerRef.current.map) {
+        userMarkerRef.current.map = null
+      }
     }
 
-    // Add new user marker
-    userMarkerRef.current = new window.google.maps.Marker({
-      position: location,
-      map: mapInstanceRef.current,
-      title: 'Your Location',
+    // Add new user marker - use AdvancedMarkerElement if available
+    if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+      const pinElement = new window.google.maps.marker.PinElement({
+        background: '#4285F4',
+        borderColor: '#FFFFFF',
+        glyphColor: '#FFFFFF',
+        scale: 1.0
+      })
+      
+      userMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
+        map: mapInstanceRef.current,
+        position: location,
+        title: 'Your Location',
+        content: pinElement.element
+      })
+    } else {
+      // Fallback to legacy Marker
+      userMarkerRef.current = new window.google.maps.Marker({
+        position: location,
+        map: mapInstanceRef.current,
+        title: 'Your Location',
         icon: window.google.maps.SymbolPath ? {
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: 8,
@@ -327,7 +347,8 @@ export default function TennisResources() {
           url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
           scaledSize: window.google.maps?.Size ? new window.google.maps.Size(16, 16) : undefined
         }
-    })
+      })
+    }
 
     // Add circle to show accuracy
     if (window.google.maps.Circle) {
