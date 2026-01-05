@@ -68,6 +68,7 @@ export default function CoachDashboard() {
   const [selectedLessonDetail, setSelectedLessonDetail] = useState(null)
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
+  const [showAllStudents, setShowAllStudents] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(null)
@@ -781,78 +782,110 @@ Do NOT use markdown formatting - just plain text with line breaks.`
         {students.length === 0 ? (
           <div className="empty-state">No students found. Check console for details.</div>
         ) : (
-          <div className="grid grid-2">
-            {students.map((student, index) => {
-              const profile = student.profiles
-              const name = profile?.full_name || 'No Name'
-              const initials = getInitials(name)
-              const avatarBg = getAvatarColor(name)
-              return (
-                <div key={student.id} className={`student-card stagger-item`} style={{ animationDelay: `${index * 0.05}s` }}>
-                  <div className="student-header">
-                    <div className="student-main">
-                      <div className="student-avatar" style={{ background: avatarBg }}>
-                        {initials}
-                      </div>
-                      <div className="student-info">
-                        <h3>{name}</h3>
-                        <div className="student-details">
-                          <div className="student-detail-item">
-                            <Award size={16} />
-                            <span className="ntrp-badge">{profile?.ntrp_level || 'N/A'}</span>
+          <>
+            <div className="grid grid-2">
+              {(showAllStudents ? students : students.slice(0, 4)).map((student, index) => {
+                const profile = student.profiles
+                const name = profile?.full_name || 'No Name'
+                const initials = getInitials(name)
+                const avatarBg = getAvatarColor(name)
+                return (
+                  <div key={student.id} className={`student-card stagger-item`} style={{ animationDelay: `${index * 0.05}s` }}>
+                    <div className="student-header">
+                      <div className="student-main">
+                        <div className="student-avatar" style={{ background: avatarBg }}>
+                          {initials}
+                        </div>
+                        <div className="student-info">
+                          <h3>{name}</h3>
+                          <div className="student-details">
+                            <div className="student-detail-item">
+                              <Award size={16} />
+                              <span className="ntrp-badge">{profile?.ntrp_level || 'N/A'}</span>
+                            </div>
+                            <div className="student-detail-item">
+                              <span className="credits-display">💰 {student.lesson_credits || 0} Credits</span>
+                            </div>
                           </div>
-                          <div className="student-detail-item">
-                            <span className="credits-display">💰 {student.lesson_credits || 0} Credits</span>
+                          <div className="student-details" style={{ marginTop: '8px' }}>
+                            {profile?.email && (
+                              <div className="student-detail-item">
+                                <Mail size={14} />
+                                <span>{profile.email}</span>
+                              </div>
+                            )}
+                            {profile?.phone && (
+                              <div className="student-detail-item">
+                                <Phone size={14} />
+                                <span>{profile.phone}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="student-details" style={{ marginTop: '8px' }}>
-                          {profile?.email && (
-                            <div className="student-detail-item">
-                              <Mail size={14} />
-                              <span>{profile.email}</span>
-                            </div>
-                          )}
-                          {profile?.phone && (
-                            <div className="student-detail-item">
-                              <Phone size={14} />
-                              <span>{profile.phone}</span>
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                    <div className="student-actions">
-                      <button 
-                        className="btn btn-sm btn-pill"
-                        onClick={() => navigate(`/coach/students/${student.id}`)}
-                        style={{ background: 'linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%)', color: 'white', marginRight: '8px' }}
-                      >
-                        <Target size={16} />
-                        View Profile
-                      </button>
-                      <button 
-                        className="btn btn-sm btn-pill"
-                        onClick={() => handleUpdateCredits(student.id, student.lesson_credits || 0, 1)}
-                        style={{ background: 'linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%)', color: 'white' }}
-                      >
-                        <Plus size={16} />
-                        +1
-                      </button>
-                      <button 
-                        className="btn btn-sm btn-pill"
-                        onClick={() => handleUpdateCredits(student.id, student.lesson_credits || 0, -1)}
-                        disabled={(student.lesson_credits || 0) === 0}
-                        style={{ background: 'linear-gradient(135deg, #F44336 0%, #E91E63 100%)', color: 'white' }}
-                      >
-                        <Minus size={16} />
-                        -1
-                      </button>
+                      <div className="student-actions">
+                        <button 
+                          className="btn btn-sm btn-pill"
+                          onClick={() => navigate(`/coach/students/${student.id}`)}
+                          style={{ background: 'linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%)', color: 'white', marginRight: '8px' }}
+                        >
+                          <Target size={16} />
+                          View Profile
+                        </button>
+                        <button 
+                          className="btn btn-sm btn-pill"
+                          onClick={() => handleUpdateCredits(student.id, student.lesson_credits || 0, 1)}
+                          style={{ background: 'linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%)', color: 'white' }}
+                        >
+                          <Plus size={16} />
+                          +1
+                        </button>
+                        <button 
+                          className="btn btn-sm btn-pill"
+                          onClick={() => handleUpdateCredits(student.id, student.lesson_credits || 0, -1)}
+                          disabled={(student.lesson_credits || 0) === 0}
+                          style={{ background: 'linear-gradient(135deg, #F44336 0%, #E91E63 100%)', color: 'white' }}
+                        >
+                          <Minus size={16} />
+                          -1
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+            {students.length > 4 && (
+              <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowAllStudents(!showAllStudents)}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    border: '1px solid #4B2C6C',
+                    background: 'white',
+                    color: '#4B2C6C',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {showAllStudents ? (
+                    <>
+                      <Minus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                      Show Less
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                      Show More ({students.length - 4} more)
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
