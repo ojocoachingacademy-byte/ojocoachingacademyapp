@@ -16,14 +16,6 @@ export default function FinancialDashboard() {
     avgRevenuePerStudent: 0,
     avgLessonsPerStudent: 0
   })
-  const [filteredStats, setFilteredStats] = useState({
-    totalRevenue: 0,
-    totalLessonsSold: 0,
-    activeStudents: 0,
-    totalStudents: 0,
-    avgRevenuePerStudent: 0,
-    avgLessonsPerStudent: 0
-  })
   const [stats, setStats] = useState({
     totalRevenue: 0,
     monthlyRevenue: 0,
@@ -481,38 +473,41 @@ export default function FinancialDashboard() {
   }, [filteredStudents, sortConfig])
 
   // Calculate stats from filtered data
-  const filteredStats = useMemo(async () => {
-    const totalRevenue = filteredStudents.reduce((sum, s) => sum + parseFloat(s.total_revenue || 0), 0)
-    const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + parseInt(s.total_lessons_purchased || 0), 0)
-    const activeCount = filteredStudents.filter(s => s.is_active !== false).length
-    const avgRevenuePerStudent = filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0
-    
-    // Calculate average lessons per student (based on actual lessons taken)
-    const totalLessonsTaken = filteredStudents.reduce((sum, s) => sum + (s.lesson_dates?.length || 0), 0)
-    const avgLessonsPerStudent = filteredStudents.length > 0 ? totalLessonsTaken / filteredStudents.length : 0
-    
-    // Get website referral revenue
-    let websiteReferralRevenue = 0
-    try {
-      const { getWebsiteReferralStats } = await import('../../utils/referralDataSync')
-      const websiteStats = await getWebsiteReferralStats()
-      websiteReferralRevenue = websiteStats.totalRevenue || 0
-    } catch (error) {
-      console.error('Error fetching website referral stats:', error)
+  useEffect(() => {
+    const calculateFilteredStats = async () => {
+      const totalRevenue = filteredStudents.reduce((sum, s) => sum + parseFloat(s.total_revenue || 0), 0)
+      const totalLessonsSold = filteredStudents.reduce((sum, s) => sum + parseInt(s.total_lessons_purchased || 0), 0)
+      const activeCount = filteredStudents.filter(s => s.is_active !== false).length
+      const avgRevenuePerStudent = filteredStudents.length > 0 ? totalRevenue / filteredStudents.length : 0
+      
+      // Calculate average lessons per student (based on actual lessons taken)
+      const totalLessonsTaken = filteredStudents.reduce((sum, s) => sum + (s.lesson_dates?.length || 0), 0)
+      const avgLessonsPerStudent = filteredStudents.length > 0 ? totalLessonsTaken / filteredStudents.length : 0
+      
+      // Get website referral revenue
+      let websiteReferralRevenue = 0
+      try {
+        const { getWebsiteReferralStats } = await import('../../utils/referralDataSync')
+        const websiteStats = await getWebsiteReferralStats()
+        websiteReferralRevenue = websiteStats.totalRevenue || 0
+      } catch (error) {
+        console.error('Error fetching website referral stats:', error)
+      }
+      
+      const totalRevenueWithWebsite = totalRevenue + websiteReferralRevenue
+      
+      setFilteredStats({
+        totalRevenue: totalRevenueWithWebsite,
+        totalLessonsSold,
+        activeStudents: activeCount,
+        totalStudents: filteredStudents.length,
+        avgRevenuePerStudent: filteredStudents.length > 0 ? totalRevenueWithWebsite / filteredStudents.length : 0,
+        avgLessonsPerStudent
+      })
     }
-    
-    const totalRevenueWithWebsite = totalRevenue + websiteReferralRevenue
-    
-    return {
-      totalRevenue: totalRevenueWithWebsite,
-      totalLessonsSold,
-      activeStudents: activeCount,
-      totalStudents: filteredStudents.length,
-      avgRevenuePerStudent,
-      avgLessonsPerStudent,
-      websiteReferralRevenue
-    }
-  }, [filteredStudents, websiteReferralRevenue])
+
+    calculateFilteredStats()
+  }, [filteredStudents])
 
   const displayedStudents = showAll ? sortedStudents : sortedStudents.slice(0, 10)
 
