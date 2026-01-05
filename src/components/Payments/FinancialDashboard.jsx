@@ -8,6 +8,14 @@ import './FinancialDashboard.css'
 
 export default function FinancialDashboard() {
   const navigate = useNavigate()
+  const [filteredStats, setFilteredStats] = useState({
+    totalRevenue: 0,
+    totalLessonsSold: 0,
+    activeStudents: 0,
+    totalStudents: 0,
+    avgRevenuePerStudent: 0,
+    avgLessonsPerStudent: 0
+  })
   const [stats, setStats] = useState({
     totalRevenue: 0,
     monthlyRevenue: 0,
