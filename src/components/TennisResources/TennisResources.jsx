@@ -305,7 +305,7 @@ export default function TennisResources() {
   }
 
   const handleClinicClick = (clinic) => {
-    if (mapInstanceRef.current) {
+    if (mapInstanceRef.current && window.google?.maps) {
       mapInstanceRef.current.setCenter({ lat: clinic.lat, lng: clinic.lng })
       mapInstanceRef.current.setZoom(15)
       
@@ -314,7 +314,7 @@ export default function TennisResources() {
         m.getPosition().lat() === clinic.lat && 
         m.getPosition().lng() === clinic.lng
       )
-      if (marker) {
+      if (marker && window.google.maps.event) {
         window.google.maps.event.trigger(marker, 'click')
       }
     }
