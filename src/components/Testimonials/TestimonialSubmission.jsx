@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { sendThankYouEmail, sendCoachNotificationEmail } from '../../utils/testimonialEmailService'
 import { Star, Video, Upload, X, Check } from 'lucide-react'
 import './TestimonialSubmission.css'
 
@@ -138,6 +139,30 @@ export default function TestimonialSubmission({ onClose, onSuccess, studentId, l
         })
         .eq('student_id', studentId)
         .eq('status', 'pending')
+
+      // Get student profile for email
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', studentId)
+        .single()
+
+      // Send thank you email to student
+      if (profile?.email) {
+        await sendThankYouEmail(profile.email, profile.full_name || 'Student')
+      }
+
+      // Get coach email and send notification
+      const { data: coachProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('account_type', 'coach')
+        .limit(1)
+        .single()
+
+      if (coachProfile?.email && profile?.full_name) {
+        await sendCoachNotificationEmail(coachProfile.email, profile.full_name)
+      }
 
       if (onSuccess) onSuccess(testimonial)
       if (onClose) onClose()

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { Check, X, Star, Video, Eye, EyeOff, Trash2, MessageSquare } from 'lucide-react'
+import TestimonialsAnalytics from './TestimonialsAnalytics'
 import './TestimonialsManagement.css'
 
 export default function TestimonialsManagement() {
