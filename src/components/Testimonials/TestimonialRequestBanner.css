@@ -1,0 +1,110 @@
+.testimonial-request-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.testimonial-request-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.testimonial-icon {
+  flex-shrink: 0;
+}
+
+.testimonial-request-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.testimonial-request-text strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.testimonial-request-text span {
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.testimonial-request-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.btn-testimonial-submit {
+  padding: 10px 20px;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-testimonial-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-testimonial-dismiss {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-testimonial-dismiss:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .testimonial-request-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .testimonial-request-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-testimonial-submit {
+    flex: 1;
+  }
+}
+

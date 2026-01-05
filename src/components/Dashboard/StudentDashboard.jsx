@@ -8,6 +8,7 @@ import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 import CreditWarning from '../Payments/CreditWarning'
+import TestimonialRequestBanner from '../Testimonials/TestimonialRequestBanner'
 
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null)
@@ -320,6 +321,14 @@ export default function StudentDashboard() {
       
       {/* Credit Warning */}
       <CreditWarning credits={student?.lesson_credits || 0} />
+
+      {/* Testimonial Request Banner */}
+      {student && pastLessons.length >= 5 && (
+        <TestimonialRequestBanner 
+          studentId={student.id} 
+          lessonCount={pastLessons.length}
+        />
+      )}
 
       {/* Quick Stats */}
       <div className="stats-grid">
