@@ -5,32 +5,46 @@
 .dropdown-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: transparent;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: none;
   border: none;
-  color: #666;
-  font-size: 15px;
+  color: var(--color-white);
+  font-size: var(--font-size-body);
   font-weight: 500;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  font-family: var(--font-family);
+  position: relative;
   white-space: nowrap;
 }
 
 .dropdown-trigger:hover {
-  background: #F8F5FC;
-  color: #4B2C6C;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .dropdown-trigger.active {
-  background: #F0E8F8;
-  color: #4B2C6C;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.dropdown-trigger.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background-color: var(--color-accent);
+  border-radius: 2px;
 }
 
 .dropdown-trigger .chevron {
   transition: transform 0.2s;
   margin-left: 4px;
+  color: var(--color-white);
+  opacity: 0.8;
 }
 
 .dropdown-trigger .chevron.open {

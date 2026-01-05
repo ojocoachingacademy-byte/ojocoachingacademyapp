@@ -181,16 +181,23 @@ export default function TennisResources() {
   }
 
   const initializeMap = () => {
-    if (!window.google || !window.google.maps || !window.google.maps.Map || !mapRef.current) {
+    // Wait for Google Maps to be fully loaded
+    if (!window.google || !window.google.maps || !window.google.maps.Map) {
       console.error('Google Maps API not loaded properly')
       setLocationError('Google Maps failed to initialize. Please refresh the page.')
+      return
+    }
+
+    if (!mapRef.current) {
+      console.error('Map container not available')
       return
     }
 
     // Center on San Diego
     const sanDiegoCenter = { lat: 32.7157, lng: -117.1611 }
 
-    const map = new window.google.maps.Map(mapRef.current, {
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
       center: sanDiegoCenter,
       zoom: 11,
       mapTypeControl: true,
