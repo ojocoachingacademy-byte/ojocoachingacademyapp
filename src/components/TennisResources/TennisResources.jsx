@@ -212,22 +212,24 @@ export default function TennisResources() {
         }
       })
 
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div class="map-info-window">
-            <h3>${clinic.name}</h3>
-            <p>${clinic.address}</p>
-            <p><strong>Clinic Days:</strong> ${clinic.clinicDays}</p>
-            <p><strong>Time:</strong> ${clinic.clinicTime}</p>
-            <p><strong>Phone:</strong> <a href="tel:${clinic.phone}">${clinic.phone}</a></p>
-            ${clinic.website ? `<p><a href="${clinic.website}" target="_blank">Visit Website</a></p>` : ''}
-          </div>
-        `
-      })
+      if (window.google.maps.InfoWindow) {
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div class="map-info-window">
+              <h3>${clinic.name}</h3>
+              <p>${clinic.address}</p>
+              <p><strong>Clinic Days:</strong> ${clinic.clinicDays}</p>
+              <p><strong>Time:</strong> ${clinic.clinicTime}</p>
+              <p><strong>Phone:</strong> <a href="tel:${clinic.phone}">${clinic.phone}</a></p>
+              ${clinic.website ? `<p><a href="${clinic.website}" target="_blank">Visit Website</a></p>` : ''}
+            </div>
+          `
+        })
 
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker)
-      })
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
+      }
 
       markersRef.current.push(marker)
     })
