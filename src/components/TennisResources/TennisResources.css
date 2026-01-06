@@ -137,7 +137,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
-  min-height: 0; /* Important for flex scrolling */
+  min-height: 0;
+  height: 600px; /* Fixed height to ensure all clinics are visible */
 }
 
 .clinic-card {
