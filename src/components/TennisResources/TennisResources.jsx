@@ -108,6 +108,13 @@ export default function TennisResources() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
     
+    console.log('useEffect - Env check:', { 
+      hasApiKey: !!apiKey, 
+      hasMapId: !!mapId,
+      mapIdValue: mapId,
+      allEnvKeys: Object.keys(import.meta.env).filter(k => k.includes('GOOGLE'))
+    })
+    
     if (!apiKey) {
       setLocationError('Google Maps API key not configured')
       return
