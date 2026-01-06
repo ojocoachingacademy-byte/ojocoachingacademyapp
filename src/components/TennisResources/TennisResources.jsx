@@ -104,6 +104,13 @@ export default function TennisResources() {
   const markersRef = useRef([])
   const userMarkerRef = useRef(null)
 
+  console.log('=== ENV DEBUG ===')
+  console.log('API Key exists:', !!import.meta.env.VITE_GOOGLE_MAPS_API_KEY)
+  console.log('Map ID exists:', !!import.meta.env.VITE_GOOGLE_MAPS_MAP_ID)
+  console.log('Map ID value:', import.meta.env.VITE_GOOGLE_MAPS_MAP_ID)
+  console.log('All VITE env vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')))
+  console.log('=================')
+
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
@@ -187,26 +194,15 @@ export default function TennisResources() {
       return
     }
 
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDYcECmxX_mY3JKXz8P0qyws_62pBxWZMY'
+    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'f40f401599c1c5ad7f7e5591'
 
-    console.log('Map ID check:', { 
-      mapId, 
-      mapIdType: typeof mapId, 
-      mapIdLength: mapId?.length,
-      mapIdTruthy: !!mapId,
-      envKeys: Object.keys(import.meta.env).filter(k => k.includes('MAP'))
-    })
+    console.log('Using Map ID:', mapId)
 
-    if (!apiKey) {
-      setLocationError('Google Maps API key not configured')
-      return
-    }
-
-    // Check if mapId is missing or empty string
-    if (!mapId || mapId.trim() === '') {
-      console.error('Map ID is missing or empty. Check .env file and restart dev server.')
-      setLocationError('Map ID not configured. Add VITE_GOOGLE_MAPS_MAP_ID to .env file and restart dev server')
+    // Simplified check - just verify it's a string with content
+    if (!mapId || typeof mapId !== 'string' || mapId.length < 10) {
+      console.error('Invalid Map ID:', mapId)
+      setLocationError('Map ID configuration error')
       return
     }
 
