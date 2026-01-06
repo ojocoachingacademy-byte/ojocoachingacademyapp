@@ -105,65 +105,60 @@ export default function TennisResources() {
   const userMarkerRef = useRef(null)
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+    let mounted = true
     
-    if (!apiKey) {
-      setLocationError('Google Maps API key not configured')
-      return
+    const loadAndInitMap = async () => {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+      const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+      
+      if (!apiKey || !mapId) {
+        setLocationError('Google Maps not configured')
+        return
+      }
+
+      // If already loaded, just init
+      if (window.google?.maps?.Map) {
+        if (mounted) {
+          setMapLoaded(true)
+          setTimeout(() => initializeMap(), 100)
+        }
+        return
+      }
+
+      // If script exists, wait for it
+      const existing = document.querySelector('script[src*="maps.googleapis.com"]')
+      if (existing) {
+        await new Promise(resolve => {
+          if (window.google?.maps?.Map) resolve()
+          else existing.addEventListener('load', resolve, { once: true })
+        })
+        if (mounted) {
+          setMapLoaded(true)
+          setTimeout(() => initializeMap(), 100)
+        }
+        return
+      }
+
+      // Load fresh
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&loading=async`
+      script.async = true
+      
+      script.onload = () => {
+        if (mounted) {
+          setMapLoaded(true)
+          setTimeout(() => initializeMap(), 100)
+        }
+      }
+      
+      document.head.appendChild(script)
     }
 
-    // Check if Google Maps is already loaded
-    if (window.google?.maps?.Map) {
-      console.log('Google Maps already loaded, initializing...')
-      setMapLoaded(true)
-      initializeMap()
-      getCurrentLocation()
-      return
-    }
-
-    // Check if script is already being loaded
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
-    if (existingScript) {
-      console.log('Google Maps script already loading, waiting...')
-      existingScript.addEventListener('load', () => {
-        setMapLoaded(true)
-        initializeMap()
-      })
-      getCurrentLocation()
-      return
-    }
-
-    // Load Google Maps script
-    console.log('Loading Google Maps script...')
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker,places`
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      console.log('Google Maps loaded successfully')
-      setMapLoaded(true)
-      initializeMap()
-    }
-    script.onerror = () => {
-      setLocationError('Failed to load Google Maps')
-    }
-    document.head.appendChild(script)
-
+    loadAndInitMap()
     getCurrentLocation()
 
-    return () => {
-      // Cleanup markers
-      markersRef.current.forEach(marker => {
-        if (marker.map) {
-          marker.map = null
-        }
-      })
-      if (userMarkerRef.current && userMarkerRef.current.map) {
-        userMarkerRef.current.map = null
-      }
-    }
-  }, []) // Empty dependency array - only run once
+    return () => { mounted = false }
+  }, [])
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -190,6 +185,12 @@ export default function TennisResources() {
   }
 
   const initializeMap = () => {
+    // Prevent double initialization
+    if (mapInstanceRef.current) {
+      console.log('Map already initialized, skipping')
+      return
+    }
+
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
     
