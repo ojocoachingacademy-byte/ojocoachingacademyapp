@@ -112,56 +112,27 @@ export default function TennisResources() {
   console.log('=================')
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDYcECmxX_mY3JKXz8P0qyws_62pBxWZMY'
     
-    console.log('useEffect - Env check:', { 
-      hasApiKey: !!apiKey, 
-      hasMapId: !!mapId,
-      mapIdValue: mapId,
-      allEnvKeys: Object.keys(import.meta.env).filter(k => k.includes('GOOGLE'))
-    })
-    
-    if (!apiKey) {
-      setLocationError('Google Maps API key not configured')
-      return
-    }
-
-    // Check if already loaded
     if (window.google?.maps?.Map) {
+      // Already loaded
       setMapLoaded(true)
-      initializeMap()
+      setTimeout(initializeMap, 100)
       getCurrentLocation()
       return
     }
 
-    // Load Google Maps
+    // Load script
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker,places`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&loading=async`
     script.async = true
-    script.defer = true
     script.onload = () => {
       setMapLoaded(true)
-      initializeMap()
-    }
-    script.onerror = () => {
-      setLocationError('Failed to load Google Maps')
+      setTimeout(initializeMap, 100)
     }
     document.head.appendChild(script)
-
+    
     getCurrentLocation()
-
-    return () => {
-      // Cleanup markers
-      markersRef.current.forEach(marker => {
-        if (marker.map) {
-          marker.map = null
-        }
-      })
-      if (userMarkerRef.current && userMarkerRef.current.map) {
-        userMarkerRef.current.map = null
-      }
-    }
   }, [])
 
   const getCurrentLocation = () => {
