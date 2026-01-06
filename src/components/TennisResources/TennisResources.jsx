@@ -194,6 +194,7 @@ export default function TennisResources() {
       mapId, 
       mapIdType: typeof mapId, 
       mapIdLength: mapId?.length,
+      mapIdTruthy: !!mapId,
       envKeys: Object.keys(import.meta.env).filter(k => k.includes('MAP'))
     })
 
@@ -202,8 +203,9 @@ export default function TennisResources() {
       return
     }
 
-    if (!mapId) {
-      console.error('Map ID is missing. Check .env file and restart dev server.')
+    // Check if mapId is missing or empty string
+    if (!mapId || mapId.trim() === '') {
+      console.error('Map ID is missing or empty. Check .env file and restart dev server.')
       setLocationError('Map ID not configured. Add VITE_GOOGLE_MAPS_MAP_ID to .env file and restart dev server')
       return
     }
