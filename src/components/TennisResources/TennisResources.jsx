@@ -449,9 +449,14 @@ export default function TennisResources() {
 
             <div className="clinics-map-container">
               <div ref={mapRef} className="clinics-map" />
-              {!mapLoaded && (
+              {!mapLoaded && !locationError && (
                 <div className="map-loading">
                   <p>Loading map...</p>
+                </div>
+              )}
+              {locationError && (
+                <div className="map-error">
+                  <p>{locationError}</p>
                 </div>
               )}
             </div>
