@@ -126,6 +126,14 @@
   background: rgba(255, 255, 255, 0.8);
 }
 
+.clinics-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .clinics-list h3 {
   color: #4B2C6C;
   font-size: 18px;
