@@ -429,14 +429,7 @@ export default function TennisResources() {
       
       // Trigger marker click to show info window
       const marker = markersRef.current.find(m => {
-        if (m.getPosition) {
-          // Legacy Marker
-          return m.getPosition().lat() === clinic.lat && m.getPosition().lng() === clinic.lng
-        } else if (m.position) {
-          // AdvancedMarkerElement
-          return m.position.lat === clinic.lat && m.position.lng === clinic.lng
-        }
-        return false
+        return m.position && m.position.lat === clinic.lat && m.position.lng === clinic.lng
       })
       if (marker && window.google.maps.event) {
         window.google.maps.event.trigger(marker, 'click')
