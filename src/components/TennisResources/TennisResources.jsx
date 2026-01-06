@@ -203,20 +203,12 @@ export default function TennisResources() {
 
       mapInstanceRef.current = map
 
-      // Add markers - use AdvancedMarkerElement with tennis ball styling
+      // Add markers - use AdvancedMarkerElement
       TENNIS_CLINICS.forEach(clinic => {
-        const pinElement = new window.google.maps.marker.PinElement({
-          background: '#CCFF00', // Tennis ball yellow
-          borderColor: '#FFFFFF',
-          glyphColor: '#4B2C6C',
-          scale: 1.3
-        })
-
         const marker = new window.google.maps.marker.AdvancedMarkerElement({
           map: map,
           position: { lat: clinic.lat, lng: clinic.lng },
-          title: clinic.name,
-          content: pinElement.element
+          title: clinic.name
         })
 
         const infoWindow = new window.google.maps.InfoWindow({
@@ -259,7 +251,7 @@ export default function TennisResources() {
     }
 
     // Add new user marker - use AdvancedMarkerElement
-    const pinElement = new window.google.maps.marker.PinElement({
+    const userPin = new window.google.maps.marker.PinElement({
       background: '#4285F4',
       borderColor: '#FFFFFF',
       glyphColor: '#FFFFFF',
@@ -270,7 +262,7 @@ export default function TennisResources() {
       map: mapInstanceRef.current,
       position: location,
       title: 'Your Location',
-      content: pinElement.element
+      content: userPin.element
     })
 
     // Add circle to show accuracy
