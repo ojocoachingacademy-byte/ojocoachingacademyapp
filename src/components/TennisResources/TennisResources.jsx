@@ -105,88 +105,47 @@ export default function TennisResources() {
   const userMarkerRef = useRef(null)
 
   useEffect(() => {
-    // Load Google Maps script
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
-      setLocationError('Google Maps API key not configured. Please add VITE_GOOGLE_MAPS_API_KEY to your .env file.')
+    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+    
+    if (!apiKey) {
+      setLocationError('Google Maps API key not configured')
       return
     }
 
-    if (!window.google || !window.google.maps) {
-      // Check if script is already being loaded
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
-      if (existingScript) {
-        existingScript.addEventListener('load', () => {
-          setMapLoaded(true)
-          initializeMap()
-        })
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&loading=async`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        // Wait for Google Maps to be fully initialized
-        const checkMapsReady = () => {
-          if (window.google && window.google.maps && window.google.maps.Map) {
-            setMapLoaded(true)
-            initializeMap()
-          } else {
-            // Retry after a short delay
-            setTimeout(checkMapsReady, 100)
-          }
-        }
-        checkMapsReady()
-      }
-      script.onerror = () => {
-        setLocationError('Failed to load Google Maps script. Please check your API key and internet connection.')
-      }
-      document.head.appendChild(script)
-    } else if (window.google && window.google.maps && window.google.maps.Map) {
+    // Check if already loaded
+    if (window.google?.maps?.Map) {
       setMapLoaded(true)
-      // Small delay to ensure everything is ready
-      setTimeout(() => {
-        initializeMap()
-      }, 100)
-    } else {
-      // Maps might still be loading, wait a bit
-      const checkInterval = setInterval(() => {
-        if (window.google && window.google.maps && window.google.maps.Map) {
-          clearInterval(checkInterval)
-          setMapLoaded(true)
-          initializeMap()
-        }
-      }, 100)
-      
-      // Stop checking after 5 seconds
-      setTimeout(() => {
-        clearInterval(checkInterval)
-        if (!window.google?.maps?.Map) {
-          setLocationError('Google Maps API not available. Please check your API key configuration.')
-        }
-      }, 5000)
+      initializeMap()
+      getCurrentLocation()
+      return
     }
 
-    // Get user's location
+    // Load Google Maps
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker,places`
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      setMapLoaded(true)
+      initializeMap()
+    }
+    script.onerror = () => {
+      setLocationError('Failed to load Google Maps')
+    }
+    document.head.appendChild(script)
+
     getCurrentLocation()
 
     return () => {
       // Cleanup markers
       markersRef.current.forEach(marker => {
-        if (marker.setMap) {
-          marker.setMap(null)
-        } else if (marker.map) {
+        if (marker.map) {
           marker.map = null
         }
       })
-      if (userMarkerRef.current) {
-        if (userMarkerRef.current.setMap) {
-          userMarkerRef.current.setMap(null)
-        } else if (userMarkerRef.current.map) {
-          userMarkerRef.current.map = null
-        }
+      if (userMarkerRef.current && userMarkerRef.current.map) {
+        userMarkerRef.current.map = null
       }
     }
   }, [])
@@ -216,15 +175,16 @@ export default function TennisResources() {
   }
 
   const initializeMap = () => {
-    // Wait for Google Maps to be fully loaded
-    if (!window.google || !window.google.maps || !window.google.maps.Map) {
-      console.error('Google Maps API not loaded properly')
-      setLocationError('Google Maps failed to initialize. Please refresh the page.')
+    if (!window.google?.maps?.Map || !mapRef.current) {
+      console.error('Google Maps API not loaded properly or map container not available')
       return
     }
 
-    if (!mapRef.current) {
-      console.error('Map container not available')
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+
+    if (!apiKey) {
+      setLocationError('Google Maps API key not configured')
       return
     }
 
@@ -232,154 +192,86 @@ export default function TennisResources() {
     const sanDiegoCenter = { lat: 32.7157, lng: -117.1611 }
 
     try {
-      // Double-check Map is available
-      if (!window.google.maps.Map) {
-        throw new Error('Google Maps Map constructor not available')
-      }
-
-      // Advanced Markers require a valid Map ID from Google Cloud Console
-      // Only use Advanced Markers if mapId is provided via env var
-      const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
-      
-      const mapConfig = {
+      const map = new window.google.maps.Map(mapRef.current, {
         center: sanDiegoCenter,
         zoom: 11,
+        mapId: mapId, // Required for AdvancedMarkerElement
         mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true
-      }
-      
-      // Only add mapId if provided (required for Advanced Markers)
-      // Without mapId, we'll use legacy markers which work fine
-      if (mapId) {
-        mapConfig.mapId = mapId
-      }
-      
-      const map = new window.google.maps.Map(mapRef.current, mapConfig)
+      })
 
       mapInstanceRef.current = map
-      // Store mapId for later use in marker creation
-      mapInstanceRef.current._mapId = mapId
 
-      // Check if we can use Advanced Markers (requires mapId and marker library)
-      const useAdvancedMarkers = mapId && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement
-
-      // Add markers for tennis clinics
+      // Add markers - use AdvancedMarkerElement with tennis ball styling
       TENNIS_CLINICS.forEach(clinic => {
-        // Use AdvancedMarkerElement only if mapId is available, otherwise use legacy Marker
-        let marker
-        if (useAdvancedMarkers) {
-          // Use AdvancedMarkerElement (new API)
-          const pinElement = new window.google.maps.marker.PinElement({
-            background: '#4B2C6C',
-            borderColor: '#FFFFFF',
-            glyphColor: '#FFFFFF',
-            scale: 1.2
-          })
-          
-          marker = new window.google.maps.marker.AdvancedMarkerElement({
-            map: map,
-            position: { lat: clinic.lat, lng: clinic.lng },
-            title: clinic.name,
-            content: pinElement.element
-          })
-        } else {
-          // Fallback to legacy Marker
-          marker = new window.google.maps.Marker({
-            position: { lat: clinic.lat, lng: clinic.lng },
-            map: map,
-            title: clinic.name,
-            icon: {
-              url: 'http://maps.google.com/mapfiles/ms/icons/tennis.png',
-              scaledSize: window.google.maps?.Size ? new window.google.maps.Size(32, 32) : undefined
-            }
-          })
-        }
+        const pinElement = new window.google.maps.marker.PinElement({
+          background: '#CCFF00', // Tennis ball yellow
+          borderColor: '#FFFFFF',
+          glyphColor: '#4B2C6C',
+          scale: 1.3
+        })
 
-        if (window.google.maps.InfoWindow) {
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `
-              <div class="map-info-window">
-                <h3>${clinic.name}</h3>
-                <p>${clinic.address}</p>
-                <p><strong>Clinic Days:</strong> ${clinic.clinicDays}</p>
-                <p><strong>Time:</strong> ${clinic.clinicTime}</p>
-                <p><strong>Phone:</strong> <a href="tel:${clinic.phone}">${clinic.phone}</a></p>
-                ${clinic.website ? `<p><a href="${clinic.website}" target="_blank">Visit Website</a></p>` : ''}
-              </div>
-            `
-          })
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+          map: map,
+          position: { lat: clinic.lat, lng: clinic.lng },
+          title: clinic.name,
+          content: pinElement.element
+        })
 
-          // Add click listener (works for both Marker and AdvancedMarkerElement)
-          marker.addListener('click', () => {
-            infoWindow.open(map, marker)
-          })
-        }
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div class="map-info-window">
+              <h3>${clinic.name}</h3>
+              <p>${clinic.address}</p>
+              <p><strong>Clinic Days:</strong> ${clinic.clinicDays}</p>
+              <p><strong>Time:</strong> ${clinic.clinicTime}</p>
+              <p><strong>Phone:</strong> <a href="tel:${clinic.phone}">${clinic.phone}</a></p>
+              ${clinic.website ? `<p><a href="${clinic.website}" target="_blank">Visit Website</a></p>` : ''}
+            </div>
+          `
+        })
+
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker)
+        })
 
         markersRef.current.push(marker)
       })
 
-    // Add user location marker if available
-    if (userLocation) {
-      updateUserMarker(userLocation)
-    }
+      // Add user location marker if available
+      if (userLocation) {
+        updateUserMarker(userLocation)
+      }
 
     } catch (error) {
       console.error('Error initializing map:', error)
-      setLocationError('Failed to initialize map. Please check your API key and refresh the page.')
+      setLocationError('Failed to initialize map. Please check your API key and Map ID.')
     }
   }
 
   const updateUserMarker = (location) => {
-    if (!mapInstanceRef.current || !window.google?.maps) return
+    if (!mapInstanceRef.current || !window.google?.maps?.marker?.AdvancedMarkerElement) return
 
     // Remove existing user marker
-    if (userMarkerRef.current) {
-      if (userMarkerRef.current.setMap) {
-        userMarkerRef.current.setMap(null)
-      } else if (userMarkerRef.current.map) {
-        userMarkerRef.current.map = null
-      }
+    if (userMarkerRef.current && userMarkerRef.current.map) {
+      userMarkerRef.current.map = null
     }
 
-    // Check if we can use Advanced Markers (requires mapId)
-    const mapId = mapInstanceRef.current?._mapId
-    const useAdvancedMarkers = mapId && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement
+    // Add new user marker - use AdvancedMarkerElement
+    const pinElement = new window.google.maps.marker.PinElement({
+      background: '#4285F4',
+      borderColor: '#FFFFFF',
+      glyphColor: '#FFFFFF',
+      scale: 1.0
+    })
     
-    // Add new user marker - use AdvancedMarkerElement only if mapId is available
-    if (useAdvancedMarkers) {
-      const pinElement = new window.google.maps.marker.PinElement({
-        background: '#4285F4',
-        borderColor: '#FFFFFF',
-        glyphColor: '#FFFFFF',
-        scale: 1.0
-      })
-      
-      userMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
-        map: mapInstanceRef.current,
-        position: location,
-        title: 'Your Location',
-        content: pinElement.element
-      })
-    } else {
-      // Fallback to legacy Marker
-      userMarkerRef.current = new window.google.maps.Marker({
-        position: location,
-        map: mapInstanceRef.current,
-        title: 'Your Location',
-        icon: window.google.maps.SymbolPath ? {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#4285F4',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2
-        } : {
-          url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-          scaledSize: window.google.maps?.Size ? new window.google.maps.Size(16, 16) : undefined
-        }
-      })
-    }
+    userMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
+      map: mapInstanceRef.current,
+      position: location,
+      title: 'Your Location',
+      content: pinElement.element
+    })
 
     // Add circle to show accuracy
     if (window.google.maps.Circle) {
