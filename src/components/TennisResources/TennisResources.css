@@ -137,8 +137,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
-  min-height: 0;
-  height: 500px; /* TEMPORARY - just to test if this fixes it */
+  min-height: 0; /* Important for flex scrolling */
 }
 
 .clinic-card {
