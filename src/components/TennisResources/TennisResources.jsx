@@ -188,6 +188,11 @@ export default function TennisResources() {
       return
     }
 
+    if (!mapId) {
+      setLocationError('Map ID not configured. Add VITE_GOOGLE_MAPS_MAP_ID to .env file')
+      return
+    }
+
     // Center on San Diego
     const sanDiegoCenter = { lat: 32.7157, lng: -117.1611 }
 
@@ -198,7 +203,8 @@ export default function TennisResources() {
         mapId: mapId, // Required for AdvancedMarkerElement
         mapTypeControl: true,
         streetViewControl: false,
-        fullscreenControl: true
+        fullscreenControl: true,
+        disableDefaultUI: false
       })
 
       mapInstanceRef.current = map

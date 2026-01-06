@@ -138,7 +138,8 @@
   overflow-x: hidden;
   padding-right: 8px;
   min-height: 0;
-  height: 600px; /* Fixed height to ensure all clinics are visible */
+  height: 700px; /* Fixed height to ensure all clinics are visible */
+  max-height: 700px;
 }
 
 .clinic-card {
