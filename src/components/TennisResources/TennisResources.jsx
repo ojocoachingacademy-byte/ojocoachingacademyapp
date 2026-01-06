@@ -113,20 +113,35 @@ export default function TennisResources() {
       return
     }
 
-    // Check if already loaded
+    // Check if Google Maps is already loaded
     if (window.google?.maps?.Map) {
+      console.log('Google Maps already loaded, initializing...')
       setMapLoaded(true)
       initializeMap()
       getCurrentLocation()
       return
     }
 
-    // Load Google Maps
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+    if (existingScript) {
+      console.log('Google Maps script already loading, waiting...')
+      existingScript.addEventListener('load', () => {
+        setMapLoaded(true)
+        initializeMap()
+      })
+      getCurrentLocation()
+      return
+    }
+
+    // Load Google Maps script
+    console.log('Loading Google Maps script...')
     const script = document.createElement('script')
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker,places`
     script.async = true
     script.defer = true
     script.onload = () => {
+      console.log('Google Maps loaded successfully')
       setMapLoaded(true)
       initializeMap()
     }
@@ -148,7 +163,7 @@ export default function TennisResources() {
         userMarkerRef.current.map = null
       }
     }
-  }, [])
+  }, []) // Empty dependency array - only run once
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -175,32 +190,39 @@ export default function TennisResources() {
   }
 
   const initializeMap = () => {
-    if (!window.google?.maps?.Map || !mapRef.current) {
-      console.error('Google Maps API not loaded properly or map container not available')
-      return
-    }
-
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
-
-    if (!apiKey) {
-      setLocationError('Google Maps API key not configured')
+    
+    console.log('Initializing map with:', { apiKey: apiKey?.slice(0, 10) + '...', mapId })
+    
+    if (!mapId) {
+      setLocationError('Map ID not configured. Add VITE_GOOGLE_MAPS_MAP_ID to .env file')
       return
     }
 
-    // Center on San Diego
+    if (!window.google?.maps?.Map) {
+      console.error('Google Maps API not loaded')
+      return
+    }
+
+    if (!mapRef.current) {
+      console.error('Map container not available')
+      return
+    }
+
     const sanDiegoCenter = { lat: 32.7157, lng: -117.1611 }
 
     try {
       const map = new window.google.maps.Map(mapRef.current, {
         center: sanDiegoCenter,
         zoom: 11,
-        mapId: mapId, // Required for AdvancedMarkerElement
+        mapId: mapId, // CRITICAL: Must be here
         mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true
       })
 
+      console.log('Map created successfully with ID:', mapId)
       mapInstanceRef.current = map
 
       // Add markers - use AdvancedMarkerElement
