@@ -259,8 +259,8 @@ export default function TennisResources() {
       }
 
     } catch (error) {
-      console.error('Error initializing map:', error)
-      setLocationError('Failed to initialize map. Please check your API key and Map ID.')
+      console.error('Error creating map:', error)
+      setLocationError('Failed to initialize map')
     }
   }
 
