@@ -183,13 +183,21 @@ export default function TennisResources() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
 
+    console.log('Map ID check:', { 
+      mapId, 
+      mapIdType: typeof mapId, 
+      mapIdLength: mapId?.length,
+      envKeys: Object.keys(import.meta.env).filter(k => k.includes('MAP'))
+    })
+
     if (!apiKey) {
       setLocationError('Google Maps API key not configured')
       return
     }
 
     if (!mapId) {
-      setLocationError('Map ID not configured. Add VITE_GOOGLE_MAPS_MAP_ID to .env file')
+      console.error('Map ID is missing. Check .env file and restart dev server.')
+      setLocationError('Map ID not configured. Add VITE_GOOGLE_MAPS_MAP_ID to .env file and restart dev server')
       return
     }
 
