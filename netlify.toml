@@ -2,8 +2,7 @@
   command = "npm run build"
   publish = "dist"
 
-[[functions]]
-  path = "send-lesson-reminders"
+[functions."send-lesson-reminders"]
   schedule = "0 14 * * 4"
 
 [[redirects]]
