@@ -48,25 +48,28 @@ export default function Signup() {
     }
 
     // Create profile with authenticated session
-    const { error: profileError } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .insert([
         {
           id: authData.user.id,
           email,
           full_name: fullName,
-          phone,
+          phone: phone || null,
           account_type: accountType,
           ntrp_level: ntrpLevel,
         },
       ])
+      .select()
+      .single()
 
-    if (profileError) {
-      setError(profileError.message)
+    if (profileError || !profileData) {
+      setError(profileError?.message || 'Failed to create profile')
+      console.error('Profile creation error:', profileError)
       return
     }
 
-    // If student, create student record
+    // If student, create student record (only after profile is confirmed created)
     if (accountType === 'student') {
       const { error: studentError } = await supabase
         .from('students')
@@ -78,7 +81,8 @@ export default function Signup() {
         ])
 
       if (studentError) {
-        setError(studentError.message)
+        setError(`Failed to create student record: ${studentError.message}`)
+        console.error('Student creation error:', studentError)
         return
       }
     }

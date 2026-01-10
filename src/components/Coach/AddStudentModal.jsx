@@ -53,22 +53,49 @@ export default function AddStudentModal({ onClose, onSuccess }) {
 
       if (authError) throw authError
 
-      // Wait a moment for the trigger to create profile
+      // Wait a moment for the trigger to create profile (if trigger exists)
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // Update profile with additional info
-      const { error: profileError } = await supabase
+      // Check if profile exists, create if not, otherwise update
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .update({
-          full_name: formData.fullName,
-          phone: formData.phone,
-          ntrp_level: formData.ntrpLevel,
-          account_type: 'student'
-        })
+        .select('id')
         .eq('id', authData.user.id)
+        .single()
 
-      if (profileError) {
-        console.error('Profile update error:', profileError)
+      if (!existingProfile) {
+        // Profile doesn't exist - create it
+        const { error: profileCreateError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: formData.email,
+            full_name: formData.fullName,
+            phone: formData.phone || null,
+            ntrp_level: formData.ntrpLevel,
+            account_type: 'student'
+          })
+
+        if (profileCreateError) {
+          console.error('Profile creation error:', profileCreateError)
+          throw new Error(`Failed to create profile: ${profileCreateError.message}`)
+        }
+      } else {
+        // Profile exists - update it with additional info
+        const { error: profileUpdateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: formData.fullName,
+            phone: formData.phone || null,
+            ntrp_level: formData.ntrpLevel,
+            account_type: 'student'
+          })
+          .eq('id', authData.user.id)
+
+        if (profileUpdateError) {
+          console.error('Profile update error:', profileUpdateError)
+          throw new Error(`Failed to update profile: ${profileUpdateError.message}`)
+        }
       }
 
       // Check if student record exists (created by trigger) or create it

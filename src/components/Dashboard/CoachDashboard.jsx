@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical, Upload } from 'lucide-react'
+import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical, Upload, Edit2 } from 'lucide-react'
 import Anthropic from '@anthropic-ai/sdk'
 import { GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import './CoachDashboard.css'
@@ -69,6 +69,10 @@ export default function CoachDashboard() {
   const [refinementFeedback, setRefinementFeedback] = useState('')
   const [refiningPlan, setRefiningPlan] = useState(false)
   const [selectedLessonDetail, setSelectedLessonDetail] = useState(null)
+  const [editingLesson, setEditingLesson] = useState(false)
+  const [editLessonDate, setEditLessonDate] = useState('')
+  const [editLessonTime, setEditLessonTime] = useState('')
+  const [editLessonLocation, setEditLessonLocation] = useState('')
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
   const [showAllStudents, setShowAllStudents] = useState(false)
@@ -244,28 +248,69 @@ export default function CoachDashboard() {
   const handleCreateLesson = async (e) => {
     e.preventDefault()
     
+    if (!selectedStudent) {
+      alert('Please select a student')
+      return
+    }
+
+    if (!lessonDate || !lessonTime) {
+      alert('Please enter both date and time')
+      return
+    }
+
     const lessonDateTime = new Date(`${lessonDate}T${lessonTime}`)
+    
+    if (lessonDateTime < new Date()) {
+      alert('Cannot create a lesson in the past')
+      return
+    }
 
-    const { error } = await supabase
-      .from('lessons')
-      .insert([
-        {
-          student_id: selectedStudent,
-          lesson_date: lessonDateTime.toISOString(),
-          location: location,
-          status: 'scheduled'
+    try {
+      // Create the lesson
+      const { error: lessonError } = await supabase
+        .from('lessons')
+        .insert([
+          {
+            student_id: selectedStudent,
+            lesson_date: lessonDateTime.toISOString(),
+            location: location || 'Colina Del Sol Park',
+            status: 'scheduled'
+          }
+        ])
+
+      if (lessonError) {
+        throw lessonError
+      }
+
+      // Deduct one credit if student has credits
+      const { data: student } = await supabase
+        .from('students')
+        .select('lesson_credits')
+        .eq('id', selectedStudent)
+        .single()
+
+      if (student && student.lesson_credits > 0) {
+        const { error: creditError } = await supabase
+          .from('students')
+          .update({ lesson_credits: student.lesson_credits - 1 })
+          .eq('id', selectedStudent)
+
+        if (creditError) {
+          console.error('Error deducting credit:', creditError)
+          // Don't fail the lesson creation if credit deduction fails
         }
-      ])
+      }
 
-    if (error) {
-      alert('Error creating lesson: ' + error.message)
-    } else {
-      alert('Lesson created!')
+      alert('Lesson created successfully!')
       setShowCreateLesson(false)
       setSelectedStudent('')
       setLessonDate('')
       setLessonTime('')
+      setLocation('Colina Del Sol Park')
       fetchCoachData()
+    } catch (error) {
+      console.error('Error creating lesson:', error)
+      alert('Error creating lesson: ' + (error.message || 'Unknown error'))
     }
   }
 
@@ -340,7 +385,7 @@ export default function CoachDashboard() {
         .from('students')
         .select(`
           *,
-          profiles!students_id_fkey(*)
+          profiles(*)
         `)
         .eq('id', studentId)
         .single()
@@ -724,10 +769,57 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
   const handleLessonClick = (lesson) => {
     setSelectedLessonDetail(lesson)
+    setEditingLesson(false)
+    // Initialize edit fields
+    const lessonDate = new Date(lesson.lesson_date)
+    setEditLessonDate(lessonDate.toISOString().split('T')[0])
+    setEditLessonTime(lessonDate.toTimeString().slice(0, 5))
+    setEditLessonLocation(lesson.location || '')
   }
 
   const handleCloseLessonDetail = () => {
     setSelectedLessonDetail(null)
+    setEditingLesson(false)
+    setEditLessonDate('')
+    setEditLessonTime('')
+    setEditLessonLocation('')
+  }
+
+  const handleSaveLessonEdit = async () => {
+    if (!selectedLessonDetail) return
+
+    try {
+      // Combine date and time into ISO string
+      const dateTime = new Date(`${editLessonDate}T${editLessonTime}`)
+      
+      const { error } = await supabase
+        .from('lessons')
+        .update({
+          lesson_date: dateTime.toISOString(),
+          location: editLessonLocation
+        })
+        .eq('id', selectedLessonDetail.id)
+
+      if (error) throw error
+
+      // Update local state
+      const updatedLesson = {
+        ...selectedLessonDetail,
+        lesson_date: dateTime.toISOString(),
+        location: editLessonLocation
+      }
+      setSelectedLessonDetail(updatedLesson)
+      
+      // Update lessons list
+      setLessons(lessons.map(l => l.id === selectedLessonDetail.id ? updatedLesson : l))
+      
+      setEditingLesson(false)
+      alert('Lesson updated successfully!')
+      fetchCoachData() // Refresh data
+    } catch (error) {
+      console.error('Error updating lesson:', error)
+      alert('Error updating lesson: ' + error.message)
+    }
   }
 
   if (loading) {
@@ -1404,15 +1496,97 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             <div className="modal-body">
               {/* Lesson Info */}
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <strong>Date:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Lesson Details</h3>
+                  {!editingLesson && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => {
+                        // Ensure edit fields are initialized when clicking Edit
+                        const lessonDate = new Date(selectedLessonDetail.lesson_date)
+                        setEditLessonDate(lessonDate.toISOString().split('T')[0])
+                        setEditLessonTime(lessonDate.toTimeString().slice(0, 5))
+                        setEditLessonLocation(selectedLessonDetail.location || '')
+                        setEditingLesson(true)
+                      }}
+                      style={{ padding: '6px 12px', fontSize: '14px' }}
+                    >
+                      <Edit2 size={14} style={{ marginRight: '4px' }} />
+                      Edit
+                    </button>
+                  )}
                 </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <strong>Time:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <strong>Location:</strong> {selectedLessonDetail.location || '-'}
-                </div>
+                
+                {editingLesson ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Date:</label>
+                      <input
+                        type="date"
+                        value={editLessonDate}
+                        onChange={(e) => setEditLessonDate(e.target.value)}
+                        className="input"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Time:</label>
+                      <input
+                        type="time"
+                        value={editLessonTime}
+                        onChange={(e) => setEditLessonTime(e.target.value)}
+                        className="input"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Location:</label>
+                      <input
+                        type="text"
+                        value={editLessonLocation}
+                        onChange={(e) => setEditLessonLocation(e.target.value)}
+                        className="input"
+                        placeholder="e.g., Colina Del Sol Park"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleSaveLessonEdit}
+                        style={{ padding: '8px 16px' }}
+                      >
+                        Save Changes
+                      </button>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={() => {
+                          setEditingLesson(false)
+                          // Reset to original values
+                          const lessonDate = new Date(selectedLessonDetail.lesson_date)
+                          setEditLessonDate(lessonDate.toISOString().split('T')[0])
+                          setEditLessonTime(lessonDate.toTimeString().slice(0, 5))
+                          setEditLessonLocation(selectedLessonDetail.location || '')
+                        }}
+                        style={{ padding: '8px 16px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: '12px' }}>
+                      <strong>Date:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <strong>Time:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div style={{ marginBottom: '16px' }}>
+                      <strong>Location:</strong> {selectedLessonDetail.location || '-'}
+                    </div>
+                  </>
+                )}
                 
                 {/* Status & Actions Row */}
                 <div style={{ 

@@ -1,7 +1,7 @@
 /**
  * Netlify Scheduled Function: Send Lesson Reminders
  * Runs every Thursday at 2pm
- * Sends reminder emails to students with upcoming lessons (Friday-Monday)
+ * Sends reminder emails to students with upcoming scheduled lessons
  */
 
 const { createClient } = require('@supabase/supabase-js')
@@ -119,42 +119,37 @@ exports.handler = async (event, context) => {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Get current date and 4 days from now
-    const now = new Date()
-    const fourDaysFromNow = new Date()
-    fourDaysFromNow.setDate(fourDaysFromNow.getDate() + 4)
-
-    // Query for upcoming lessons (Friday-Monday)
-    const { data: lessons, error: lessonsError } = await supabase
+    // Fetch all students with at least one scheduled lesson
+    const { data: studentsWithLessons, error: studentsError } = await supabase
       .from('lessons')
-      .select(`
-        *,
-        students!students_id_fkey(*)
-      `)
+      .select('student_id')
       .eq('status', 'scheduled')
-      .gte('lesson_date', now.toISOString())
-      .lte('lesson_date', fourDaysFromNow.toISOString())
+      .gte('lesson_date', new Date().toISOString())
       .order('lesson_date', { ascending: true })
 
-    if (lessonsError) {
-      console.error('Error fetching lessons:', lessonsError)
+    if (studentsError) {
+      console.error('Error fetching students:', studentsError)
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to fetch lessons', details: lessonsError.message })
+        body: JSON.stringify({ error: 'Failed to fetch students', details: studentsError.message })
       }
     }
 
-    if (!lessons || lessons.length === 0) {
+    if (!studentsWithLessons || studentsWithLessons.length === 0) {
       return {
         statusCode: 200,
         body: JSON.stringify({ 
           success: true, 
-          message: 'No upcoming lessons found',
+          message: 'No students with upcoming lessons found',
           sent: 0,
           failed: 0
         })
       }
     }
+
+    // Get unique student IDs
+    const uniqueStudentIds = [...new Set(studentsWithLessons.map(l => l.student_id))]
+    console.log('Found students with upcoming lessons:', uniqueStudentIds.length)
 
     const results = {
       sent: 0,
@@ -162,67 +157,93 @@ exports.handler = async (event, context) => {
       errors: []
     }
 
-    // Process each lesson
-    for (const lesson of lessons) {
+    // For each student, get their next scheduled lesson and last completed lesson
+    for (const studentId of uniqueStudentIds) {
       try {
-        const studentId = lesson.student_id
+        // Get next scheduled lesson
+        const { data: nextLesson, error: nextLessonError } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('status', 'scheduled')
+          .gte('lesson_date', new Date().toISOString())
+          .order('lesson_date', { ascending: true })
+          .limit(1)
+          .single()
+
+        if (nextLessonError || !nextLesson) {
+          console.log(`No upcoming lesson found for student ${studentId}`)
+          continue
+        }
         
-        // Fetch student profile for email
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('email, full_name')
+        // Get last completed lesson (optional - may not exist for new students)
+        const { data: lastLessonData } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('status', 'completed')
+          .order('lesson_date', { ascending: false })
+          .limit(1)
+        
+        const lastLesson = lastLessonData && lastLessonData.length > 0 ? lastLessonData[0] : null
+
+        // Fetch student data with profile
+        const { data: student, error: studentError } = await supabase
+          .from('students')
+          .select('*, profiles!students_id_fkey(*)')
           .eq('id', studentId)
           .single()
 
-        if (profileError || !profile) {
-          console.error(`Error fetching profile for student ${studentId}:`, profileError)
+        if (studentError || !student) {
+          console.error(`Error fetching student ${studentId}:`, studentError)
           results.failed++
-          results.errors.push({ lessonId: lesson.id, error: 'Profile not found' })
+          results.errors.push({ studentId, error: 'Student not found' })
           continue
         }
 
-        // Fetch student data for development plan and player level
-        const { data: student, error: studentError } = await supabase
-          .from('students')
-          .select('development_plan, player_level')
-          .eq('id', studentId)
-          .single()
+        // Extract profile (handle both object and array responses)
+        const profile = Array.isArray(student.profiles) ? student.profiles[0] : student.profiles
+
+        if (!profile || !profile.email) {
+          console.log(`Skipping student ${studentId}: no student email`)
+          results.failed++
+          results.errors.push({ studentId, error: 'Student email not found' })
+          continue
+        }
+
+        console.log('Processing student:', studentId, 'Email:', profile.email)
 
         // Fetch incomplete homework
-        const { data: homework, error: homeworkError } = await supabase
+        const { data: homework } = await supabase
           .from('lesson_homework')
           .select('*')
           .eq('student_id', studentId)
           .eq('completed', false)
           .order('created_at', { ascending: false })
 
-        // Fetch last lesson's learnings
-        const { data: lastLesson, error: lastLessonError } = await supabase
-          .from('lessons')
-          .select('student_learnings')
-          .eq('student_id', studentId)
-          .eq('status', 'completed')
-          .not('student_learnings', 'is', null)
-          .order('lesson_date', { ascending: false })
-          .limit(1)
-          .single()
-
-        // Parse learnings
-        let learnings = []
+        // Get learnings from last lesson
+        let lastLessonLearnings = 'First lesson - no previous learnings'
         if (lastLesson && lastLesson.student_learnings) {
-          // Parse numbered list: "1. learning\n2. learning\n3. learning"
-          const lines = lastLesson.student_learnings.split('\n')
-          learnings = lines
-            .filter(line => line.trim().match(/^\d+\./))
-            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+          // Parse if it's a numbered list (1. 2. 3.) or bullet points
+          const learnings = lastLesson.student_learnings
+            .split('\n')
+            .filter(line => line.trim())
+            .map(line => line.replace(/^[\d\.\-\*\•]\s*/, '').trim())
+            .filter(line => line.length > 0)
             .slice(0, 3)
+            .map(l => `✓ ${l}`)
+            .join('\n')
+          
+          lastLessonLearnings = learnings || 'No learnings recorded'
         }
+
+        console.log('Last lesson learnings:', lastLessonLearnings)
 
         // Get next milestone
         let nextMilestone = null
         let goalText = null
         
-        if (student && student.development_plan) {
+        if (student.development_plan) {
           let plan = student.development_plan
           if (typeof plan === 'string') {
             try {
@@ -257,26 +278,35 @@ exports.handler = async (event, context) => {
           }
         }
 
-        // Format lesson date
-        const lessonDate = new Date(lesson.lesson_date)
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        const dayName = dayNames[lessonDate.getDay()]
-        const timeStr = lessonDate.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        // Format lesson date/time
+        const lessonDate = new Date(nextLesson.lesson_date)
+        const lessonDay = lessonDate.toLocaleDateString('en-US', { 
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          timeZone: 'America/Los_Angeles'  // San Diego timezone
+        })
+        const lessonTime = lessonDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'America/Los_Angeles'
         })
 
         // Build email
-        const emailSubject = `Ready for ${dayName}'s Lesson? 🎾`
+        const emailSubject = `Ready for ${lessonDay.split(',')[0]}'s Lesson? 🎾`
         const emailBody = buildEmailTemplate(
           profile.full_name || 'Student',
-          dayName,
-          timeStr,
-          learnings,
+          lessonDay,
+          lessonTime,
+          lastLessonLearnings,
           homework || [],
           nextMilestone,
           goalText
         )
+
+        console.log('Attempting to send email to:', profile.email)
+        console.log('SendGrid API Key exists:', !!process.env.SENDGRID_API_KEY)
+        console.log('SendGrid From Email:', process.env.SENDGRID_FROM_EMAIL)
 
         // Send email via SendGrid
         const sendGridUrl = 'https://api.sendgrid.com/v3/mail/send'
@@ -304,20 +334,23 @@ exports.handler = async (event, context) => {
           body: JSON.stringify(emailData)
         })
 
+        console.log('SendGrid response status:', response.status)
+
         if (!response.ok) {
           const errorText = await response.text()
-          console.error(`SendGrid error for lesson ${lesson.id}:`, errorText)
+          console.error('SendGrid error details:', errorText)
+          console.error(`SendGrid error for student ${studentId}:`, errorText)
           results.failed++
-          results.errors.push({ lessonId: lesson.id, error: errorText })
+          results.errors.push({ studentId, error: errorText })
         } else {
           results.sent++
-          console.log(`Email sent successfully for lesson ${lesson.id} to ${profile.email}`)
+          console.log(`Email sent successfully for student ${studentId} (${profile.email}) - Next lesson: ${lessonDay} at ${lessonTime}`)
         }
 
       } catch (error) {
-        console.error(`Error processing lesson ${lesson.id}:`, error)
+        console.error(`Error processing student ${studentId}:`, error)
         results.failed++
-        results.errors.push({ lessonId: lesson.id, error: error.message })
+        results.errors.push({ studentId, error: error.message })
       }
     }
 
@@ -325,7 +358,7 @@ exports.handler = async (event, context) => {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: `Processed ${lessons.length} lessons`,
+        message: `Processed ${uniqueStudentIds.length} students with upcoming lessons`,
         sent: results.sent,
         failed: results.failed,
         errors: results.errors
@@ -345,15 +378,17 @@ exports.handler = async (event, context) => {
 }
 
 // Email template function
-function buildEmailTemplate(name, dayName, timeStr, learnings, homework, nextMilestone, goalText) {
-  // Build learnings HTML
+function buildEmailTemplate(name, lessonDay, lessonTime, lastLessonLearnings, homework, nextMilestone, goalText) {
+  // Build learnings HTML (learnings is now a formatted string)
   let learningsHTML = ''
-  if (learnings.length > 0) {
-    learningsHTML = learnings.map(learning => 
-      `<div style="margin: 8px 0; color: #333;">✓ ${learning}</div>`
+  if (lastLessonLearnings && lastLessonLearnings !== 'First lesson - no previous learnings' && lastLessonLearnings !== 'No learnings recorded') {
+    // Split by newlines and create HTML divs
+    const learningsList = lastLessonLearnings.split('\n').filter(line => line.trim())
+    learningsHTML = learningsList.map(learning => 
+      `<div style="margin: 8px 0; color: #333;">${learning}</div>`
     ).join('')
   } else {
-    learningsHTML = '<div style="margin: 8px 0; color: #999; font-style: italic;">No previous learnings</div>'
+    learningsHTML = `<div style="margin: 8px 0; color: #999; font-style: italic;">${lastLessonLearnings}</div>`
   }
 
   // Build homework HTML
@@ -407,7 +442,7 @@ function buildEmailTemplate(name, dayName, timeStr, learnings, homework, nextMil
         </div>
         <div class="content">
           <h2>Hey ${name}!</h2>
-          <p>Your lesson is coming up: <strong>${dayName} at ${timeStr}</strong></p>
+          <p>Your lesson is coming up: <strong>${lessonDay} at ${lessonTime}</strong></p>
           
           <div class="section">
             <div class="section-title">Last Time You Learned:</div>
@@ -425,7 +460,7 @@ function buildEmailTemplate(name, dayName, timeStr, learnings, homework, nextMil
             ${goalHTML}
           </div>
 
-          <p style="margin-top: 24px;">See you ${dayName}!</p>
+          <p style="margin-top: 24px;">See you ${lessonDay.split(',')[0]}!</p>
           <p>Best regards,<br><strong>Coach Tobi</strong></p>
         </div>
         <div class="footer">

@@ -14,6 +14,12 @@ export default function LessonsPage() {
   const [dateFilter, setDateFilter] = useState('all')
   const [editingPlan, setEditingPlan] = useState(false)
   const [lessonPlanText, setLessonPlanText] = useState('')
+  const [editingLesson, setEditingLesson] = useState(false)
+  const [editLessonDate, setEditLessonDate] = useState('')
+  const [editLessonTime, setEditLessonTime] = useState('')
+  const [editLessonLocation, setEditLessonLocation] = useState('')
+  const [editingFeedback, setEditingFeedback] = useState(false)
+  const [feedbackText, setFeedbackText] = useState('')
 
   useEffect(() => {
     fetchLessons()
@@ -78,6 +84,93 @@ export default function LessonsPage() {
     if (lesson.status === 'cancelled') return 'cancelled'
     if (lessonDate < now && lesson.status === 'scheduled') return 'completed' // Auto-complete past scheduled lessons
     return lesson.status || 'scheduled'
+  }
+
+  const handleUpdateLessonStatus = async (lessonId, newStatus) => {
+    try {
+      // Update lesson status
+      const { error } = await supabase
+        .from('lessons')
+        .update({ status: newStatus })
+        .eq('id', lessonId)
+
+      if (error) throw error
+
+      // If completing a lesson, deduct credit from student
+      if (newStatus === 'completed') {
+        // Get lesson details to find student
+        const lesson = lessons.find(l => l.id === lessonId)
+        if (lesson && lesson.student_id) {
+          // Get current credits
+          const { data: student } = await supabase
+            .from('students')
+            .select('lesson_credits')
+            .eq('id', lesson.student_id)
+            .single()
+
+          if (student) {
+            const currentCredits = student.lesson_credits || 0
+            const newCredits = Math.max(0, currentCredits - 1)
+
+            // Deduct 1 credit
+            await supabase
+              .from('students')
+              .update({ lesson_credits: newCredits })
+              .eq('id', lesson.student_id)
+          }
+        }
+      }
+
+      // Update local state
+      if (selectedLesson?.id === lessonId) {
+        setSelectedLesson({ ...selectedLesson, status: newStatus })
+      }
+      
+      // Refresh lessons list
+      await fetchLessons()
+    } catch (error) {
+      console.error('Error updating lesson status:', error)
+      alert('Error updating lesson status: ' + error.message)
+    }
+  }
+
+  const handleSaveFeedback = async () => {
+    if (!selectedLesson || !feedbackText.trim()) {
+      alert('Please enter feedback')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .update({ coach_feedback: feedbackText.trim() })
+        .eq('id', selectedLesson.id)
+
+      if (error) throw error
+
+      // Create notification for student
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: selectedLesson.student_id,
+          type: 'feedback_posted',
+          title: 'Coach Feedback Posted',
+          body: `Your coach has posted feedback for your lesson on ${new Date(selectedLesson.lesson_date).toLocaleDateString()}`,
+          link: `/dashboard`,
+          read: false
+        })
+
+      // Update local state
+      setSelectedLesson({ ...selectedLesson, coach_feedback: feedbackText.trim() })
+      setLessons(lessons.map(l => l.id === selectedLesson.id ? { ...l, coach_feedback: feedbackText.trim() } : l))
+      setEditingFeedback(false)
+      setFeedbackText('')
+      alert('Feedback saved!')
+      await fetchLessons()
+    } catch (error) {
+      console.error('Error saving feedback:', error)
+      alert('Error saving feedback: ' + error.message)
+    }
   }
 
   const getFilteredLessons = () => {
@@ -259,7 +352,17 @@ export default function LessonsPage() {
                 <tr 
                   key={lesson.id} 
                   className="table-row"
-                  onClick={() => setSelectedLesson(lesson)}
+                  onClick={() => {
+                    setSelectedLesson(lesson)
+                    // Initialize edit fields when lesson is selected
+                    const lessonDate = new Date(lesson.lesson_date)
+                    setEditLessonDate(lessonDate.toISOString().split('T')[0])
+                    setEditLessonTime(lessonDate.toTimeString().slice(0, 5))
+                    setEditLessonLocation(lesson.location || '')
+                    setEditingLesson(false) // Start in view mode
+                    setEditingFeedback(false)
+                    setFeedbackText('')
+                  }}
                 >
                   <td>{new Date(lesson.lesson_date).toLocaleDateString()}</td>
                   <td>{new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</td>
@@ -305,6 +408,12 @@ export default function LessonsPage() {
           setSelectedLesson(null)
           setEditingPlan(false)
           setLessonPlanText('')
+          setEditingLesson(false)
+          setEditLessonDate('')
+          setEditLessonTime('')
+          setEditLessonLocation('')
+          setEditingFeedback(false)
+          setFeedbackText('')
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
             <div className="modal-header">
@@ -313,23 +422,187 @@ export default function LessonsPage() {
                 setSelectedLesson(null)
                 setEditingPlan(false)
                 setLessonPlanText('')
+                setEditingLesson(false)
+                setEditLessonDate('')
+                setEditLessonTime('')
+                setEditLessonLocation('')
+                setEditingFeedback(false)
+                setFeedbackText('')
               }}>×</button>
             </div>
             <div className="modal-body">
               <div style={{ marginBottom: '20px' }}>
                 <strong>Student:</strong> {selectedLesson.students?.profiles?.full_name || 'Unknown'}
               </div>
+              
               <div style={{ marginBottom: '20px' }}>
-                <strong>Date:</strong> {new Date(selectedLesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong>Lesson Details:</strong>
+                  {!editingLesson && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingLesson(true)
+                        const lessonDate = new Date(selectedLesson.lesson_date)
+                        setEditLessonDate(lessonDate.toISOString().split('T')[0])
+                        setEditLessonTime(lessonDate.toTimeString().slice(0, 5))
+                        setEditLessonLocation(selectedLesson.location || '')
+                      }}
+                      style={{ padding: '4px 12px', fontSize: '14px' }}
+                    >
+                      <Edit2 size={14} style={{ marginRight: '4px' }} />
+                      Edit
+                    </button>
+                  )}
+                </div>
+                
+                {editingLesson ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Date:</label>
+                      <input
+                        type="date"
+                        value={editLessonDate}
+                        onChange={(e) => setEditLessonDate(e.target.value)}
+                        className="input"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Time:</label>
+                      <input
+                        type="time"
+                        value={editLessonTime}
+                        onChange={(e) => setEditLessonTime(e.target.value)}
+                        className="input"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Location:</label>
+                      <input
+                        type="text"
+                        value={editLessonLocation}
+                        onChange={(e) => setEditLessonLocation(e.target.value)}
+                        className="input"
+                        placeholder="e.g., Colina Del Sol Park"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          try {
+                            const dateTime = new Date(`${editLessonDate}T${editLessonTime}`)
+                            const { error } = await supabase
+                              .from('lessons')
+                              .update({
+                                lesson_date: dateTime.toISOString(),
+                                location: editLessonLocation
+                              })
+                              .eq('id', selectedLesson.id)
+
+                            if (error) throw error
+
+                            const updatedLesson = {
+                              ...selectedLesson,
+                              lesson_date: dateTime.toISOString(),
+                              location: editLessonLocation
+                            }
+                            setSelectedLesson(updatedLesson)
+                            setLessons(lessons.map(l => l.id === selectedLesson.id ? updatedLesson : l))
+                            setEditingLesson(false)
+                            alert('Lesson updated successfully!')
+                            fetchLessons()
+                          } catch (error) {
+                            console.error('Error updating lesson:', error)
+                            alert('Error updating lesson: ' + error.message)
+                          }
+                        }}
+                        style={{ padding: '6px 16px', fontSize: '14px' }}
+                      >
+                        <Save size={14} style={{ marginRight: '4px' }} />
+                        Save
+                      </button>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingLesson(false)
+                          const lessonDate = new Date(selectedLesson.lesson_date)
+                          setEditLessonDate(lessonDate.toISOString().split('T')[0])
+                          setEditLessonTime(lessonDate.toTimeString().slice(0, 5))
+                          setEditLessonLocation(selectedLesson.location || '')
+                        }}
+                        style={{ padding: '6px 16px', fontSize: '14px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: '12px' }}>
+                      <strong>Date:</strong> {new Date(selectedLesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <strong>Time:</strong> {new Date(selectedLesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <strong>Location:</strong> {selectedLesson.location || '-'}
+                    </div>
+                  </>
+                )}
               </div>
+              
               <div style={{ marginBottom: '20px' }}>
-                <strong>Time:</strong> {new Date(selectedLesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <strong>Location:</strong> {selectedLesson.location || '-'}
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{getActualStatus(selectedLesson)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <strong>Status:</strong>
+                  <span className={`badge badge-${getActualStatus(selectedLesson) === 'completed' ? 'success' : getActualStatus(selectedLesson) === 'cancelled' ? 'warning' : 'info'}`} style={{ textTransform: 'capitalize' }}>
+                    {getActualStatus(selectedLesson)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                  {getActualStatus(selectedLesson) !== 'completed' && (
+                    <button
+                      className="btn btn-sm"
+                      style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '6px 12px', fontSize: '14px' }}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        await handleUpdateLessonStatus(selectedLesson.id, 'completed')
+                      }}
+                    >
+                      ✓ Complete
+                    </button>
+                  )}
+                  {getActualStatus(selectedLesson) !== 'cancelled' && getActualStatus(selectedLesson) !== 'completed' && (
+                    <button
+                      className="btn btn-sm"
+                      style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '6px 12px', fontSize: '14px' }}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        await handleUpdateLessonStatus(selectedLesson.id, 'cancelled')
+                      }}
+                    >
+                      ✗ Cancel
+                    </button>
+                  )}
+                  {getActualStatus(selectedLesson) === 'cancelled' && (
+                    <button
+                      className="btn btn-sm btn-outline"
+                      style={{ padding: '6px 12px', fontSize: '14px' }}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        await handleUpdateLessonStatus(selectedLesson.id, 'scheduled')
+                      }}
+                    >
+                      ↺ Reschedule
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -417,14 +690,68 @@ export default function LessonsPage() {
                   </div>
                 </div>
               )}
-              {selectedLesson.coach_feedback && (
-                <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <strong>Coach Feedback:</strong>
+                  {!editingFeedback && !selectedLesson.coach_feedback && selectedLesson.student_learnings && (
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingFeedback(true)
+                        setFeedbackText('')
+                      }}
+                      style={{ padding: '4px 12px', fontSize: '14px' }}
+                    >
+                      Add Feedback
+                    </button>
+                  )}
+                </div>
+                {editingFeedback ? (
+                  <div>
+                    <textarea
+                      className="input"
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      placeholder="Provide feedback on the student's learnings..."
+                      rows={6}
+                      style={{ width: '100%', marginBottom: '8px', fontFamily: 'inherit' }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSaveFeedback()
+                        }}
+                        style={{ padding: '6px 16px', fontSize: '14px' }}
+                      >
+                        Save Feedback
+                      </button>
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingFeedback(false)
+                          setFeedbackText('')
+                        }}
+                        style={{ padding: '6px 16px', fontSize: '14px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : selectedLesson.coach_feedback ? (
                   <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#E8F5E9', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
                     {selectedLesson.coach_feedback}
                   </div>
-                </div>
-              )}
+                ) : selectedLesson.student_learnings ? (
+                  <div style={{ marginTop: '8px', padding: '12px', color: '#999', fontStyle: 'italic' }}>
+                    No feedback yet. Click "Add Feedback" to provide feedback on the student's learnings.
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={() => navigate(`/coach/students/${selectedLesson.student_id}`)}>
@@ -434,6 +761,12 @@ export default function LessonsPage() {
                 setSelectedLesson(null)
                 setEditingPlan(false)
                 setLessonPlanText('')
+                setEditingLesson(false)
+                setEditLessonDate('')
+                setEditLessonTime('')
+                setEditLessonLocation('')
+                setEditingFeedback(false)
+                setFeedbackText('')
               }}>
                 Close
               </button>
