@@ -339,5 +339,63 @@
   }
 }
 
+/* Skills Rating Grid */
+.skills-rating-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
 
+.skill-rating-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.skill-rating-header h4 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.skill-question {
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
+  margin: 0 0 16px 0;
+}
+
+.skill-rating-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.rating-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.column-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .skills-rating-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .skill-rating-columns {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2 } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
@@ -9,6 +9,9 @@ import AddPackageModal from '../Payments/AddPackageModal'
 import MergeHistoricalModal from '../History/MergeHistoricalModal'
 import MergeProfilesModal from './MergeProfilesModal'
 import SelectProfileModal from './SelectProfileModal'
+import BookLessonModal from '../Calendar/BookLessonModal'
+import CreateLessonModal from '../Calendar/CreateLessonModal'
+import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -28,6 +31,8 @@ export default function StudentDetailPage() {
   const [showAddPackage, setShowAddPackage] = useState(false)
   const [showMergeModal, setShowMergeModal] = useState(false)
   const [showMergeProfilesModal, setShowMergeProfilesModal] = useState(false)
+  const [showBookLesson, setShowBookLesson] = useState(false)
+  const [showCreateLesson, setShowCreateLesson] = useState(false)
   const [selectedProfileToMerge, setSelectedProfileToMerge] = useState(null)
   const [referringStudent, setReferringStudent] = useState(null)
   const [editingLeadSource, setEditingLeadSource] = useState(false)
@@ -286,6 +291,34 @@ export default function StudentDetailPage() {
       setLessons(data || [])
     } catch (error) {
       console.error('Error fetching lessons:', error)
+    }
+  }
+
+  const handleDeleteLesson = async (lessonId, e) => {
+    e.stopPropagation() // Prevent opening lesson detail modal
+    
+    if (!confirm('Are you sure you want to delete this lesson? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('id', lessonId)
+
+      if (error) throw error
+
+      // Remove lesson from local state
+      setLessons(prev => prev.filter(lesson => lesson.id !== lessonId))
+      
+      // If this lesson was selected, clear it
+      if (selectedLesson?.id === lessonId) {
+        setSelectedLesson(null)
+      }
+    } catch (error) {
+      console.error('Error deleting lesson:', error)
+      alert('Error deleting lesson: ' + error.message)
     }
   }
 
@@ -716,6 +749,35 @@ export default function StudentDetailPage() {
                       <Edit2 size={18} />
                       Edit Profile
                     </button>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button 
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          // Primary action: Open Cal.com link directly
+                          window.open('https://cal.com/tobi-ojo-jg8ane/60min', '_blank')
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Calendar size={18} />
+                        Create Lesson
+                      </button>
+                      <button 
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowCreateLesson(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Calendar size={18} />
+                        Book Directly
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="student-contact-info">
@@ -873,6 +935,46 @@ export default function StudentDetailPage() {
               </div>
             </div>
 
+            {/* Player Level Toggle - Coach Only */}
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '1px solid #fbbf24' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <strong>Player Level:</strong> 
+                  <span style={{ marginLeft: '8px', textTransform: 'capitalize' }}>
+                    {student?.player_level || 'beginner'}
+                  </span>
+                </div>
+                <button
+                  className="btn btn-outline"
+                  onClick={async () => {
+                    const newLevel = student?.player_level === 'beginner' ? 'advanced' : 'beginner'
+                    const { error } = await supabase
+                      .from('students')
+                      .update({ player_level: newLevel })
+                      .eq('id', student.id)
+                    
+                    if (!error) {
+                      // Refresh student data
+                      fetchStudentData()
+                      alert(`Player level updated to ${newLevel}`)
+                    } else {
+                      console.error('Error updating player level:', error)
+                      alert('Error updating player level')
+                    }
+                  }}
+                  style={{ fontSize: '14px' }}
+                >
+                  Switch to {student?.player_level === 'beginner' ? 'Advanced' : 'Beginner'} Level
+                </button>
+              </div>
+              <p style={{ fontSize: '13px', color: '#666', marginTop: '8px', marginBottom: 0 }}>
+                {student?.player_level === 'beginner' 
+                  ? '📚 Beginner Level: Building fundamentals (Milestones 1-30)'
+                  : '🏆 Advanced Level: Competitive play (3.5+ players)'
+                }
+              </p>
+            </div>
+
             {upcomingLessons.length > 0 && (
               <div className="section">
                 <h3>Upcoming Lessons</h3>
@@ -885,9 +987,18 @@ export default function StudentDetailPage() {
                           {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} • {lesson.location}
                         </div>
                       </div>
-                      {lesson.lesson_plan && (
-                        <FileText size={18} style={{ color: 'var(--color-success)' }} />
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {lesson.lesson_plan && (
+                          <FileText size={18} style={{ color: 'var(--color-success)' }} />
+                        )}
+                        <button
+                          onClick={(e) => handleDeleteLesson(lesson.id, e)}
+                          className="btn-icon-delete"
+                          title="Delete lesson"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -970,14 +1081,46 @@ export default function StudentDetailPage() {
                       </div>
                     )}
 
-                    {student.development_plan_notes && (
-                      <div className="plan-section-content">
-                        <h4>Coach Notes</h4>
-                        <div className="coach-notes">
-                          {student.development_plan_notes}
-                        </div>
-                      </div>
-                    )}
+                    {/* Recommended Path */}
+                    {(() => {
+                      try {
+                        const plan = typeof student.development_plan === 'string' 
+                          ? JSON.parse(student.development_plan) 
+                          : student.development_plan
+                        
+                        const bigGoal = plan?.section1?.bigGoal
+                        if (!bigGoal || bigGoal === 'custom') return null
+                        
+                        const goal = GOAL_OPTIONS.find(g => g.value === bigGoal)
+                        if (!goal) return null
+                        
+                        const targetMilestone = MILESTONES.find(m => m.number === goal.targetMilestone)
+                        
+                        let targetSkill = 5
+                        if (goal.targetMilestone <= 15) targetSkill = 5
+                        else if (goal.targetMilestone <= 20) targetSkill = 6
+                        else targetSkill = 7
+                        
+                        return (
+                          <div className="plan-section-content" style={{ marginTop: '24px', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                            <strong style={{ fontSize: '16px' }}>📋 Recommended Path:</strong>
+                            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                                🎯 <strong>Target Milestone:</strong> #{goal.targetMilestone} - {targetMilestone?.name}
+                                <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                                  "{targetMilestone?.description}"
+                                </div>
+                              </div>
+                              <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                                📈 <strong>Skill Level Needed:</strong> {targetSkill}/10 in all areas
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      } catch (e) {
+                        return null
+                      }
+                    })()}
                   </div>
                 ) : (
                   <div className="empty-state">
@@ -1015,9 +1158,18 @@ export default function StudentDetailPage() {
                     <div className="lesson-content">
                       <div className="lesson-header-row">
                         <strong>{new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
-                        <span className={`status-badge status-${lesson.status}`}>
-                          {lesson.status}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span className={`status-badge status-${lesson.status}`}>
+                            {lesson.status}
+                          </span>
+                          <button
+                            onClick={(e) => handleDeleteLesson(lesson.id, e)}
+                            className="btn-icon-delete"
+                            title="Delete lesson"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
                       <div className="lesson-meta">{lesson.location}</div>
                       {lesson.lesson_plan && (
@@ -1583,6 +1735,21 @@ export default function StudentDetailPage() {
             fetchStudentData()
             setSelectedProfileToMerge(null)
             navigate('/coach/students')
+          }}
+        />
+      )}
+
+      {/* Create Lesson Modal (Direct Booking) */}
+      {showCreateLesson && student && (
+        <CreateLessonModal
+          isOpen={showCreateLesson}
+          onClose={() => setShowCreateLesson(false)}
+          studentId={student.id}
+          studentName={student.profiles?.full_name || 'Unknown Student'}
+          onSuccess={() => {
+            fetchStudentData()
+            fetchLessons()
+            setShowCreateLesson(false)
           }}
         />
       )}

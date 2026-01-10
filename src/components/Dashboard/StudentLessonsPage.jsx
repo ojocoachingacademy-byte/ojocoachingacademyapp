@@ -147,10 +147,12 @@ export default function StudentLessonsPage() {
                   </div>
                   <span className="status-dot status-scheduled"></span>
                 </div>
-                {lesson.lesson_plan && (
+                {(lesson.lesson_plan || lesson.student_lesson_plan) && (
                   <div className="lesson-plan-box">
                     <strong>Lesson Plan:</strong>
-                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                    <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>
+                      {lesson.student_lesson_plan || lesson.lesson_plan}
+                    </p>
                   </div>
                 )}
               </div>
@@ -202,10 +204,12 @@ export default function StudentLessonsPage() {
                     <span className={`status-dot status-${actualStatus}`}></span>
                   </div>
 
-                  {lesson.lesson_plan && (
+                  {(lesson.lesson_plan || lesson.student_lesson_plan) && (
                     <div className="lesson-plan-box">
                       <strong>Lesson Plan:</strong>
-                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                      <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>
+                        {lesson.student_lesson_plan || lesson.lesson_plan}
+                      </p>
                     </div>
                   )}
 
@@ -303,46 +307,41 @@ export default function StudentLessonsPage() {
             </div>
           )}
 
-          {/* Skills Section */}
-          <div className="development-plan-grid">
-            {developmentPlan.skills.map((skill, index) => {
-              const studentLevel = skill.student_assessment ?? skill.current_level ?? null
-              const coachLevel = skill.coach_assessment ?? null
-              const targetLevel = skill.target_level ?? null
-              
-              return (
-                <div key={index} className="skill-card-student">
-                  <div className="skill-header-student">
-                    <strong>{skill.skill_name}</strong>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                      {studentLevel && (
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '14px' }}>
-                          You: {studentLevel}/10
-                        </span>
-                      )}
-                      {coachLevel && (
-                        <span style={{ color: 'var(--color-secondary)', fontWeight: 600, fontSize: '14px' }}>
-                          Coach: {coachLevel}/10
-                        </span>
-                      )}
-                      {targetLevel && (
-                        <span style={{ color: 'var(--color-accent)', fontWeight: 600, fontSize: '14px' }}>
-                          Target: {targetLevel}/10
-                        </span>
-                      )}
+            {/* Skills Section */}
+            <div className="development-plan-grid">
+              {developmentPlan.skills.map((skill, index) => {
+                // Use current_level, fall back to student_assessment for historical data
+                const currentLevel = skill.current_level ?? skill.student_assessment ?? null
+                const targetLevel = skill.target_level ?? null
+                
+                return (
+                  <div key={index} className="skill-card-student">
+                    <div className="skill-header-student">
+                      <strong>{skill.skill_name}</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        {currentLevel && (
+                          <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '14px' }}>
+                            Current: {currentLevel}/10
+                          </span>
+                        )}
+                        {targetLevel && (
+                          <span style={{ color: 'var(--color-accent)', fontWeight: 600, fontSize: '14px' }}>
+                            Target: {targetLevel}/10
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {targetLevel && (
-                    <div className="progress-bar-container">
-                      <div 
-                        className="progress-bar"
-                        style={{ 
-                          width: `${Math.min(((studentLevel || coachLevel || 0) / targetLevel) * 100, 100)}%`,
-                          backgroundColor: (studentLevel || coachLevel || 0) >= targetLevel ? 'var(--color-success)' : 'var(--color-primary)'
-                        }}
-                      />
-                    </div>
-                  )}
+                    {targetLevel && (
+                      <div className="progress-bar-container">
+                        <div 
+                          className="progress-bar"
+                          style={{ 
+                            width: `${Math.min(((currentLevel || 0) / targetLevel) * 100, 100)}%`,
+                            backgroundColor: (currentLevel || 0) >= targetLevel ? 'var(--color-success)' : 'var(--color-primary)'
+                          }}
+                        />
+                      </div>
+                    )}
                   {skill.notes && (
                     <p style={{ fontSize: '13px', color: '#666', marginTop: '8px', fontStyle: 'italic' }}>
                       {skill.notes}
@@ -431,11 +430,11 @@ export default function StudentLessonsPage() {
               <div style={{ marginBottom: '20px' }}>
                 <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{getActualStatus(selectedLesson)}</span>
               </div>
-              {selectedLesson.lesson_plan && (
+              {(selectedLesson.lesson_plan || selectedLesson.student_lesson_plan) && (
                 <div style={{ marginBottom: '20px' }}>
                   <strong>Lesson Plan:</strong>
                   <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
-                    {selectedLesson.lesson_plan}
+                    {selectedLesson.student_lesson_plan || selectedLesson.lesson_plan}
                   </div>
                 </div>
               )}

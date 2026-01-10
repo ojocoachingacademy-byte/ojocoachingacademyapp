@@ -205,11 +205,15 @@ a:hover {
 }
 
 .card-gradient-purple {
-  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: var(--color-dark);
 }
 
 .card-gradient-teal {
-  background: linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%);
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: var(--color-dark);
 }
 
 .card-gradient-gold {

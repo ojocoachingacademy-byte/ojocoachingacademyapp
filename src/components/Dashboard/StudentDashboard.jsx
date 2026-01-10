@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Award, Target, Edit2, TrendingUp, Trophy } from 'lucide-react'
+import { Users, Calendar, Award, Target, Edit2, TrendingUp } from 'lucide-react'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
-import BookLessonModal from '../Calendar/BookLessonModal'
-import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
-import CreditWarning from '../Payments/CreditWarning'
+import RecentProgress from '../Progress/RecentProgress'
 import TestimonialRequestBanner from '../Testimonials/TestimonialRequestBanner'
+import MilestoneTracker from '../DevelopmentPlan/MilestoneTracker'
+import BookLessonModal from '../Calendar/BookLessonModal'
+import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null)
@@ -22,12 +23,11 @@ export default function StudentDashboard() {
   const [learning3, setLearning3] = useState('')
   const [developmentPlan, setDevelopmentPlan] = useState([])
   const [editingPlan, setEditingPlan] = useState(false)
-  const [showBookingModal, setShowBookingModal] = useState(false)
   const [user, setUser] = useState(null)
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllPast, setShowAllPast] = useState(false)
-  const [referralData, setReferralData] = useState({ rank: null, referralCount: 0, referralRevenue: 0, totalReferrers: 0 })
-  const [topReferrers, setTopReferrers] = useState([])
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [homework, setHomework] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -81,13 +81,64 @@ export default function StudentDashboard() {
       // Development plan is stored in student.development_plan (JSON)
       // It will be loaded from studentData
 
-      // Fetch referral data
-      await fetchReferralData(user.id)
+      // Fetch homework
+      await fetchHomework(user.id)
 
       setLoading(false)
     } catch (error) {
       console.error('Error fetching data:', error)
       setLoading(false)
+    }
+  }
+
+  // Fetch homework for student
+  const fetchHomework = async (studentId) => {
+    if (!studentId) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('lesson_homework')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('completed', false)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching homework:', error)
+        return
+      }
+      
+      if (data) {
+        setHomework(data)
+      }
+    } catch (error) {
+      console.error('Error fetching homework:', error)
+    }
+  }
+
+  // Toggle homework completion
+  const handleToggleHomework = async (homeworkId, currentCompleted) => {
+    try {
+      const { error } = await supabase
+        .from('lesson_homework')
+        .update({ 
+          completed: !currentCompleted,
+          completed_at: !currentCompleted ? new Date().toISOString() : null
+        })
+        .eq('id', homeworkId)
+      
+      if (error) {
+        console.error('Error updating homework:', error)
+        alert('Error updating homework')
+      } else {
+        // Refresh homework list
+        if (user) {
+          await fetchHomework(user.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling homework:', error)
+      alert('Error updating homework')
     }
   }
 
@@ -240,6 +291,12 @@ export default function StudentDashboard() {
     return lesson.status || 'scheduled'
   }
   
+  // Calculate past lessons before useEffect (needed for dependency array)
+  const pastLessons = (lessons || []).filter(l => {
+    const status = getActualStatus(l)
+    return status === 'completed' || (new Date(l.lesson_date) < now && status !== 'cancelled')
+  })
+  
   // Update past scheduled lessons to completed in database
   useEffect(() => {
     lessons.forEach(lesson => {
@@ -280,15 +337,11 @@ export default function StudentDashboard() {
     )
   }
   
-  const upcomingLessons = lessons.filter(l => {
+  const upcomingLessons = (lessons || []).filter(l => {
     const status = getActualStatus(l)
     if (status !== 'scheduled') return false
     const lessonDate = new Date(l.lesson_date)
     return lessonDate > now
-  })
-  const pastLessons = lessons.filter(l => {
-    const status = getActualStatus(l)
-    return status === 'completed' || (new Date(l.lesson_date) < now && status !== 'cancelled')
   })
   
   // Helper function to check if lesson plan should be visible (24 hours before)
@@ -302,29 +355,36 @@ export default function StudentDashboard() {
     <div className="student-dashboard">
       {/* Header */}
       <div className="dashboard-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
-          <h1 className="welcome-message">Welcome, {profile?.full_name}! 🎾</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            {/* Referral Leaderboard Widget */}
-            {referralData.referralCount > 0 && (
-              <div className="referral-widget">
-                <div className="referral-widget-header">
-                  <Trophy size={16} />
-                  <span>Referral Rank</span>
-                </div>
-                <div className="referral-widget-content">
-                  <div className="referral-rank">#{referralData.rank}</div>
-                  <div className="referral-stats">
-                    <span>{referralData.referralCount} referral{referralData.referralCount !== 1 ? 's' : ''}</span>
-                    <span>${referralData.referralRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+            <h1 className="welcome-message">Welcome, {profile?.full_name}! 🎾</h1>
+            {/* Header Stats - Small cards on same row as welcome */}
+            <div className="header-stats-row">
+              <div className="stat-card-small card-gradient-purple">
+                <div className="stat-card-content-small">
+                  <div className="stat-icon-small">💰</div>
+                  <div className="stat-info-small">
+                    <div className="stat-label-small">Lesson Credits</div>
+                    <div className="stat-value-small">{student?.lesson_credits || 0}</div>
                   </div>
                 </div>
               </div>
-            )}
-            <button 
+              <div className="stat-card-small card-gradient-teal">
+                <div className="stat-card-content-small">
+                  <div className="stat-icon-small">📅</div>
+                  <div className="stat-info-small">
+                    <div className="stat-label-small">Upcoming Lessons</div>
+                    <div className="stat-value-small">{upcomingLessons.length}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <button
               onClick={() => setShowBookingModal(true)}
               className="btn btn-primary"
-              disabled={!student || student.lesson_credits === 0}
+              disabled={!student}
             >
               <Calendar size={18} style={{ marginRight: '8px' }} />
               Book a Lesson
@@ -333,66 +393,70 @@ export default function StudentDashboard() {
         </div>
       </div>
       
-      {/* Credit Warning */}
-      <CreditWarning credits={student?.lesson_credits || 0} />
-
       {/* Testimonial Request Banner */}
-      {student && pastLessons.length >= 5 && (
-        <TestimonialRequestBanner 
-          studentId={student.id} 
-          lessonCount={pastLessons.length}
-        />
+      {student && pastLessons.length >= 10 && (
+        <div className="testimonial-banner-container">
+          <TestimonialRequestBanner 
+            studentId={student.id} 
+            lessonCount={pastLessons.length}
+          />
+        </div>
       )}
 
-      {/* Quick Stats */}
-      <div className="stats-grid">
-        <div className="stat-card card-gradient-purple">
-          <div className="stat-card-content">
-            <div className="stat-icon">💰</div>
-            <div className="stat-label">Lesson Credits</div>
-            <div className="stat-value">{student?.lesson_credits || 0}</div>
-          </div>
+      {/* Recent Wins Section */}
+      {user && student?.development_plan && (
+        <div className="section student-progress-section">
+          <RecentProgress 
+            studentId={user.id}
+            developmentPlan={student.development_plan}
+            playerLevel={student?.player_level || 'beginner'}
+          />
         </div>
-        <div className="stat-card card-gradient-teal">
-          <div className="stat-card-content">
-            <div className="stat-icon">📅</div>
-            <div className="stat-label">Upcoming Lessons</div>
-            <div className="stat-value">{upcomingLessons.length}</div>
-          </div>
-        </div>
-        <div className="stat-card card-gradient-gold">
-          <div className="stat-card-content">
-            <div className="stat-icon">🏆</div>
-            <div className="stat-label">NTRP Level</div>
-            <div className="stat-value">{profile?.ntrp_level || 'N/A'}</div>
-          </div>
-        </div>
-      </div>
+      )}
 
-      {/* Referral Leaderboard */}
-      {topReferrers.length > 0 && (
-        <div className="referral-leaderboard-section">
-          <div className="referral-leaderboard-header">
-            <h2 className="referral-leaderboard-title">
-              <Trophy size={20} style={{ marginRight: '8px', color: '#FFD700' }} />
-              Top Referrers - Earn $100 Per Referral!
-            </h2>
-            <p className="referral-leaderboard-subtitle">Refer a friend and get $100 credit when they sign up!</p>
-          </div>
-          <div className="referral-leaderboard-grid">
-            {topReferrers.map((referrer, index) => (
-              <div key={index} className="referral-leaderboard-card">
-                <div className="referral-rank-badge">
-                  {index === 0 && <Trophy size={20} className="trophy-gold-icon" />}
-                  {index === 1 && <Trophy size={20} className="trophy-silver-icon" />}
-                  {index === 2 && <Trophy size={20} className="trophy-bronze-icon" />}
-                  <span className="referral-rank-number">#{index + 1}</span>
+      {/* Homework Section */}
+      {homework.length > 0 && (
+        <div className="section">
+          <h2 className="section-title">Homework Before Next Lesson 📝</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {homework.map(hw => (
+              <div 
+                key={hw.id}
+                style={{
+                  padding: '16px',
+                  background: 'white',
+                  borderRadius: '8px',
+                  border: '2px solid #e5e7eb',
+                  display: 'flex',
+                  alignItems: 'start',
+                  gap: '12px'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={hw.completed || false}
+                  onChange={() => handleToggleHomework(hw.id, hw.completed || false)}
+                  style={{ 
+                    width: '20px', 
+                    height: '20px', 
+                    marginTop: '2px',
+                    cursor: 'pointer'
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontSize: '16px',
+                    color: hw.completed ? '#9ca3af' : '#111',
+                    textDecoration: hw.completed ? 'line-through' : 'none'
+                  }}>
+                    {hw.homework_text}
+                  </div>
+                  {hw.completed && hw.completed_at && (
+                    <div style={{ fontSize: '12px', color: '#059669', marginTop: '4px' }}>
+                      ✓ Completed {new Date(hw.completed_at).toLocaleDateString()}
+                    </div>
+                  )}
                 </div>
-                <div className="referral-leaderboard-name">{referrer.name}</div>
-                <div className="referral-leaderboard-bonus">
-                  ${referrer.bonusAmount.toLocaleString('en-US')}
-                </div>
-                <div className="referral-leaderboard-label">Referral Bonus</div>
               </div>
             ))}
           </div>
@@ -431,13 +495,15 @@ export default function StudentDashboard() {
                       </div>
                       <span className={`status-dot status-${getActualStatus(lesson)}`}></span>
                     </div>
-                    {lesson.lesson_plan && isLessonPlanVisible(lesson.lesson_date) && (
+                    {(lesson.lesson_plan || lesson.student_lesson_plan) && isLessonPlanVisible(lesson.lesson_date) && (
                       <div className="lesson-plan-box">
                         <strong>Lesson Plan:</strong>
-                        <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.lesson_plan}</p>
+                        <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>
+                          {lesson.student_lesson_plan || lesson.lesson_plan}
+                        </p>
                       </div>
                     )}
-                    {lesson.lesson_plan && !isLessonPlanVisible(lesson.lesson_date) && (
+                    {(lesson.lesson_plan || lesson.student_lesson_plan) && !isLessonPlanVisible(lesson.lesson_date) && (
                       <p style={{ color: '#999', fontSize: '14px', marginTop: '10px' }}>
                         Lesson plan will be available 24 hours before the lesson
                       </p>
@@ -462,7 +528,7 @@ export default function StudentDashboard() {
               <p className="empty-state">No past lessons yet.</p>
             ) : (
               <>
-                {(showAllPast ? pastLessons : pastLessons.slice(0, 3)).map(lesson => (
+                {(showAllPast ? pastLessons : pastLessons.slice(0, 1)).map(lesson => (
                   <div 
                     key={lesson.id} 
                     className="lesson-card"
@@ -511,12 +577,12 @@ export default function StudentDashboard() {
                     )}
                   </div>
                 ))}
-                {pastLessons.length > 3 && (
+                {pastLessons.length > 1 && (
                   <button 
                     className="show-more-btn"
                     onClick={() => setShowAllPast(!showAllPast)}
                   >
-                    {showAllPast ? '▲ Show Less' : `▼ Show ${pastLessons.length - 3} More`}
+                    {showAllPast ? '▲ Show Less' : `▼ Show ${pastLessons.length - 1} More`}
                   </button>
                 )}
               </>
@@ -608,11 +674,35 @@ export default function StudentDashboard() {
         </div>
       ) : student?.development_plan ? (() => {
         try {
+          console.log('=== DEVELOPMENT PLAN DEBUG ===')
+          console.log('Student object:', student)
+          console.log('Has development_plan?:', student?.development_plan)
+          console.log('development_plan type:', typeof student?.development_plan)
+          
           const plan = typeof student.development_plan === 'string' 
             ? JSON.parse(student.development_plan) 
             : student.development_plan
           
-          if (!plan || !plan.skills || plan.skills.length === 0) return null
+          console.log('Parsed plan:', plan)
+          console.log('Plan has section1?:', !!plan?.section1)
+          console.log('Plan has section2?:', !!plan?.section2)
+          console.log('Plan has skills?:', !!plan?.skills)
+          console.log('Plan has goals?:', !!plan?.goals)
+          
+          // Check for new structure (section1/section2) or old structure (skills/goals)
+          const hasNewStructure = plan?.section1 || plan?.section2
+          const hasOldStructure = plan?.skills && plan.skills.length > 0
+          
+          console.log('Has new structure:', hasNewStructure)
+          console.log('Has old structure:', hasOldStructure)
+          
+          if (!plan || (!hasNewStructure && !hasOldStructure)) {
+            console.log('Returning null: No valid plan structure found')
+            return null
+          }
+          
+          console.log('Rendering development plan')
+          console.log('============================')
 
           return (
             <div className="section">
@@ -683,12 +773,12 @@ export default function StudentDashboard() {
                 </div>
               )}
 
-              {/* Skills Section */}
+              {/* Skills Section - Only render if using old structure */}
+              {plan.skills && plan.skills.length > 0 && (
               <div className="development-plan-grid">
                 {plan.skills.map((skill, index) => {
-                  // Support both old structure (current_level) and new structure (student_assessment, coach_assessment)
-                  const studentLevel = skill.student_assessment ?? skill.current_level ?? null
-                  const coachLevel = skill.coach_assessment ?? null
+                  // Use current_level, fall back to student_assessment for historical data
+                  const currentLevel = skill.current_level ?? skill.student_assessment ?? null
                   const targetLevel = skill.target_level ?? null
                   
                   return (
@@ -696,14 +786,9 @@ export default function StudentDashboard() {
                       <div className="skill-header-student">
                         <strong>{skill.skill_name}</strong>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                          {studentLevel && (
+                          {currentLevel && (
                             <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '14px' }}>
-                              You: {studentLevel}/10
-                            </span>
-                          )}
-                          {coachLevel && (
-                            <span style={{ color: 'var(--color-secondary)', fontWeight: 600, fontSize: '14px' }}>
-                              Coach: {coachLevel}/10
+                              Current: {currentLevel}/10
                             </span>
                           )}
                           {targetLevel && (
@@ -718,8 +803,8 @@ export default function StudentDashboard() {
                           <div 
                             className="progress-bar"
                             style={{ 
-                              width: `${Math.min(((studentLevel || coachLevel || 0) / targetLevel) * 100, 100)}%`,
-                              backgroundColor: (studentLevel || coachLevel || 0) >= targetLevel ? 'var(--color-success)' : 'var(--color-primary)'
+                              width: `${Math.min(((currentLevel || 0) / targetLevel) * 100, 100)}%`,
+                              backgroundColor: (currentLevel || 0) >= targetLevel ? 'var(--color-success)' : 'var(--color-primary)'
                             }}
                           />
                         </div>
@@ -733,18 +818,134 @@ export default function StudentDashboard() {
                   )
                 })}
               </div>
-
-              {/* Coach Notes */}
-              {student.development_plan_notes && (
-                <div style={{ marginTop: '32px', padding: '24px', backgroundColor: '#F0F9FF', borderRadius: '12px', borderLeft: '4px solid var(--color-secondary)', boxShadow: 'var(--shadow-sm)' }}>
-                  <h3 style={{ margin: '0 0 12px 0', color: 'var(--color-dark)', fontSize: '18px', fontWeight: 600 }}>
-                    Coach's Notes
-                  </h3>
-                  <p style={{ margin: 0, color: '#666', lineHeight: '1.6', whiteSpace: 'pre-wrap', fontSize: '15px' }}>
-                    {student.development_plan_notes}
-                  </p>
-                </div>
               )}
+
+              {/* New Structure: Section 1 & 2 */}
+              {hasNewStructure && (
+                <>
+                  {/* Section 1: Student's Why */}
+                  {plan.section1 && (
+                    <div style={{ marginBottom: '32px', padding: '24px', backgroundColor: 'white', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', border: '1px solid #E0E0E0' }}>
+                      <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary)', fontSize: '20px', fontWeight: 600 }}>
+                        Your Why
+                      </h3>
+                      
+                      {plan.section1.triggerReason && (
+                        <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #F0F0F0' }}>
+                          <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                            What triggered you?
+                          </strong>
+                          <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                            {plan.section1.triggerReason}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {plan.section1.bigGoal && (
+                        <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #F0F0F0' }}>
+                          <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                            Your big goal
+                          </strong>
+                          <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                            {plan.section1.bigGoal === 'custom' 
+                              ? plan.section1.customGoal 
+                              : GOAL_OPTIONS.find(g => g.value === plan.section1.bigGoal)?.label || plan.section1.bigGoal}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {plan.section1.sundayVision && (
+                        <div>
+                          <strong style={{ display: 'block', marginBottom: '8px', color: 'var(--color-dark)', fontSize: '15px' }}>
+                            Sunday Vision
+                          </strong>
+                          <p style={{ margin: 0, color: '#666', lineHeight: '1.6', fontSize: '15px' }}>
+                            {plan.section1.sundayVision === 'custom'
+                              ? plan.section1.customSundayVision || plan.section1.sundayVision
+                              : plan.section1.sundayVision}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Section 2: Skill Ratings */}
+                  {plan.section2 && plan.section2.skillRatings && (
+                    <div style={{ marginBottom: '32px' }}>
+                      <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary)', fontSize: '20px', fontWeight: 600 }}>
+                        Current Skill Ratings
+                      </h3>
+                      <div className="development-plan-grid">
+                        {Object.entries(plan.section2.skillRatings)
+                          .filter(([_, rating]) => rating !== null && rating !== undefined)
+                          .map(([skillKey, rating]) => {
+                            const skillName = skillKey.charAt(0).toUpperCase() + skillKey.slice(1)
+                            return (
+                              <div key={skillKey} className="skill-card-student">
+                                <div className="skill-header-student">
+                                  <strong>{skillName}</strong>
+                                  <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '14px' }}>
+                                    {rating}/10
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Recommended Path */}
+              {(() => {
+                try {
+                  const plan = typeof student.development_plan === 'string' 
+                    ? JSON.parse(student.development_plan) 
+                    : student.development_plan
+                  
+                  const bigGoal = plan?.section1?.bigGoal
+                  if (!bigGoal || bigGoal === 'custom') return null
+                  
+                  const goal = GOAL_OPTIONS.find(g => g.value === bigGoal)
+                  if (!goal) return null
+                  
+                  const targetMilestone = MILESTONES.find(m => m.number === goal.targetMilestone)
+                  
+                  let targetSkill = 5
+                  if (goal.targetMilestone <= 15) targetSkill = 5
+                  else if (goal.targetMilestone <= 20) targetSkill = 6
+                  else targetSkill = 7
+                  
+                  return (
+                    <div style={{ marginTop: '24px', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                      <strong style={{ fontSize: '16px' }}>📋 Recommended Path:</strong>
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                          🎯 <strong>Target Milestone:</strong> #{goal.targetMilestone} - {targetMilestone?.name}
+                          <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                            "{targetMilestone?.description}"
+                          </div>
+                        </div>
+                        <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                          📈 <strong>Skill Level Needed:</strong> {targetSkill}/10 in all areas
+                        </div>
+                      </div>
+                    </div>
+                  )
+                } catch (e) {
+                  return null
+                }
+              })()}
+
+              {/* Milestone Progress Tracker */}
+              <div style={{ marginTop: '40px' }}>
+                <MilestoneTracker 
+                  studentId={user.id}
+                  isCoach={false}
+                  playerLevel={student?.player_level || 'beginner'}
+                />
+              </div>
             </div>
           )
         } catch (error) {
@@ -775,48 +976,6 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* My Progress Section */}
-      {user && student?.development_plan && (
-        <div className="section student-progress-section">
-          <h2 className="section-title">
-            <TrendingUp size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-            My Progress 📈
-          </h2>
-          <p style={{ color: '#666', marginBottom: '24px' }}>Track your improvement over time</p>
-          
-          {/* Overall Progress Summary */}
-          {(() => {
-            try {
-              const plan = typeof student.development_plan === 'string' 
-                ? JSON.parse(student.development_plan) 
-                : student.development_plan
-              return plan ? <OverallProgressSummary developmentPlan={plan} /> : null
-            } catch (e) {
-              return null
-            }
-          })()}
-          
-          {/* Progress Charts - Show top skills being worked on */}
-          <div className="progress-charts-grid">
-            {['Forehand Groundstroke', 'Backhand Groundstroke', 'First Serve', 'Return of Serve'].map(skill => (
-              <ProgressChart 
-                key={skill}
-                studentId={user.id}
-                skillName={skill}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Book Lesson Modal */}
-      <BookLessonModal
-        isOpen={showBookingModal}
-        onClose={() => setShowBookingModal(false)}
-        studentId={user?.id}
-        studentEmail={user?.email || profile?.email}
-        availableCredits={student?.lesson_credits || 0}
-      />
 
       {/* Lesson Detail Modal */}
       {selectedLessonForDetails && (
@@ -839,11 +998,11 @@ export default function StudentDashboard() {
               <div style={{ marginBottom: '20px' }}>
                 <strong>Status:</strong> <span style={{ textTransform: 'capitalize' }}>{getActualStatus(selectedLessonForDetails)}</span>
               </div>
-              {selectedLessonForDetails.lesson_plan && (
+              {(selectedLessonForDetails.lesson_plan || selectedLessonForDetails.student_lesson_plan) && (
                 <div style={{ marginBottom: '20px' }}>
                   <strong>Lesson Plan:</strong>
                   <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>
-                    {selectedLessonForDetails.lesson_plan}
+                    {selectedLessonForDetails.student_lesson_plan || selectedLessonForDetails.lesson_plan}
                   </div>
                 </div>
               )}
@@ -946,6 +1105,15 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
+
+      {/* Book Lesson Modal */}
+      <BookLessonModal
+        isOpen={showBookingModal}
+        onClose={() => setShowBookingModal(false)}
+        studentId={user?.id}
+        studentEmail={user?.email || profile?.email}
+        availableCredits={student?.lesson_credits || 0}
+      />
     </div>
   )
 }

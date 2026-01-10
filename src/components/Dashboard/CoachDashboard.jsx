@@ -3,6 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical, Upload } from 'lucide-react'
 import Anthropic from '@anthropic-ai/sdk'
+import { GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
 import CalendarSync from '../Calendar/CalendarSync'
@@ -58,10 +59,12 @@ export default function CoachDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedLesson, setSelectedLesson] = useState(null)
-  const [lessonPlan, setLessonPlan] = useState('')
+  const [lessonPlan, setLessonPlan] = useState('') // Coach plan (what coach sees and saves)
+  const [studentPlan, setStudentPlan] = useState('') // Student plan (for student view)
   const [generatingPlan, setGeneratingPlan] = useState(false)
   const [selectedFeedbackLesson, setSelectedFeedbackLesson] = useState(null)
   const [coachFeedback, setCoachFeedback] = useState('')
+  const [homework, setHomework] = useState('')
   const [isEditingPlan, setIsEditingPlan] = useState(false)
   const [refinementFeedback, setRefinementFeedback] = useState('')
   const [refiningPlan, setRefiningPlan] = useState(false)
@@ -320,6 +323,7 @@ export default function CoachDashboard() {
   const handleCloseLessonPlan = () => {
     setSelectedLesson(null)
     setLessonPlan('')
+    setStudentPlan('')
     setIsEditingPlan(false)
     setRefinementFeedback('')
   }
@@ -331,12 +335,12 @@ export default function CoachDashboard() {
     try {
       const studentId = selectedLesson.student_id
       
-      // Get student profile (goals might not exist in schema, handle gracefully)
+      // Get student data with profile
       const { data: studentData, error: studentError } = await supabase
         .from('students')
         .select(`
           *,
-          profiles (full_name, ntrp_level)
+          profiles!students_id_fkey(*)
         `)
         .eq('id', studentId)
         .single()
@@ -344,72 +348,125 @@ export default function CoachDashboard() {
       if (studentError) throw studentError
 
       const studentName = studentData.profiles?.full_name || 'Student'
-      const ntrpLevel = studentData.profiles?.ntrp_level || 'N/A'
-      // Handle goals field - may not exist in schema
-      const goals = studentData.goals || studentData.student_goals || 'No specific goals listed'
+      const playerLevel = studentData.player_level || 'beginner'
+      
+      // Parse development plan
+      let developmentPlan = null
+      if (studentData.development_plan) {
+        try {
+          developmentPlan = typeof studentData.development_plan === 'string' 
+            ? JSON.parse(studentData.development_plan) 
+            : studentData.development_plan
+        } catch (e) {
+          console.error('Error parsing development plan:', e)
+        }
+      }
 
-      // Get past 3 completed lessons
-      const { data: pastLessons, error: lessonsError } = await supabase
+      // Get achieved milestones
+      const milestones = getMilestonesByLevel(playerLevel)
+      const { data: achievedMilestonesData, error: milestonesError } = await supabase
+        .from('student_milestones')
+        .select('milestone_number, milestone_name, achieved_at')
+        .eq('student_id', studentId)
+        .eq('milestone_level', playerLevel)
+        .order('milestone_number', { ascending: true })
+
+      if (milestonesError) throw milestonesError
+      
+      const achievedMilestones = achievedMilestonesData || []
+      const achievedMilestoneNumbers = achievedMilestones.map(m => m.milestone_number)
+
+      // Find next milestone (first not achieved)
+      let nextMilestone = null
+      let targetMilestoneForGoal = 30
+      
+      if (developmentPlan?.section1?.bigGoal) {
+        const goal = GOAL_OPTIONS.find(g => g.value === developmentPlan.section1.bigGoal)
+        if (goal) {
+          targetMilestoneForGoal = goal.targetMilestone
+        }
+      }
+
+      // Find next unachieved milestone
+      for (const milestone of milestones) {
+        if (!achievedMilestoneNumbers.includes(milestone.number)) {
+          nextMilestone = {
+            number: milestone.number,
+            name: milestone.name,
+            description: milestone.description,
+            targetForGoal: targetMilestoneForGoal
+          }
+          break
+        }
+      }
+
+      // If all milestones achieved, use the last one
+      if (!nextMilestone && milestones.length > 0) {
+        const lastMilestone = milestones[milestones.length - 1]
+        nextMilestone = {
+          number: lastMilestone.number,
+          name: lastMilestone.name,
+          description: lastMilestone.description,
+          targetForGoal: targetMilestoneForGoal
+        }
+      }
+
+      // Get last lesson's learnings
+      const { data: lastLessonData, error: lastLessonError } = await supabase
         .from('lessons')
-        .select('lesson_date, coach_feedback, student_learnings')
+        .select('student_learnings')
         .eq('student_id', studentId)
         .eq('status', 'completed')
         .order('lesson_date', { ascending: false })
-        .limit(3)
+        .limit(1)
+        .single()
 
-      if (lessonsError) throw lessonsError
+      const lastLessonLearnings = lastLessonData?.student_learnings || null
 
-      // Format past lessons
-      const last3Lessons = (pastLessons || []).map(lesson => {
-        const date = new Date(lesson.lesson_date).toLocaleDateString()
-        const feedback = lesson.coach_feedback || 'No feedback'
-        const learnings = lesson.student_learnings || 'No learnings noted'
-        return `Date: ${date}\nCoach Feedback: ${feedback}\nStudent Learnings: ${learnings}`
-      }).join('\n\n---\n\n') || 'No past lessons'
+      // Get recent lesson plans (last 2 completed lessons)
+      const { data: recentLessonsData, error: recentLessonsError } = await supabase
+        .from('lessons')
+        .select('lesson_plan')
+        .eq('student_id', studentId)
+        .eq('status', 'completed')
+        .not('lesson_plan', 'is', null)
+        .order('lesson_date', { ascending: false })
+        .limit(2)
 
-      // Build prompt for Claude
-      const prompt = `You are an expert tennis coach. Generate a detailed 60-minute lesson plan.
+      const pastLessonPlans = (recentLessonsData || [])
+        .map(l => l.lesson_plan)
+        .filter(Boolean)
 
-STUDENT INFO:
-Name: ${studentName}
-Level: ${ntrpLevel}
-Goals: ${goals}
-Recent lessons: ${last3Lessons}
-
-LESSON PLAN FORMAT:
-
-Warm-up (5-10 min): [Specific activities]
-Technical Work (20 min): [Main drill with progressions]
-Live Ball Practice (20 min): [Match-situation drill]
-Tactical/Strategy (10 min): [Point play or pattern work]
-Cool Down (5 min): [Final activity]
-
-For each section include specific drills, key coaching points, and progressions.
-Keep it concise and actionable. Do NOT use markdown formatting - just plain text with line breaks.`
-
-      // Direct Anthropic API call
-      const anthropic = new Anthropic({
-        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-        dangerouslyAllowBrowser: true // For local development - move to backend for production
+      // Call Netlify function
+      const response = await fetch('/.netlify/functions/generate-lesson-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: studentName,
+          playerLevel: playerLevel,
+          developmentPlan: developmentPlan,
+          currentMilestones: achievedMilestoneNumbers,
+          nextMilestone: nextMilestone,
+          lastLessonLearnings: lastLessonLearnings,
+          pastLessonPlans: pastLessonPlans
+        })
       })
 
-      const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
-      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
 
-      const generatedPlan = message.content[0].text
-      
-      // Strip markdown from generated plan
-      setLessonPlan(stripMarkdown(generatedPlan))
+      const { studentPlan: generatedStudentPlan, coachPlan: generatedCoachPlan } = await response.json()
+
+      // Store both versions
+      // Coach sees coachPlan (with coaching points)
+      setLessonPlan(stripMarkdown(generatedCoachPlan || generatedStudentPlan))
+      setStudentPlan(stripMarkdown(generatedStudentPlan || generatedCoachPlan))
       setIsEditingPlan(false) // Show in display mode first
     } catch (error) {
       console.error('Error generating lesson plan:', error)
-      alert('Error generating lesson plan: ' + error.message + '\n\nMake sure VITE_ANTHROPIC_API_KEY is set in your .env file.')
+      alert('Error generating lesson plan: ' + error.message + '\n\nMake sure the Netlify function is properly configured.')
     } finally {
       setGeneratingPlan(false)
     }
@@ -419,9 +476,20 @@ Keep it concise and actionable. Do NOT use markdown formatting - just plain text
     if (!selectedLesson) return
 
     try {
+      // Save both versions to database
+      // lesson_plan stores the coach version (with coaching points)
+      // student_lesson_plan stores the student version (motivational)
+      const updateData = { lesson_plan: lessonPlan }
+      
+      // If we have a student version, save it too
+      if (studentPlan) {
+        // Try to save to student_lesson_plan field, or store in JSON if field doesn't exist
+        updateData.student_lesson_plan = studentPlan
+      }
+
       const { error } = await supabase
         .from('lessons')
-        .update({ lesson_plan: lessonPlan })
+        .update(updateData)
         .eq('id', selectedLesson.id)
 
       if (error) throw error
@@ -483,14 +551,95 @@ Do NOT use markdown formatting - just plain text with line breaks.`
     }
   }
 
-  const handleFeedbackLessonClick = (lesson) => {
+  // Load homework for a lesson
+  const loadHomework = async (lessonId) => {
+    if (!lessonId) {
+      setHomework('')
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('lesson_homework')
+        .select('*')
+        .eq('lesson_id', lessonId)
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Error loading homework:', error)
+      } else if (data) {
+        setHomework(data.homework_text || '')
+      } else {
+        setHomework('')
+      }
+    } catch (error) {
+      console.error('Error loading homework:', error)
+      setHomework('')
+    }
+  }
+
+  // Save homework assignment
+  const handleSaveHomework = async () => {
+    if (!selectedFeedbackLesson || !homework.trim()) {
+      alert('Please enter homework')
+      return
+    }
+
+    try {
+      // Check if homework already exists for this lesson
+      const { data: existing } = await supabase
+        .from('lesson_homework')
+        .select('id')
+        .eq('lesson_id', selectedFeedbackLesson.id)
+        .single()
+
+      const user = await supabase.auth.getUser()
+
+      if (existing) {
+        // Update existing homework
+        const { error } = await supabase
+          .from('lesson_homework')
+          .update({
+            homework_text: homework.trim(),
+            assigned_by: user.data.user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('lesson_id', selectedFeedbackLesson.id)
+
+        if (error) throw error
+      } else {
+        // Insert new homework
+        const { error } = await supabase
+          .from('lesson_homework')
+          .insert({
+            lesson_id: selectedFeedbackLesson.id,
+            student_id: selectedFeedbackLesson.student_id,
+            homework_text: homework.trim(),
+            assigned_by: user.data.user?.id
+          })
+
+        if (error) throw error
+      }
+
+      alert('Homework assigned!')
+      // Don't clear homework - keep it visible in case coach wants to edit
+    } catch (error) {
+      console.error('Error saving homework:', error)
+      alert('Error saving homework: ' + error.message)
+    }
+  }
+
+  const handleFeedbackLessonClick = async (lesson) => {
     setSelectedFeedbackLesson(lesson)
     setCoachFeedback(lesson.coach_feedback || '')
+    // Load existing homework for this lesson
+    await loadHomework(lesson.id)
   }
 
   const handleCloseFeedbackModal = () => {
     setSelectedFeedbackLesson(null)
     setCoachFeedback('')
+    setHomework('')
   }
 
   const handleSaveFeedback = async () => {
@@ -1032,10 +1181,9 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                       ) : (
                         <button 
                           className="btn-add-feedback"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation()
-                            setSelectedFeedbackLesson(lesson)
-                            setCoachFeedback('')
+                            await handleFeedbackLessonClick(lesson)
                           }}
                         >
                           Add feedback
@@ -1354,9 +1502,10 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 <div style={{ marginBottom: '24px' }}>
                   <button
                     className="btn btn-primary"
-                    onClick={() => {
+                    onClick={async () => {
                       setSelectedFeedbackLesson(selectedLessonDetail)
-                      setCoachFeedback('')
+                      setCoachFeedback(selectedLessonDetail.coach_feedback || '')
+                      await loadHomework(selectedLessonDetail.id)
                       handleCloseLessonDetail()
                     }}
                   >
@@ -1440,6 +1589,37 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                   borderRadius: '4px'
                 }}
               />
+            </div>
+
+            <div style={{ marginTop: '24px', marginBottom: '20px' }}>
+              <h4 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>Homework for Next Lesson</h4>
+              <textarea
+                value={homework}
+                onChange={(e) => setHomework(e.target.value)}
+                placeholder="e.g., Practice 30 serves targeting corners, 3x this week"
+                rows={3}
+                className="input"
+                style={{
+                  width: '100%',
+                  marginBottom: '12px',
+                  padding: '10px',
+                  fontSize: '14px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontFamily: 'inherit'
+                }}
+              />
+              <button 
+                className="btn btn-primary"
+                onClick={handleSaveHomework}
+                disabled={!homework.trim()}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px'
+                }}
+              >
+                Assign Homework
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

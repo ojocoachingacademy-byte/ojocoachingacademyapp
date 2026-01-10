@@ -43,10 +43,14 @@
   top: 50%;
   transform: translateY(-50%);
   color: #999;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .search-input {
-  padding-left: 40px;
+  padding-left: 48px !important;
+  position: relative;
+  z-index: 1;
 }
 
 .students-grid {

@@ -1,70 +1,40 @@
 import { useState, useEffect } from 'react'
 import { Save } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { GOAL_OPTIONS, SUNDAY_VISION_OPTIONS, SKILL_AREAS, MILESTONES } from './MilestonesConstants'
+import MilestoneTracker from './MilestoneTracker'
 import './DevelopmentPlanForm.css'
 
-const ALL_SKILLS = [
-  'Forehand Groundstroke',
-  'Backhand Groundstroke',
-  'Forehand Volley',
-  'Backhand Volley',
-  'First Serve',
-  'Second Serve',
-  'Return of Serve',
-  'Overhead/Smash',
-  'Footwork & Movement',
-  'Court Positioning',
-  'Mental Game',
-  'Match Strategy'
-]
-
-const GOAL_OPTIONS = [
-  'Rally with friends',
-  'Play sets',
-  'Attend clinics',
-  'Join a club',
-  'Play in a social league',
-  'Join a USTA league',
-  'Play tournaments'
-]
-
-const getInitialLevel = (ntrpLevel) => {
-  const ntrp = parseFloat(ntrpLevel) || 3.0
-  
-  if (ntrp <= 2.5) return 2
-  if (ntrp <= 3.0) return 3
-  if (ntrp <= 3.5) return 4
-  if (ntrp <= 4.0) return 5
-  if (ntrp <= 4.5) return 6
-  return 7
-}
-
 export default function DevelopmentPlanForm({ student, onSave, onCancel, isStudent = false }) {
-  const [skills, setSkills] = useState([])
-  const [goals, setGoals] = useState({
-    inspiration: '',
-    targetLevel: '',
-    wantToBeat: '',
-    successLookLike: ''
+  // Section 1: Student's Why
+  const [triggerReason, setTriggerReason] = useState('')
+  const [bigGoal, setBigGoal] = useState('')
+  const [customGoal, setCustomGoal] = useState('')
+  const [sundayVision, setSundayVision] = useState('')
+  const [customSundayVision, setCustomSundayVision] = useState('')
+  
+  // Section 2: Skill Ratings
+  const [skillRatings, setSkillRatings] = useState({
+    forehand: null,
+    backhand: null,
+    serve: null,
+    net: null,
+    movement: null
   })
-  const [coachNotes, setCoachNotes] = useState('')
+  
+  const [targetRatings, setTargetRatings] = useState({
+    forehand: 0,
+    backhand: 0,
+    serve: 0,
+    net: 0,
+    movement: 0
+  })
+  
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     console.log('=== DEVELOPMENT PLAN FORM INITIALIZATION ===')
     console.log('Student prop:', student)
-    
-    // Initialize skills based on NTRP level
-    const initialLevel = getInitialLevel(student?.profiles?.ntrp_level || '3.0')
-    const targetLevel = Math.min(initialLevel + 2, 10)
-    
-    const initialSkills = ALL_SKILLS.map(skillName => ({
-      skill_name: skillName,
-      student_assessment: initialLevel,
-      coach_assessment: null,
-      target_level: targetLevel,
-      notes: ''
-    }))
 
     // Load existing plan if available
     if (student?.development_plan) {
@@ -76,127 +46,153 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
         
         console.log('Parsed plan:', plan)
         
-        if (plan.skills) {
-          // Merge existing skills with defaults
-          const existingSkills = plan.skills
-          const mergedSkills = initialSkills.map(defaultSkill => {
-            const existing = existingSkills.find(s => s.skill_name === defaultSkill.skill_name)
-            if (existing) {
-              // Migrate old structure (current_level) to new structure
-              return {
-                skill_name: existing.skill_name,
-                student_assessment: existing.student_assessment ?? existing.current_level ?? defaultSkill.student_assessment,
-                coach_assessment: existing.coach_assessment ?? null,
-                target_level: existing.target_level ?? defaultSkill.target_level,
-                notes: existing.notes ?? ''
-              }
-            }
-            return defaultSkill
-          })
-          setSkills(mergedSkills)
-        } else {
-          setSkills(initialSkills)
+        // Load Section 1 (Student's Why)
+        if (plan.section1) {
+          setTriggerReason(plan.section1.triggerReason || '')
+          // Handle both 'custom' and 'other' for backward compatibility
+          const goalValue = plan.section1.bigGoal === 'other' ? 'custom' : (plan.section1.bigGoal || '')
+          setBigGoal(goalValue)
+          setCustomGoal(plan.section1.customGoal || '')
+          // Check if sundayVision is a custom value (not in SUNDAY_VISION_OPTIONS)
+          const visionValue = plan.section1.sundayVision || ''
+          const isCustomVision = visionValue && !SUNDAY_VISION_OPTIONS.includes(visionValue)
+          setSundayVision(isCustomVision ? 'custom' : visionValue)
+          setCustomSundayVision(isCustomVision ? visionValue : (plan.section1.customSundayVision || ''))
         }
-
-        if (plan.goals) {
-          console.log('Setting initial goals from existing plan:', plan.goals)
-          setGoals({
-            inspiration: plan.goals.inspiration || '',
-            targetLevel: plan.goals.targetLevel || '',
-            wantToBeat: plan.goals.wantToBeat || '',
-            successLookLike: plan.goals.successLookLike || ''
+        
+        // Load Section 2 (Skill Ratings)
+        if (plan.section2 && plan.section2.skillRatings) {
+          setSkillRatings({
+            forehand: plan.section2.skillRatings.forehand ?? null,
+            backhand: plan.section2.skillRatings.backhand ?? null,
+            serve: plan.section2.skillRatings.serve ?? null,
+            net: plan.section2.skillRatings.net ?? null,
+            movement: plan.section2.skillRatings.movement ?? null
           })
-        } else {
-          console.log('No goals found in existing plan, using defaults')
-          setGoals({
-            inspiration: '',
-            targetLevel: '',
-            wantToBeat: '',
-            successLookLike: ''
+        }
+        
+        // Load Target Ratings
+        if (plan.section2 && plan.section2.targetRatings) {
+          setTargetRatings({
+            forehand: plan.section2.targetRatings.forehand ?? 0,
+            backhand: plan.section2.targetRatings.backhand ?? 0,
+            serve: plan.section2.targetRatings.serve ?? 0,
+            net: plan.section2.targetRatings.net ?? 0,
+            movement: plan.section2.targetRatings.movement ?? 0
           })
+        }
+        
+        // Migrate old format if it exists (for backward compatibility)
+        if (plan.skills && !plan.section2) {
+          // Try to map old skills to new structure
+          const oldSkillRatings = {}
+          plan.skills.forEach(skill => {
+            const skillKey = skill.skill_name.toLowerCase()
+            if (skillKey.includes('forehand')) {
+              oldSkillRatings.forehand = skill.current_level ?? skill.student_assessment ?? null
+            } else if (skillKey.includes('backhand')) {
+              oldSkillRatings.backhand = skill.current_level ?? skill.student_assessment ?? null
+            } else if (skillKey.includes('serve')) {
+              oldSkillRatings.serve = skill.current_level ?? skill.student_assessment ?? null
+            } else if (skillKey.includes('volley') || skillKey.includes('net')) {
+              oldSkillRatings.net = skill.current_level ?? skill.student_assessment ?? null
+            } else if (skillKey.includes('footwork') || skillKey.includes('movement')) {
+              oldSkillRatings.movement = skill.current_level ?? skill.student_assessment ?? null
+            }
+          })
+          setSkillRatings(prev => ({ ...prev, ...oldSkillRatings }))
+        }
+        
+        if (plan.goals && !plan.section1) {
+          // Migrate old goals format
+          setTriggerReason(plan.goals.inspiration || '')
+          setSundayVision(plan.goals.successLookLike || '')
         }
       } catch (error) {
         console.error('Error parsing development plan:', error)
-        setSkills(initialSkills)
-        setGoals({
-          inspiration: '',
-          targetLevel: '',
-          wantToBeat: '',
-          successLookLike: ''
-        })
       }
-    } else {
-      console.log('No existing development plan, using defaults')
-      setSkills(initialSkills)
-      setGoals({
-        inspiration: '',
-        targetLevel: '',
-        wantToBeat: '',
-        successLookLike: ''
-      })
-    }
-
-    // Load coach notes
-    if (student?.development_plan_notes) {
-      setCoachNotes(student.development_plan_notes)
     }
     
     console.log('=== INITIALIZATION COMPLETE ===')
   }, [student])
 
-  const handleSkillChange = (index, field, value) => {
-    const updatedSkills = [...skills]
-    updatedSkills[index] = {
-      ...updatedSkills[index],
-      [field]: field === 'student_assessment' || field === 'coach_assessment' || field === 'target_level'
-        ? parseInt(value) || null
-        : value
-    }
+  // Auto-fill target ratings based on bigGoal
+  useEffect(() => {
+    if (!bigGoal || bigGoal === 'custom') return
+
+    const goal = GOAL_OPTIONS.find(g => g.value === bigGoal)
+    if (!goal || !goal.targetMilestone) return
+
+    let targetValue = 5 // Default
     
-    // Ensure target is not lower than student or coach assessment
-    const skill = updatedSkills[index]
-    if (field === 'target_level' && (skill.student_assessment || skill.coach_assessment)) {
-      const maxAssessment = Math.max(skill.student_assessment || 0, skill.coach_assessment || 0)
-      if (value < maxAssessment) {
-        updatedSkills[index].target_level = maxAssessment
-      }
+    if (goal.targetMilestone <= 15) {
+      targetValue = 5
+    } else if (goal.targetMilestone <= 20) {
+      targetValue = 6
+    } else {
+      targetValue = 7
     }
+
+    setTargetRatings({
+      forehand: targetValue,
+      backhand: targetValue,
+      serve: targetValue,
+      net: targetValue,
+      movement: targetValue
+    })
+  }, [bigGoal])
+
+  const handleSkillRatingChange = (skillKey, value) => {
+    setSkillRatings(prev => ({
+      ...prev,
+      [skillKey]: parseInt(value) || null
+    }))
+  }
+
+  const handleTargetRatingChange = (skillKey, value) => {
+    const currentRating = skillRatings[skillKey] || 0
+    const targetValue = parseInt(value) || 0
     
-    setSkills(updatedSkills)
+    // Ensure target is >= current rating
+    if (targetValue >= currentRating) {
+      setTargetRatings(prev => ({
+        ...prev,
+        [skillKey]: targetValue
+      }))
+    }
   }
 
   const handleSave = async () => {
     setLoading(true)
     try {
       console.log('=== DEVELOPMENT PLAN FORM SAVE ===')
-      console.log('Skills:', skills)
-      console.log('Goals state:', goals)
-      console.log('Goals keys:', Object.keys(goals))
-      console.log('Goals values:', {
-        inspiration: goals.inspiration,
-        targetLevel: goals.targetLevel,
-        wantToBeat: goals.wantToBeat,
-        successLookLike: goals.successLookLike
-      })
-      console.log('Coach notes:', coachNotes)
+      console.log('Section 1:', { triggerReason, bigGoal, customGoal, sundayVision, customSundayVision })
+      console.log('Section 2 (Skill Ratings):', skillRatings)
+      console.log('Section 2 (Target Ratings):', targetRatings)
       console.log('Is student:', isStudent)
       
       const developmentPlan = {
-        skills: skills,
-        goals: goals, // Make sure this is the goals state, not empty
+        section1: {
+          triggerReason,
+          bigGoal,
+          customGoal,
+          sundayVision: sundayVision === 'custom' ? customSundayVision : sundayVision,
+          customSundayVision: sundayVision === 'custom' ? customSundayVision : ''
+        },
+        section2: {
+          skillRatings,
+          targetRatings
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
 
       console.log('Full development plan object:', developmentPlan)
-      console.log('Goals in development plan:', developmentPlan.goals)
       const planJsonString = JSON.stringify(developmentPlan)
       console.log('JSON stringified plan:', planJsonString)
-      console.log('JSON string length:', planJsonString.length)
 
       const saveData = {
-        development_plan: planJsonString,
-        development_plan_notes: isStudent ? undefined : coachNotes // Only coaches can save notes
+        development_plan: planJsonString
       }
 
       console.log('Final save payload:', saveData)
@@ -204,8 +200,8 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
       await onSave(saveData)
       console.log('onSave completed successfully')
       
-      // Save skill assessment snapshot for progress tracking
-      await saveSkillAssessmentSnapshot(student?.id, skills)
+      // Save skill progress snapshot for progress tracking
+      await saveSkillProgressSnapshot(student?.id, skillRatings)
       
     } catch (error) {
       console.error('Error saving development plan:', error)
@@ -214,38 +210,59 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
       setLoading(false)
     }
   }
-  
-  // Save skill assessment snapshot for progress tracking
-  const saveSkillAssessmentSnapshot = async (studentId, skillsData) => {
-    if (!studentId) {
-      console.log('No student ID, skipping skill assessment snapshot')
-      return
-    }
+
+  const saveSkillProgressSnapshot = async (studentId, skillRatings) => {
+    if (!studentId || !skillRatings) return
     
-    // Only save if there are actual skill assessments
-    const assessmentsToSave = skillsData
-      .filter(skill => skill.student_assessment || skill.coach_assessment)
-      .map(skill => ({
-        student_id: studentId,
-        skill_name: skill.skill_name,
-        student_assessment: skill.student_assessment || null,
-        coach_assessment: skill.coach_assessment || null,
-        assessed_at: new Date().toISOString(),
-        notes: skill.notes || null
-      }))
-
-    if (assessmentsToSave.length > 0) {
-      console.log('Saving skill assessment snapshot:', assessmentsToSave.length, 'skills')
-      const { error } = await supabase
-        .from('skill_assessments')
-        .insert(assessmentsToSave)
-
-      if (error) {
-        console.error('Error saving skill assessment:', error)
-        // Don't throw - this is a non-critical operation
-      } else {
-        console.log('Skill assessment snapshot saved successfully')
+    try {
+      // Get previous snapshots to calculate changes
+      const { data: prevSnapshots } = await supabase
+        .from('skill_progress_snapshots')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      
+      const prevMap = {}
+      if (prevSnapshots) {
+        prevSnapshots.forEach(prev => {
+          if (!prevMap[prev.skill_name]) {
+            prevMap[prev.skill_name] = prev
+          }
+        })
       }
+      
+      // Create snapshots for each skill area
+      const snapshots = Object.entries(skillRatings)
+        .filter(([_, rating]) => rating > 0 && rating !== null)
+        .map(([skillKey, rating]) => {
+          const skillArea = SKILL_AREAS.find(s => s.key === skillKey)
+          const skillName = skillArea?.name || skillKey
+          const prev = prevMap[skillName]
+          // Check both student_assessment and current_level for backward compatibility
+          const prevRating = prev?.student_assessment ?? prev?.current_level ?? null
+          const change = prevRating !== null ? rating - prevRating : null
+          
+          return {
+            student_id: studentId,
+            skill_name: skillName,
+            student_assessment: rating,
+            student_change: change,
+            created_at: new Date().toISOString()
+          }
+        })
+      
+      if (snapshots.length > 0) {
+        const { error } = await supabase
+          .from('skill_progress_snapshots')
+          .insert(snapshots)
+        
+        if (error) {
+          console.error('Error saving snapshots:', error)
+        }
+      }
+    } catch (error) {
+      console.error('Error in saveSkillProgressSnapshot:', error)
     }
   }
 
@@ -284,182 +301,297 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
 
   return (
     <div className="development-plan-form">
-      {/* SECTION A: SKILL ASSESSMENT */}
+      {/* SECTION 1: STUDENT'S WHY */}
       <div className="form-section">
-        <h3 className="section-title">Skill Assessment</h3>
-        <div className="table-wrapper">
-          <table className="skills-table">
-            <thead>
-              <tr>
-                <th className="skill-name-header">Skill</th>
-                <th className="assessment-header">Student Assessment</th>
-                <th className="assessment-header">Coach Assessment</th>
-                <th className="assessment-header">Target</th>
-                <th className="notes-header">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {skills.map((skill, index) => {
-                const studentLevel = skill.student_assessment || null
-                const coachLevel = skill.coach_assessment || null
-                const targetLevel = skill.target_level || null
-                const maxAssessment = Math.max(studentLevel || 0, coachLevel || 0)
-                const disabledTargetValues = maxAssessment > 0 ? Array.from({ length: maxAssessment }, (_, i) => i + 1) : []
-
-                return (
-                  <tr key={index} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                    <td className="skill-name-cell">
-                      <strong>{skill.skill_name}</strong>
-                    </td>
-                    <td className="assessment-cell">
-                      <LevelSelector
-                        value={studentLevel}
-                        onChange={(val) => handleSkillChange(index, 'student_assessment', val)}
-                        disabledValues={[]}
-                        label="Current"
-                        maxValue={10}
-                      />
-                      {studentLevel && targetLevel && studentLevel < targetLevel && (
-                        <div className="improvement-indicator">
-                          +{targetLevel - studentLevel} to target
-                        </div>
-                      )}
-                    </td>
-                    <td className="assessment-cell">
-                      {!isStudent ? (
-                        <LevelSelector
-                          value={coachLevel}
-                          onChange={(val) => handleSkillChange(index, 'coach_assessment', val)}
-                          disabledValues={[]}
-                          label="Coach"
-                          maxValue={10}
-                        />
-                      ) : (
-                        <div className="level-selector-container">
-                          <div className="level-label">Coach: {coachLevel ? `${coachLevel}/10` : '—'}</div>
-                          {coachLevel && (
-                            <div className="progress-bar">
-                              <div 
-                                className="progress-fill coach-progress" 
-                                style={{ width: `${(coachLevel / 10) * 100}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="assessment-cell">
-                      <LevelSelector
-                        value={targetLevel}
-                        onChange={(val) => handleSkillChange(index, 'target_level', val)}
-                        disabledValues={disabledTargetValues}
-                        label="Target"
-                        maxValue={10}
-                      />
-                    </td>
-                    <td className="notes-cell">
-                      <input
-                        type="text"
-                        value={skill.notes || ''}
-                        onChange={(e) => handleSkillChange(index, 'notes', e.target.value)}
-                        placeholder="Quick notes..."
-                        className="notes-input"
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* SECTION B: GOALS & MOTIVATION */}
-      <div className="form-section">
-        <h3 className="section-title">Goals & Motivation</h3>
+        <h3 className="section-title">Section 1: Your Tennis Why</h3>
         
         <div className="goal-field">
-          <label className="goal-label">What inspired you to improve your tennis game?</label>
+          <label className="goal-label">What triggered you to get serious about lessons RIGHT NOW?</label>
           <textarea
             className="goal-textarea"
-            value={goals.inspiration}
-            onChange={(e) => {
-              const newValue = e.target.value
-              console.log('Inspiration changed to:', newValue)
-              setGoals({ ...goals, inspiration: newValue })
-            }}
-            placeholder="Share what motivates you..."
+            value={triggerReason}
+            onChange={(e) => setTriggerReason(e.target.value)}
+            placeholder="Example: Lost to my friend Dave, tired of not being able to rally, want to join my spouse on court..."
             rows={3}
-            maxLength={200}
+            maxLength={300}
           />
-          <p className="char-count">
-            {goals.inspiration.length}/200 characters
-          </p>
+          <p className="char-count">{triggerReason.length}/300 characters</p>
         </div>
 
         <div className="goal-field">
-          <label className="goal-label">What level do you want to reach?</label>
-          <select
-            className="goal-select"
-            value={goals.targetLevel}
-            onChange={(e) => {
-              const newValue = e.target.value
-              console.log('Target level changed to:', newValue)
-              setGoals({ ...goals, targetLevel: newValue })
-            }}
-          >
-            <option value="">Select a goal...</option>
+          <label className="goal-label">Your big goal - what ONE thing would make these lessons worth it?</label>
+          <div style={{ marginBottom: '12px' }}>
             {GOAL_OPTIONS.map(option => (
-              <option key={option} value={option}>{option}</option>
+              <div key={option.value} style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="bigGoal"
+                    value={option.value}
+                    checked={bigGoal === option.value}
+                    onChange={(e) => {
+                      setBigGoal(e.target.value)
+                      if (e.target.value !== 'custom') {
+                        setCustomGoal('')
+                      }
+                    }}
+                    style={{ marginRight: '8px' }}
+                  />
+                  {option.label}
+                </label>
+              </div>
             ))}
-          </select>
+            <div style={{ marginBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="bigGoal"
+                  value="custom"
+                  checked={bigGoal === 'custom'}
+                  onChange={(e) => setBigGoal(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                Other:
+              </label>
+            </div>
+          </div>
+          {bigGoal === 'custom' && (
+            <input
+              type="text"
+              className="goal-input"
+              value={customGoal}
+              onChange={(e) => setCustomGoal(e.target.value)}
+              placeholder="Describe your custom goal..."
+            />
+          )}
         </div>
 
         <div className="goal-field">
-          <label className="goal-label">Who do you want to beat once you improve?</label>
-          <input
-            type="text"
-            className="goal-input"
-            value={goals.wantToBeat}
-            onChange={(e) => {
-              const newValue = e.target.value
-              console.log('Want to beat changed to:', newValue)
-              setGoals({ ...goals, wantToBeat: newValue })
-            }}
-            placeholder="e.g., My doubles partner, the club champion, my sibling..."
-          />
-        </div>
-
-        <div className="goal-field">
-          <label className="goal-label">What would success look like for you?</label>
-          <textarea
-            className="goal-textarea"
-            value={goals.successLookLike}
-            onChange={(e) => {
-              const newValue = e.target.value
-              console.log('Success looks like changed to:', newValue)
-              setGoals({ ...goals, successLookLike: newValue })
-            }}
-            placeholder="Describe your vision of success..."
-            rows={3}
-            maxLength={200}
-          />
-          <p className="char-count">
-            {goals.successLookLike.length}/200 characters
-          </p>
+          <label className="goal-label">6 months from now, you've crushed it. What does a typical Sunday look like?</label>
+          <div style={{ marginBottom: '12px' }}>
+            {SUNDAY_VISION_OPTIONS.map((option, index) => (
+              <div key={index} style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="sundayVision"
+                    value={option}
+                    checked={sundayVision === option}
+                    onChange={(e) => {
+                      setSundayVision(e.target.value)
+                      if (e.target.value !== 'custom') {
+                        setCustomSundayVision('')
+                      }
+                    }}
+                    style={{ marginRight: '8px' }}
+                  />
+                  {option}
+                </label>
+              </div>
+            ))}
+            <div style={{ marginBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="sundayVision"
+                  value="custom"
+                  checked={sundayVision === 'custom'}
+                  onChange={(e) => setSundayVision(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                Other:
+              </label>
+            </div>
+          </div>
+          {sundayVision === 'custom' && (
+            <input
+              type="text"
+              className="goal-input"
+              value={customSundayVision}
+              onChange={(e) => setCustomSundayVision(e.target.value)}
+              placeholder="Describe your custom vision..."
+            />
+          )}
         </div>
       </div>
 
-      {/* SECTION C: COACH NOTES (only for coaches) */}
-      {!isStudent && (
-        <div className="form-section">
-          <h3 className="section-title">Coach Notes</h3>
-          <textarea
-            className="coach-notes-textarea"
-            value={coachNotes}
-            onChange={(e) => setCoachNotes(e.target.value)}
-            placeholder="Overall assessment, recommendations, areas to focus on..."
-            rows={6}
+      {/* SECTION 2: SKILL RATINGS */}
+      <div className="form-section">
+        <h3 className="section-title">Section 2: Current Skill Ratings</h3>
+        <p style={{ color: '#666', marginBottom: '20px' }}>
+          Rate yourself honestly on each area (1 = just starting, 10 = tournament level)
+        </p>
+        
+        <div className="skills-rating-grid">
+          {SKILL_AREAS.map(skill => {
+            const currentRating = skillRatings[skill.key] || 0
+            const targetRating = targetRatings[skill.key] || 0
+            const progress = currentRating > 0 && targetRating > 0 ? (currentRating / targetRating) * 100 : 0
+            
+            return (
+              <div key={skill.key} className="skill-rating-card">
+                <div className="skill-rating-header">
+                  <h4>{skill.name}</h4>
+                  <p className="skill-question">{skill.question}</p>
+                </div>
+                
+                <div className="skill-rating-columns">
+                  {/* Current Rating Column */}
+                  <div className="rating-column">
+                    <div className="column-label">Current</div>
+                    <div className="level-selector-container">
+                      <div className="level-label">
+                        {currentRating || '—'}/10
+                      </div>
+                      <div className="level-buttons">
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`level-btn ${currentRating === num ? 'active' : ''}`}
+                            onClick={() => handleSkillRatingChange(skill.key, num)}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Target Rating Column */}
+                  <div className="rating-column">
+                    <div className="column-label">Target</div>
+                    <div className="level-selector-container">
+                      <div className="level-label">
+                        {targetRating || '—'}/10
+                      </div>
+                      <div className="level-buttons">
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
+                          const disabled = num < currentRating
+                          return (
+                            <button
+                              key={num}
+                              type="button"
+                              className={`level-btn ${targetRating === num ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+                              onClick={() => !disabled && handleTargetRatingChange(skill.key, num)}
+                              disabled={disabled}
+                            >
+                              {num}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                {currentRating > 0 && targetRating > 0 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#666' }}>
+                      <span>Progress</span>
+                      <span>{Math.min(Math.round(progress), 100)}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                      {currentRating}/{targetRating} - {targetRating - currentRating > 0 ? `${targetRating - currentRating} to go` : 'Target reached!'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* SECTION 3: THE COACH'S PLAN */}
+      <div className="form-section">
+        <h3 className="section-title">Section 3: The Coach's Plan</h3>
+        
+        {/* Show student's goal */}
+        {bigGoal && (
+          <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+            <strong>Student's Goal:</strong>{' '}
+            {bigGoal === 'custom' ? customGoal : GOAL_OPTIONS.find(g => g.value === bigGoal)?.label}
+          </div>
+        )}
+        
+        {/* Show recommended targets based on goal */}
+        {bigGoal && bigGoal !== 'custom' && (
+          <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+            <strong style={{ fontSize: '16px' }}>📋 Recommended Path:</strong>
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {(() => {
+                const goal = GOAL_OPTIONS.find(g => g.value === bigGoal)
+                if (!goal) return null
+                
+                const targetMilestone = MILESTONES.find(m => m.number === goal.targetMilestone)
+                
+                let targetSkill = 5
+                if (goal.targetMilestone <= 15) {
+                  targetSkill = 5
+                } else if (goal.targetMilestone <= 20) {
+                  targetSkill = 6
+                } else {
+                  targetSkill = 7
+                }
+                
+                return (
+                  <>
+                    <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                      🎯 <strong>Target Milestone:</strong> #{goal.targetMilestone} - {targetMilestone?.name}
+                      <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                        "{targetMilestone?.description}"
+                      </div>
+                    </div>
+                    <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                      📈 <strong>Skill Level Needed:</strong> {targetSkill}/10 in all areas
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Example Journeys */}
+      <div style={{ marginTop: '40px', padding: '24px', backgroundColor: '#fef3c7', borderRadius: '12px', border: '2px solid #fbbf24' }}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>📊 Example Journeys</h3>
+        <div style={{ display: 'grid', gap: '12px' }}>
+          <div>
+            <strong>"Start a hobby / Rally with friend"</strong><br/>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              🎯 Target: Milestones 1-15 | ⏱️ Timeline: 8-12 lessons | 📈 Skill Level: 4-5/10 in all areas
+            </span>
+          </div>
+          <div>
+            <strong>"Join doubles group"</strong><br/>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              🎯 Target: Milestones 1-20 | ⏱️ Timeline: 15-20 lessons | 📈 Skill Level: 6/10 in all areas
+            </span>
+          </div>
+          <div>
+            <strong>"Play USTA league/tournament"</strong><br/>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              🎯 Target: Milestones 1-28+ | ⏱️ Timeline: 25-40 lessons | 📈 Skill Level: 7-8/10 in all areas
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Milestone Progress Tracker */}
+      {student?.id && (
+        <div className="form-section" style={{ marginTop: '40px' }}>
+          <MilestoneTracker 
+            studentId={student.id}
+            isCoach={!isStudent}
+            playerLevel={student?.player_level || 'beginner'}
           />
         </div>
       )}

@@ -94,6 +94,10 @@ const TENNIS_CLINICS = [
   }
 ]
 
+// Module-level variables to prevent multiple script loads
+let mapsLoaded = false
+let mapsLoading = false
+
 export default function TennisResources() {
   const [activeTab, setActiveTab] = useState('clinics')
   const [userLocation, setUserLocation] = useState(null)
@@ -112,21 +116,42 @@ export default function TennisResources() {
   console.log('=================')
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDYcECmxX_mY3JKXz8P0qyws_62pBxWZMY'
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'f40f401599c1c5ad7f7e5591'
     
-    if (window.google?.maps?.Map) {
-      // Already loaded
+    if (!apiKey) return
+
+    // Already fully loaded
+    if (mapsLoaded && window.google?.maps?.Map) {
       setMapLoaded(true)
       setTimeout(initializeMap, 100)
       getCurrentLocation()
       return
     }
 
-    // Load script
+    // Currently loading, don't load again
+    if (mapsLoading) {
+      console.log('Maps already loading, waiting...')
+      return
+    }
+
+    // Check if already in DOM
+    if (window.google?.maps?.Map) {
+      mapsLoaded = true
+      setMapLoaded(true)
+      setTimeout(initializeMap, 100)
+      getCurrentLocation()
+      return
+    }
+
+    // Start loading
+    mapsLoading = true
     const script = document.createElement('script')
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&loading=async`
     script.async = true
     script.onload = () => {
+      mapsLoaded = true
+      mapsLoading = false
       setMapLoaded(true)
       setTimeout(initializeMap, 100)
     }

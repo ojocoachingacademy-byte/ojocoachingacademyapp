@@ -289,6 +289,28 @@
   color: #C62828;
 }
 
+.btn-icon-delete {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon-delete:hover {
+  background: #fee;
+  color: #c82333;
+}
+
+.btn-icon-delete:active {
+  transform: scale(0.95);
+}
+
 .plan-display {
   display: flex;
   flex-direction: column;

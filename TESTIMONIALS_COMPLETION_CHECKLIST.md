@@ -210,3 +210,4 @@ Once all items are checked, your testimonials system is fully operational!
 - Verify file size < 100MB
 - Check file type is allowed
 
+

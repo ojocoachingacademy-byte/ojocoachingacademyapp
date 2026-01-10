@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Save, User, Mail, Phone, Award } from 'lucide-react'
+import { Save, User, Mail, Phone, Award, Trophy } from 'lucide-react'
 import './StudentSettings.css'
 
 export default function StudentSettings() {
@@ -11,6 +11,8 @@ export default function StudentSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [referralData, setReferralData] = useState({ rank: null, referralCount: 0, referralRevenue: 0, totalReferrers: 0 })
+  const [topReferrers, setTopReferrers] = useState([])
   const navigate = useNavigate()
 
   // Form state
@@ -100,6 +102,11 @@ export default function StudentSettings() {
       console.log('[Settings] Setting form data:', initialFormData)
       setFormData(initialFormData)
 
+      // Fetch referral data
+      if (user) {
+        await fetchReferralData(user.id)
+      }
+
       setLoading(false)
     } catch (error) {
       console.error('[Settings] Error fetching profile:', error)
@@ -188,6 +195,87 @@ export default function StudentSettings() {
       setError(errorMessage)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const fetchReferralData = async (studentId) => {
+    try {
+      // Fetch all students to calculate referral rankings
+      const { data: allStudents } = await supabase
+        .from('students')
+        .select('id, total_revenue, referred_by_student_id')
+
+      if (!allStudents) return
+
+      // Build referrer map
+      const referrerMap = {}
+      allStudents.forEach(student => {
+        if (student.referred_by_student_id) {
+          const referrerId = student.referred_by_student_id
+          if (!referrerMap[referrerId]) {
+            referrerMap[referrerId] = {
+              id: referrerId,
+              referralCount: 0,
+              referralRevenue: 0
+            }
+          }
+          referrerMap[referrerId].referralCount++
+          referrerMap[referrerId].referralRevenue += parseFloat(student.total_revenue || 0)
+        }
+      })
+
+      // Fetch profiles for referrer names
+      const referrerIds = Object.keys(referrerMap)
+      if (referrerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', referrerIds)
+
+        // Map names to referrers
+        profiles?.forEach(profile => {
+          if (referrerMap[profile.id]) {
+            referrerMap[profile.id].name = profile.full_name
+          }
+        })
+      }
+
+      // Sort by revenue and get top 3
+      const sortedReferrers = Object.values(referrerMap)
+        .filter(r => r.name) // Only include those with names
+        .sort((a, b) => b.referralRevenue - a.referralRevenue)
+        .slice(0, 3)
+
+      // Set top 3 referrers with bonus amounts ($100 per referral)
+      const topReferrersWithBonus = sortedReferrers.map(referrer => ({
+        ...referrer,
+        bonusAmount: referrer.referralCount * 100 // $100 per referral
+      }))
+      setTopReferrers(topReferrersWithBonus)
+
+      // Find current student's referral data
+      const studentReferralData = referrerMap[studentId]
+      if (studentReferralData) {
+        // Calculate rank
+        const allReferrers = Object.values(referrerMap).sort((a, b) => b.referralRevenue - a.referralRevenue)
+        const rank = allReferrers.findIndex(r => r.id === studentId) + 1
+
+        setReferralData({
+          rank: rank > 0 ? rank : null,
+          referralCount: studentReferralData.referralCount,
+          referralRevenue: studentReferralData.referralRevenue,
+          totalReferrers: allReferrers.length
+        })
+      } else {
+        setReferralData({
+          rank: null,
+          referralCount: 0,
+          referralRevenue: 0,
+          totalReferrers: Object.keys(referrerMap).length
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching referral data:', error)
     }
   }
 
@@ -359,6 +447,72 @@ export default function StudentSettings() {
             </div>
           </div>
         )}
+
+        {/* Referral Information */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <Trophy size={24} />
+            <h2>Referral Program</h2>
+          </div>
+          
+          {referralData.referralCount > 0 ? (
+            <>
+              <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#F8F9FA', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <Trophy size={20} style={{ color: '#FFD700' }} />
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Your Referral Stats</h3>
+                </div>
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">Referral Rank:</span>
+                    <span className="info-value">#{referralData.rank}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Total Referrals:</span>
+                    <span className="info-value">{referralData.referralCount}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Revenue Generated:</span>
+                    <span className="info-value">${referralData.referralRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+              <p>You haven't made any referrals yet. Start referring friends to earn $100 per referral!</p>
+            </div>
+          )}
+
+          {topReferrers.length > 0 && (
+            <div style={{ marginTop: '24px' }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>
+                <Trophy size={18} style={{ display: 'inline', marginRight: '8px', color: '#FFD700' }} />
+                Top Referrers - Earn $100 Per Referral!
+              </h3>
+              <p style={{ color: '#666', marginBottom: '16px', fontSize: '14px' }}>
+                Refer a friend and get $100 credit when they sign up!
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                {topReferrers.map((referrer, index) => (
+                  <div key={index} style={{ padding: '16px', backgroundColor: '#F8F9FA', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+                      {index === 0 && <Trophy size={18} style={{ color: '#FFD700' }} />}
+                      {index === 1 && <Trophy size={18} style={{ color: '#C0C0C0' }} />}
+                      {index === 2 && <Trophy size={18} style={{ color: '#CD7F32' }} />}
+                      <span style={{ fontWeight: 600, fontSize: '14px' }}>#{index + 1}</span>
+                    </div>
+                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>{referrer.name}</div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-primary)', marginBottom: '4px' }}>
+                      ${referrer.bonusAmount.toLocaleString('en-US')}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>Referral Bonus</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
