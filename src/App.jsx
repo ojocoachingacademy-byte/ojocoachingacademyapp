@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient'
 import Header from './components/Layout/Header'
 import Login from './components/Auth/Login'
 import Signup from './components/Auth/Signup'
+import EmailConfirmed from './components/Auth/EmailConfirmed'
 import StudentDashboard from './components/Dashboard/StudentDashboard'
 import CoachDashboard from './components/Dashboard/CoachDashboard'
 import MessageCenter from './components/Messaging/MessageCenter'
@@ -75,6 +76,7 @@ function App() {
       <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
         <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/dashboard" />} />
+        <Route path="/auth/confirmed" element={<EmailConfirmed />} />
             <Route 
               path="/dashboard" 
               element={session && !isCoach ? <StudentDashboard /> : <Navigate to="/login" />} 

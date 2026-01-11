@@ -15,6 +15,17 @@ export default function StudentSettings() {
   const [topReferrers, setTopReferrers] = useState([])
   const navigate = useNavigate()
 
+  // Helper function to validate and get avatar URL
+  // Use this when displaying profile.avatar_url in <img> tags:
+  // <img src={getAvatarUrl(profile?.avatar_url)} onError={(e) => e.target.src = '/default-avatar.png'} />
+  const getAvatarUrl = (avatarUrl) => {
+    if (!avatarUrl) return '/default-avatar.png'
+    if (typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+      return avatarUrl
+    }
+    return '/default-avatar.png'
+  }
+
   // Form state
   const [formData, setFormData] = useState({
     first_name: '',
@@ -54,7 +65,7 @@ export default function StudentSettings() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
       console.log('[Settings] Profile fetch result:', { profileData, profileError })
 
@@ -68,12 +79,20 @@ export default function StudentSettings() {
         throw profileError
       }
 
+      // Handle case where profile doesn't exist
+      if (!profileData) {
+        console.warn('[Settings] No profile found for user:', user.id)
+        setError('Profile not found. Please contact support.')
+        setLoading(false)
+        return
+      }
+
       // Fetch student data
       const { data: studentData, error: studentError } = await supabase
         .from('students')
         .select('*')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
       if (studentError && studentError.code !== 'PGRST116') {
         // PGRST116 means no rows returned, which is OK
@@ -86,7 +105,8 @@ export default function StudentSettings() {
       setStudent(studentData || null)
       
       // Populate form - split full_name into first_name and last_name
-      const fullName = profileData?.full_name || ''
+      // profileData is guaranteed to exist here due to null check above
+      const fullName = profileData.full_name || ''
       const nameParts = fullName.trim().split(' ')
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
@@ -94,9 +114,9 @@ export default function StudentSettings() {
       const initialFormData = {
         first_name: firstName,
         last_name: lastName,
-        email: profileData?.email || user.email || '',
-        phone: profileData?.phone || '',
-        ntrp_level: profileData?.ntrp_level || '3.0'
+        email: profileData.email || user.email || '',
+        phone: profileData.phone || '',
+        ntrp_level: profileData.ntrp_level || '3.0'
       }
 
       console.log('[Settings] Setting form data:', initialFormData)

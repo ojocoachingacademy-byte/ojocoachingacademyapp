@@ -9,75 +9,67 @@
 
 .login-card {
   background-color: var(--color-white);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-xl);
+  border-radius: 12px;
+  padding: 32px;
   width: 100%;
   max-width: 400px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
 }
 
 .login-logo-img {
-  width: 100px;
-  height: 100px;
+  width: 150px;
+  height: 150px;
   object-fit: contain;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   filter: drop-shadow(0 4px 8px rgba(75, 44, 108, 0.2));
 }
 
-.login-brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 8px;
-  line-height: 1.1;
+.logo-section img {
+  height: 150px !important; /* Force desktop size */
+  width: auto;
+  object-fit: contain;
 }
 
-.brand-ojo {
-  font-size: 42px;
-  font-weight: 800;
-  color: #4B2C6C;
-  letter-spacing: 8px;
-  text-transform: uppercase;
-}
-
-.brand-coaching {
-  font-size: 18px;
-  font-weight: 600;
-  color: #2D7F6F;
-  letter-spacing: 12px;
-  text-transform: uppercase;
-  margin-top: 2px;
-}
-
-.brand-academy {
-  font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  letter-spacing: 8px;
-  text-transform: uppercase;
-  margin-top: 2px;
-}
-
-.login-tagline {
-  font-size: 14px;
-  color: #2D7F6F;
-  font-style: italic;
-  margin: 16px 0;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #F8F5FC 0%, #E8F5E9 100%);
-  border-radius: 20px;
-  display: inline-block;
+@media (max-width: 768px) {
+  .logo-section img {
+    height: 120px !important; /* Mobile size */
+  }
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: 16px;
+}
+
+.login-form .label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-dark);
+}
+
+.login-form .input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  min-height: 44px;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-form .input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(75, 44, 108, 0.1);
 }
 
 .login-link {
@@ -99,10 +91,78 @@
 .error-message {
   background-color: #FFEBEE;
   color: var(--color-error);
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  border-radius: 8px;
   border-left: 4px solid var(--color-error);
-  font-size: var(--font-size-sm);
+  font-size: 14px;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .login-container {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 24px;
+  }
+
+  .login-card {
+    padding: 24px 20px;
+    border-radius: 12px;
+  }
+
+  .login-header {
+    margin-bottom: 24px;
+  }
+
+  .login-logo-img {
+    width: 120px;
+    height: 120px;
+  }
+
+  .login-form {
+    gap: 14px;
+  }
+
+  .login-form .input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  .login-form .label {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .btn {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 12px 24px;
+  }
+
+  .login-link {
+    margin-top: 20px;
+    font-size: 14px;
+  }
+}
+
+.resend-section {
+  margin: 16px 0;
+  padding: 16px;
+  background-color: #F8F5FC;
+  border-radius: 8px;
+  border: 1px solid #E0D4F7;
+}
+
+.resend-text {
+  margin: 0 0 12px 0;
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+}
+
+.resend-section .btn {
+  min-height: 44px;
 }
 
 

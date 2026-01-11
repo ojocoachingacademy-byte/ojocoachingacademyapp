@@ -1,0 +1,39 @@
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; margin-bottom: 30px;">
+    <img src="https://ojocoachingacademyapp.netlify.app/Ojo_Coaching_Academy_Logo.png" alt="OJO Coaching Academy" style="height: 80px;">
+  </div>
+  
+  <h1 style="color: #4B2C6C; text-align: center;">Welcome, {{ .Data.full_name }}!</h1>
+  
+  <p style="font-size: 16px; color: #333; line-height: 1.6;">
+    Thanks for joining OJO Coaching Academy. We're excited to help you on your tennis journey!
+  </p>
+  
+  <p style="font-size: 16px; color: #333; line-height: 1.6;">
+    To get started, please confirm your email address by clicking the button below:
+  </p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="{{ .ConfirmationURL }}" 
+       style="background: #4B2C6C; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block;">
+      Confirm My Email
+    </a>
+  </div>
+  
+  <p style="font-size: 14px; color: #666; line-height: 1.6;">
+    If the button doesn't work, copy and paste this link into your browser:<br>
+    <a href="{{ .ConfirmationURL }}" style="color: #4B2C6C; word-break: break-all;">{{ .ConfirmationURL }}</a>
+  </p>
+  
+  <p style="font-size: 14px; color: #666; line-height: 1.6; margin-top: 30px;">
+    If you didn't create an account, you can safely ignore this email.
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 12px; color: #999; text-align: center;">
+    OJO Coaching Academy<br>
+    Embrace the Journey 🎾
+  </p>
+</div>
+

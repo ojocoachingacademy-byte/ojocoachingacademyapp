@@ -7,11 +7,14 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
+  const [showResend, setShowResend] = useState(false)
+  const [resending, setResending] = useState(false)
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError(null)
+    setShowResend(false)
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -19,9 +22,49 @@ export default function Login() {
     })
 
     if (error) {
-      setError(error.message)
+      const errorMsg = error.message.toLowerCase()
+      if (errorMsg.includes('email not confirmed') || 
+          errorMsg.includes('not verified') ||
+          errorMsg.includes('email not verified')) {
+        setError('Please confirm your email first. Check your inbox for the confirmation link.')
+        setShowResend(true)
+      } else {
+        setError(error.message)
+      }
     } else {
       navigate('/dashboard')
+    }
+  }
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setError('Please enter your email address first.')
+      return
+    }
+
+    setResending(true)
+    setError(null)
+    
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirmed`
+        }
+      })
+      
+      if (resendError) {
+        setError('Failed to resend: ' + resendError.message)
+      } else {
+        setError(null)
+        alert('Confirmation email sent! Check your inbox.')
+        setShowResend(false)
+      }
+    } catch (err) {
+      setError('Failed to resend email. Please try again.')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -31,16 +74,9 @@ export default function Login() {
         <div className="login-header">
           <img 
             src="/Ojo_Coaching_Academy_Logo.png" 
-            alt="Ojo Coaching Academy" 
+            alt="OJO Coaching Academy" 
             className="login-logo-img"
           />
-          <div className="login-brand">
-            <span className="brand-ojo">OJO</span>
-            <span className="brand-coaching">COACHING</span>
-            <span className="brand-academy">ACADEMY</span>
-          </div>
-          <div className="login-tagline">Embrace the Journey</div>
-          <h2>Welcome Back</h2>
         </div>
         <form onSubmit={handleLogin} className="login-form">
           <div>
@@ -66,6 +102,20 @@ export default function Login() {
             />
           </div>
           {error && <div className="error-message">{error}</div>}
+          {showResend && (
+            <div className="resend-section">
+              <p className="resend-text">Didn't receive the email?</p>
+              <button 
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleResendConfirmation}
+                disabled={resending}
+                style={{ width: '100%', marginBottom: '12px' }}
+              >
+                {resending ? 'Sending...' : 'Resend Confirmation Email'}
+              </button>
+            </div>
+          )}
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
             Login
           </button>

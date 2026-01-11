@@ -479,185 +479,43 @@ export default function StudentDetailPage() {
       
       console.log('Starting deletion process for student:', studentId)
       
-      // Delete auth user FIRST so they can re-register if database deletion fails
+      // Delete user and all related records via Netlify function
+      const response = await fetch('/.netlify/functions/delete-auth-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId: studentId })
+      })
+
+      // Check if response has content before parsing JSON
+      const text = await response.text()
+      console.log('Delete user response status:', response.status)
+      console.log('Delete user response text:', text)
+
+      if (response.status === 404) {
+        throw new Error('Netlify function not found. If testing locally, use "netlify dev" instead of "npm run dev". Or test on the deployed site.')
+      }
+
+      if (!text) {
+        throw new Error('Empty response from delete-auth-user function. Check Netlify function logs.')
+      }
+
+      let result
       try {
-        const response = await fetch('/.netlify/functions/delete-user-auth', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ userId: studentId })
-        })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          console.error('Error deleting auth user:', result)
-          throw new Error(`Failed to delete auth user: ${result.error || result.details}`)
-        }
-
-        console.log('Auth user deleted successfully:', result)
-      } catch (authDeleteError) {
-        console.error('Auth deletion failed:', authDeleteError)
-        throw new Error(`Failed to delete auth user: ${authDeleteError.message}. Cannot proceed with deletion.`)
-      }
-      
-      // Delete all related records (in order of dependencies)
-      
-      // 1. Delete messages (conversations depend on messages, but messages reference user_id)
-      const { error: messagesError } = await supabase
-        .from('messages')
-        .delete()
-        .or(`sender_id.eq.${studentId},receiver_id.eq.${studentId}`)
-      
-      if (messagesError) {
-        console.warn('Warning deleting messages:', messagesError)
-        // Continue - may not exist
-      }
-      
-      // 2. Delete conversations where student is a participant
-      const { error: conversationsError } = await supabase
-        .from('conversations')
-        .delete()
-        .or(`participant_1_id.eq.${studentId},participant_2_id.eq.${studentId}`)
-      
-      if (conversationsError) {
-        console.warn('Warning deleting conversations:', conversationsError)
-        // Continue - may not exist
-      }
-      
-      // 3. Delete testimonials
-      const { error: testimonialsError } = await supabase
-        .from('testimonials')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (testimonialsError) {
-        console.warn('Warning deleting testimonials:', testimonialsError)
-        // Continue - may not exist
-      }
-      
-      // 4. Delete testimonial requests
-      const { error: testimonialRequestsError } = await supabase
-        .from('testimonial_requests')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (testimonialRequestsError) {
-        console.warn('Warning deleting testimonial requests:', testimonialRequestsError)
-        // Continue - may not exist
-      }
-      
-      // 5. Delete notifications
-      const { error: notificationsError } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('user_id', studentId)
-      
-      if (notificationsError) {
-        console.warn('Warning deleting notifications:', notificationsError)
-        // Continue - may not exist
-      }
-      
-      // 6. Clear referral references (set referred_by_student_id to null for students referred by this student)
-      const { error: referralUpdateError } = await supabase
-        .from('students')
-        .update({ referred_by_student_id: null })
-        .eq('referred_by_student_id', studentId)
-      
-      if (referralUpdateError) {
-        console.warn('Warning updating referral references:', referralUpdateError)
-        // Continue - may not exist
-      }
-      
-      // 7. Delete lesson homework
-      const { error: homeworkError } = await supabase
-        .from('lesson_homework')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (homeworkError) {
-        console.warn('Warning deleting homework:', homeworkError)
-        // Continue - may not exist
-      }
-      
-      // 8. Delete student milestones
-      const { error: milestonesError } = await supabase
-        .from('student_milestones')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (milestonesError) {
-        console.warn('Warning deleting milestones:', milestonesError)
-        // Continue - may not exist
-      }
-      
-      // 9. Delete skill progress snapshots
-      const { error: snapshotsError } = await supabase
-        .from('skill_progress_snapshots')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (snapshotsError) {
-        console.warn('Warning deleting snapshots:', snapshotsError)
-        // Continue - may not exist
-      }
-      
-      // 10. Delete payment transactions
-      const { error: paymentsError } = await supabase
-        .from('payment_transactions')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (paymentsError) {
-        console.warn('Warning deleting payments:', paymentsError)
-        // Continue - may not exist
-      }
-      
-      // 11. Delete lesson transactions
-      const { error: lessonTransactionsError } = await supabase
-        .from('lesson_transactions')
-        .delete()
-        .eq('student_id', studentId)
-      
-      if (lessonTransactionsError) {
-        console.warn('Warning deleting lesson transactions:', lessonTransactionsError)
-        // Continue - may not exist
-      }
-      
-      // 12. Delete lessons (this has foreign key constraint on students)
-      const { error: lessonsError } = await supabase
-        .from('lessons')
-        .delete()
-        .eq('student_id', studentId)
-
-      if (lessonsError) {
-        console.error('Error deleting lessons:', lessonsError)
-        throw new Error(`Failed to delete lessons: ${lessonsError.message}`)
+        result = JSON.parse(text)
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', parseError)
+        console.error('Response text was:', text)
+        throw new Error(`Invalid response from server: ${text.substring(0, 100)}`)
       }
 
-      // 13. Delete from students table
-      const { error: studentError } = await supabase
-        .from('students')
-        .delete()
-        .eq('id', studentId)
-
-      if (studentError) {
-        console.error('Error deleting student:', studentError)
-        throw new Error(`Failed to delete student record: ${studentError.message}`)
+      if (!response.ok) {
+        console.error('Error deleting user:', result)
+        throw new Error(`Failed to delete user: ${result.error || result.details || 'Unknown error'}`)
       }
 
-      // 14. Delete from profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', studentId)
-
-      if (profileError) {
-        console.error('Error deleting profile:', profileError)
-        throw new Error(`Failed to delete profile: ${profileError.message}`)
-      }
-
+      console.log('User and all related records deleted successfully:', result)
       console.log('Student deletion completed successfully')
       alert('Student profile deleted successfully')
       navigate('/coach/students')

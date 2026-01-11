@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 import './Signup.css'
 
 export default function Signup() {
@@ -12,13 +13,76 @@ export default function Signup() {
   const [accountType, setAccountType] = useState('student')
   const [ntrpLevel, setNtrpLevel] = useState('3.0')
   const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(false)
+  const [signupSuccess, setSignupSuccess] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
+  const [resending, setResending] = useState(false)
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true)
+  const signupCardRef = useRef(null)
   const navigate = useNavigate()
+
+  // Check if content is scrollable and if user has scrolled
+  useEffect(() => {
+    if (signupSuccess) return // Don't show on success screen
+
+    const card = signupCardRef.current
+    if (!card) return
+
+    const checkScroll = () => {
+      const isScrollable = card.scrollHeight > card.clientHeight
+      const isScrolled = card.scrollTop > 20 // Show if scrolled more than 20px
+      const isNearBottom = card.scrollHeight - card.scrollTop - card.clientHeight < 50
+
+      setShowScrollIndicator(isScrollable && !isScrolled && !isNearBottom)
+    }
+
+    checkScroll()
+    card.addEventListener('scroll', checkScroll)
+    // Also check on resize
+    window.addEventListener('resize', checkScroll)
+
+    return () => {
+      card.removeEventListener('scroll', checkScroll)
+      window.removeEventListener('resize', checkScroll)
+    }
+  }, [signupSuccess])
 
   const validatePhone = (phoneNumber) => {
     // Remove all non-digit characters
     const digitsOnly = phoneNumber.replace(/\D/g, '')
     return digitsOnly.length === 10
+  }
+
+  const handleResendEmail = async () => {
+    if (!userEmail) return
+    
+    setResending(true)
+    setError(null)
+    
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: userEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirmed`
+        }
+      })
+      
+      if (resendError) {
+        setError('Failed to resend email: ' + resendError.message)
+      } else {
+        setError(null)
+        // Show temporary success message
+        const successMsg = 'Confirmation email sent! Check your inbox.'
+        setError(null)
+        setTimeout(() => {
+          alert(successMsg)
+        }, 100)
+      }
+    } catch (err) {
+      setError('Failed to resend email. Please try again.')
+    } finally {
+      setResending(false)
+    }
   }
 
   const handleSignup = async (e) => {
@@ -31,118 +95,82 @@ export default function Signup() {
       return
     }
 
-    // Create auth user
+    // Create auth user with email confirmation redirect
+    const fullName = `${firstName} ${lastName}`.trim()
+    const phoneDigitsOnly = phone.replace(/\D/g, '')
+    
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: { 
+          full_name: fullName,
+          phone: phoneDigitsOnly,
+          account_type: accountType,
+          ntrp_level: ntrpLevel
+        },
+        emailRedirectTo: `${window.location.origin}/auth/confirmed`
+      }
     })
 
     if (authError) {
-      setError(authError.message)
+      if (authError.message.includes('already registered')) {
+        setError('An account with this email already exists. Please try logging in instead.')
+      } else {
+        setError(authError.message)
+      }
       return
     }
 
     if (!authData.user) {
-      setError('Failed to create user account')
+      setError('Failed to create user account. Please try again.')
       return
     }
 
-    // Use session from signUp response (available if email confirmation is disabled)
-    // If email confirmation is enabled, session will be null and we need a different approach
-    const session = authData.session || (await supabase.auth.getSession()).data.session
+    // Store user data in metadata - will be used after email confirmation
+    // Profile creation will be handled by database trigger or after confirmation
     
-    if (!session) {
-      // Email confirmation required - user needs to confirm email first
-      // Profile creation should be handled by a database trigger or after email confirmation
-      setSuccess(true)
-      setError('Please check your email to confirm your account. You will be able to complete your profile after confirmation.')
-      setTimeout(() => navigate('/login'), 3000)
-      return
-    }
-
-    // Create profile with authenticated session
-    const fullName = `${firstName} ${lastName}`.trim()
-    const phoneDigitsOnly = phone.replace(/\D/g, '')
-    
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .insert([
-        {
-          id: authData.user.id,
-          email,
-          full_name: fullName,
-          phone: phoneDigitsOnly,
-          account_type: accountType,
-          ntrp_level: ntrpLevel,
-        },
-      ])
-      .select()
-      .single()
-
-    if (profileError || !profileData) {
-      setError(profileError?.message || 'Failed to create profile')
-      console.error('Profile creation error:', profileError)
-      return
-    }
-
-    // If student, create student record (only after profile is confirmed created)
-    if (accountType === 'student') {
-      const { error: studentError } = await supabase
-        .from('students')
-        .insert([
-          {
-            id: authData.user.id,
-            start_date: new Date().toISOString(),
-          },
-        ])
-
-      if (studentError) {
-        setError(`Failed to create student record: ${studentError.message}`)
-        console.error('Student creation error:', studentError)
-        return
-      }
-    }
-
-    // If player, create hitting partner profile
-    if (accountType === 'player') {
-      const { error: partnerError } = await supabase
-        .from('hitting_partners')
-        .insert([
-          {
-            id: authData.user.id,
-            is_active: true,
-          },
-        ])
-
-      if (partnerError) {
-        setError(partnerError.message)
-        return
-      }
-    }
-
-    setSuccess(true)
-    setTimeout(() => navigate('/dashboard'), 2000)
+    // Show success message (email confirmation required)
+    setSignupSuccess(true)
+    setUserEmail(email)
   }
 
   return (
     <div className="signup-container">
-      <div className="signup-card">
+      <div className="signup-card" ref={signupCardRef}>
         <div className="signup-header">
           <img 
             src="/Ojo_Coaching_Academy_Logo.png" 
-            alt="Ojo Coaching Academy" 
+            alt="OJO Coaching Academy" 
             className="signup-logo-img"
           />
-          <div className="signup-brand">
-            <span className="brand-ojo">OJO</span>
-            <span className="brand-coaching">COACHING</span>
-            <span className="brand-academy">ACADEMY</span>
-          </div>
-          <div className="signup-tagline">Embrace the Journey</div>
-          <h2>Join the Academy</h2>
         </div>
-        {success ? (
-          <div className="success-message">Account created! Redirecting...</div>
+        {signupSuccess ? (
+          <div className="success-message-container">
+            <div className="success-icon">✅</div>
+            <h2>Account Created!</h2>
+            <p>We sent a confirmation email to:</p>
+            <p className="user-email">{userEmail}</p>
+            <p className="instructions">
+              Click the link in the email to verify your account, then you can log in.
+            </p>
+            {error && <div className="error-message">{error}</div>}
+            <button 
+              className="btn btn-secondary"
+              onClick={handleResendEmail}
+              disabled={resending}
+              style={{ width: '100%', marginBottom: '12px' }}
+            >
+              {resending ? 'Sending...' : 'Resend Confirmation Email'}
+            </button>
+            <button 
+              className="btn btn-primary"
+              onClick={() => navigate('/login')}
+              style={{ width: '100%' }}
+            >
+              Back to Login
+            </button>
+          </div>
         ) : (
           <form onSubmit={handleSignup} className="signup-form">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -243,6 +271,17 @@ export default function Signup() {
         <div className="signup-link">
           Already have an account? <a href="/login">Login</a>
         </div>
+        
+        {/* Scroll Indicator - Only show when form is visible and scrollable */}
+        {!signupSuccess && showScrollIndicator && (
+          <div className="scroll-indicator">
+            <div className="scroll-fade"></div>
+            <div className="scroll-prompt">
+              <ChevronDown size={24} />
+              <span>Scroll for more</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

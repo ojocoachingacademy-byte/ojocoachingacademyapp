@@ -71,17 +71,23 @@
   border: none;
   color: #999;
   cursor: pointer;
-  padding: 4px;
+  padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: background-color 0.2s;
+  min-width: 32px;
+  min-height: 32px;
 }
 
 .toast-close:hover {
   background-color: #f0f0f0;
   color: #666;
+}
+
+.toast-close:active {
+  background-color: #e0e0e0;
 }
 
 @keyframes slideIn {
@@ -97,6 +103,7 @@
 
 @media (max-width: 768px) {
   .toast-container {
+    top: 70px;
     right: 10px;
     left: 10px;
     max-width: none;
@@ -104,6 +111,17 @@
   
   .toast {
     min-width: auto;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  .toast-close {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .toast-message {
+    font-size: 14px;
   }
 }
 
