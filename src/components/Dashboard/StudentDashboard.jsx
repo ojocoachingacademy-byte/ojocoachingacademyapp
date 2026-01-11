@@ -9,6 +9,7 @@ import RecentProgress from '../Progress/RecentProgress'
 import TestimonialRequestBanner from '../Testimonials/TestimonialRequestBanner'
 import MilestoneTracker from '../DevelopmentPlan/MilestoneTracker'
 import BookLessonModal from '../Calendar/BookLessonModal'
+import GettingStartedChecklist from './GettingStartedChecklist'
 import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 
 export default function StudentDashboard() {
@@ -387,11 +388,105 @@ export default function StudentDashboard() {
               disabled={!student}
             >
               <Calendar size={18} style={{ marginRight: '8px' }} />
-              Book a Lesson
+              Book Your Lesson →
             </button>
           </div>
         </div>
       </div>
+
+      {/* Getting Started Checklist */}
+      {(() => {
+        // Check if profile is complete (has name, email, phone)
+        const profileComplete = !!(profile?.full_name && profile?.email && profile?.phone)
+        const hasDevelopmentPlan = student?.development_plan && 
+          (typeof student.development_plan === 'string' ? 
+            student.development_plan.trim() !== '' && student.development_plan !== '{}' :
+            Object.keys(student.development_plan || {}).length > 0)
+        const hasUpcomingLesson = upcomingLessons.length > 0
+        const hasCompletedLesson = pastLessons.length > 0
+        
+        return (
+          <GettingStartedChecklist
+            profileComplete={profileComplete}
+            hasDevelopmentPlan={hasDevelopmentPlan}
+            hasUpcomingLesson={hasUpcomingLesson}
+            hasCompletedLesson={hasCompletedLesson}
+            onSetGoals={() => setEditingPlan(true)}
+            onBookLesson={() => setShowBookingModal(true)}
+          />
+        )
+      })()}
+
+      {/* Next Steps Banner - Show guidance for new students */}
+      {(() => {
+        const hasDevelopmentPlan = student?.development_plan && 
+          (typeof student.development_plan === 'string' ? 
+            student.development_plan.trim() !== '' && student.development_plan !== '{}' :
+            Object.keys(student.development_plan || {}).length > 0)
+        const hasUpcomingLesson = upcomingLessons.length > 0
+        const nextLesson = upcomingLessons[0]
+        
+        // Step 1: No development plan
+        if (!hasDevelopmentPlan) {
+          return (
+            <div className="next-steps-banner next-steps-step1">
+              <div className="next-steps-content">
+                <div className="next-steps-step-number">1</div>
+                <div className="next-steps-text">
+                  <h2 className="next-steps-title">🎯 Step 1: Set Your Tennis Goals</h2>
+                  <p className="next-steps-description">Tell us what you want to achieve with tennis. This helps your coach create the perfect plan for you!</p>
+                </div>
+                <button
+                  onClick={() => setEditingPlan(true)}
+                  className="btn btn-primary btn-lg next-steps-button"
+                >
+                  Set Your Goals →
+                </button>
+              </div>
+            </div>
+          )
+        }
+        
+        // Step 2: No upcoming lesson
+        if (!hasUpcomingLesson) {
+          return (
+            <div className="next-steps-banner next-steps-step2">
+              <div className="next-steps-content">
+                <div className="next-steps-step-number">2</div>
+                <div className="next-steps-text">
+                  <h2 className="next-steps-title">📅 Step 2: Book Your First Lesson</h2>
+                  <p className="next-steps-description">You're ready to start! Book a lesson and your coach will help you reach your goals.</p>
+                </div>
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="btn btn-primary btn-lg next-steps-button"
+                  disabled={!student}
+                >
+                  Book Your First Lesson →
+                </button>
+              </div>
+            </div>
+          )
+        }
+        
+        // All set - show next lesson date
+        return (
+          <div className="next-steps-banner next-steps-complete">
+            <div className="next-steps-content">
+              <div className="next-steps-checkmark">✓</div>
+              <div className="next-steps-text">
+                <h2 className="next-steps-title">You're all set! 🎉</h2>
+                <p className="next-steps-description">
+                  Your next lesson is on {nextLesson ? new Date(nextLesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'coming soon'}
+                  {nextLesson && (
+                    <span> at {new Date(nextLesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       
       {/* Testimonial Request Banner */}
       {student && pastLessons.length >= 10 && (
@@ -470,7 +565,19 @@ export default function StudentDashboard() {
           <div className="lessons-column">
             <h3>Upcoming Lessons ({upcomingLessons.length})</h3>
             {upcomingLessons.length === 0 ? (
-              <p className="empty-state">No upcoming lessons scheduled.</p>
+              <div className="empty-state">
+                <div className="empty-state-icon">📅</div>
+                <h3 className="empty-state-title">No Upcoming Lessons</h3>
+                <p className="empty-state-text">Book your first lesson to get started on your tennis journey!</p>
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="btn btn-primary btn-lg"
+                  disabled={!student}
+                  style={{ marginTop: '16px' }}
+                >
+                  Book Your First Lesson →
+                </button>
+              </div>
             ) : (
               <>
                 {(showAllUpcoming ? upcomingLessons : upcomingLessons.slice(0, 3)).map((lesson, index) => (
@@ -525,7 +632,11 @@ export default function StudentDashboard() {
           <div className="lessons-column">
             <h3>Past Lessons ({pastLessons.length})</h3>
             {pastLessons.length === 0 ? (
-              <p className="empty-state">No past lessons yet.</p>
+              <div className="empty-state">
+                <div className="empty-state-icon">🎾</div>
+                <h3 className="empty-state-title">No Past Lessons Yet</h3>
+                <p className="empty-state-text">Complete your first lesson and you'll see your progress here!</p>
+              </div>
             ) : (
               <>
                 {(showAllPast ? pastLessons : pastLessons.slice(0, 1)).map(lesson => (
@@ -569,10 +680,10 @@ export default function StudentDashboard() {
                           e.stopPropagation()
                           setSelectedLesson(lesson)
                         }}
-                        className="btn btn-primary"
+                        className="btn btn-primary btn-lg"
                         style={{ marginTop: '16px' }}
                       >
-                        Submit 3 Learnings
+                        Share Your Learnings →
                       </button>
                     )}
                   </div>
@@ -716,7 +827,7 @@ export default function StudentDashboard() {
                   onClick={() => setEditingPlan(true)}
                 >
                   <Edit2 size={18} />
-                  Edit Plan
+                  Edit Your Plan →
                 </button>
               </div>
               

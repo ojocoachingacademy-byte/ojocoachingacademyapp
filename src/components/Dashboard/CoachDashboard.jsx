@@ -323,19 +323,32 @@ export default function CoachDashboard() {
     try {
       const studentId = selectedLesson.student_id
       
-      // Get student data with profile
-      const { data: studentData, error: studentError } = await supabase
+      // Fetch student and profile separately to avoid ambiguous relationship error
+      const { data: student, error: studentError } = await supabase
         .from('students')
-        .select(`
-          *,
-          profiles(*)
-        `)
+        .select('*')
         .eq('id', studentId)
         .single()
 
       if (studentError) throw studentError
 
-      const studentName = studentData.profiles?.full_name || 'Student'
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', studentId)
+        .single()
+
+      if (profileError) {
+        console.warn('Profile fetch error (non-critical):', profileError)
+      }
+
+      // Combine student and profile data
+      const studentData = {
+        ...student,
+        profiles: profile
+      }
+
+      const studentName = profile?.full_name || 'Student'
       const playerLevel = studentData.player_level || 'beginner'
       
       // Parse development plan
@@ -441,8 +454,31 @@ export default function CoachDashboard() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            // Handle different error formats
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message
+            } else {
+              errorMessage = JSON.stringify(errorData.error)
+            }
+          }
+        } catch (e) {
+          // If JSON parsing fails, try to get text
+          const text = await response.text().catch(() => '')
+          if (text) errorMessage = text
+        }
+        
+        // Provide helpful context for common errors
+        if (response.status === 403 || response.status === 500) {
+          errorMessage += '\n\nMake sure you are running with "netlify dev" (not "npm run dev") if testing locally, or test on the deployed site.'
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const { studentPlan: generatedStudentPlan, coachPlan: generatedCoachPlan } = await response.json()

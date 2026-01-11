@@ -301,9 +301,35 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
 
   return (
     <div className="development-plan-form">
+      {/* Instructions Panel */}
+      <div className="development-plan-instructions">
+        <h2 className="instructions-title">Let's Build Your Tennis Plan 🎾</h2>
+        <p className="instructions-subtitle">Answer these 3 simple questions to help your coach create the perfect plan for you!</p>
+        <div className="instructions-steps">
+          <div className="instruction-step">
+            <div className="instruction-step-number">1</div>
+            <span>Pick Your Goal</span>
+          </div>
+          <div className="instruction-step">
+            <div className="instruction-step-number">2</div>
+            <span>Rate Your Skills</span>
+          </div>
+          <div className="instruction-step">
+            <div className="instruction-step-number">3</div>
+            <span>Set Your Targets</span>
+          </div>
+        </div>
+        <div className="instructions-tip">
+          💡 <strong>Not sure?</strong> Don't worry - your coach will adjust this after your first lesson!
+        </div>
+      </div>
+
       {/* SECTION 1: STUDENT'S WHY */}
       <div className="form-section">
-        <h3 className="section-title">Section 1: Your Tennis Why</h3>
+        <h3 className="section-title">🎯 Step 1: Choose Your Goal</h3>
+        <p className="section-helper-text">
+          Tell us what you want to achieve with tennis. This helps your coach create the perfect plan for you!
+        </p>
         
         <div className="goal-field">
           <label className="goal-label">What triggered you to get serious about lessons RIGHT NOW?</label>
@@ -417,9 +443,9 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
 
       {/* SECTION 2: SKILL RATINGS */}
       <div className="form-section">
-        <h3 className="section-title">Section 2: Current Skill Ratings</h3>
-        <p style={{ color: '#666', marginBottom: '20px' }}>
-          Rate yourself honestly on each area (1 = just starting, 10 = tournament level)
+        <h3 className="section-title">📊 Step 2: Rate Your Current Skills</h3>
+        <p className="section-helper-text">
+          Rate yourself honestly on each area (1 = just starting, 10 = tournament level). Be honest - your coach will help you improve!
         </p>
         
         <div className="skills-rating-grid">
