@@ -33,6 +33,8 @@ export default function StudentDetailPage() {
   const [showMergeProfilesModal, setShowMergeProfilesModal] = useState(false)
   const [showBookLesson, setShowBookLesson] = useState(false)
   const [showCreateLesson, setShowCreateLesson] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletingStudent, setDeletingStudent] = useState(false)
   const [selectedProfileToMerge, setSelectedProfileToMerge] = useState(null)
   const [referringStudent, setReferringStudent] = useState(null)
   const [editingLeadSource, setEditingLeadSource] = useState(false)
@@ -468,6 +470,206 @@ export default function StudentDetailPage() {
     }
   }
 
+  const handleDeleteStudent = async () => {
+    if (!student) return
+    
+    setDeletingStudent(true)
+    try {
+      const studentId = student.id
+      
+      console.log('Starting deletion process for student:', studentId)
+      
+      // Delete auth user FIRST so they can re-register if database deletion fails
+      try {
+        const response = await fetch('/.netlify/functions/delete-user-auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userId: studentId })
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          console.error('Error deleting auth user:', result)
+          throw new Error(`Failed to delete auth user: ${result.error || result.details}`)
+        }
+
+        console.log('Auth user deleted successfully:', result)
+      } catch (authDeleteError) {
+        console.error('Auth deletion failed:', authDeleteError)
+        throw new Error(`Failed to delete auth user: ${authDeleteError.message}. Cannot proceed with deletion.`)
+      }
+      
+      // Delete all related records (in order of dependencies)
+      
+      // 1. Delete messages (conversations depend on messages, but messages reference user_id)
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .or(`sender_id.eq.${studentId},receiver_id.eq.${studentId}`)
+      
+      if (messagesError) {
+        console.warn('Warning deleting messages:', messagesError)
+        // Continue - may not exist
+      }
+      
+      // 2. Delete conversations where student is a participant
+      const { error: conversationsError } = await supabase
+        .from('conversations')
+        .delete()
+        .or(`participant_1_id.eq.${studentId},participant_2_id.eq.${studentId}`)
+      
+      if (conversationsError) {
+        console.warn('Warning deleting conversations:', conversationsError)
+        // Continue - may not exist
+      }
+      
+      // 3. Delete testimonials
+      const { error: testimonialsError } = await supabase
+        .from('testimonials')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (testimonialsError) {
+        console.warn('Warning deleting testimonials:', testimonialsError)
+        // Continue - may not exist
+      }
+      
+      // 4. Delete testimonial requests
+      const { error: testimonialRequestsError } = await supabase
+        .from('testimonial_requests')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (testimonialRequestsError) {
+        console.warn('Warning deleting testimonial requests:', testimonialRequestsError)
+        // Continue - may not exist
+      }
+      
+      // 5. Delete notifications
+      const { error: notificationsError } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', studentId)
+      
+      if (notificationsError) {
+        console.warn('Warning deleting notifications:', notificationsError)
+        // Continue - may not exist
+      }
+      
+      // 6. Clear referral references (set referred_by_student_id to null for students referred by this student)
+      const { error: referralUpdateError } = await supabase
+        .from('students')
+        .update({ referred_by_student_id: null })
+        .eq('referred_by_student_id', studentId)
+      
+      if (referralUpdateError) {
+        console.warn('Warning updating referral references:', referralUpdateError)
+        // Continue - may not exist
+      }
+      
+      // 7. Delete lesson homework
+      const { error: homeworkError } = await supabase
+        .from('lesson_homework')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (homeworkError) {
+        console.warn('Warning deleting homework:', homeworkError)
+        // Continue - may not exist
+      }
+      
+      // 8. Delete student milestones
+      const { error: milestonesError } = await supabase
+        .from('student_milestones')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (milestonesError) {
+        console.warn('Warning deleting milestones:', milestonesError)
+        // Continue - may not exist
+      }
+      
+      // 9. Delete skill progress snapshots
+      const { error: snapshotsError } = await supabase
+        .from('skill_progress_snapshots')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (snapshotsError) {
+        console.warn('Warning deleting snapshots:', snapshotsError)
+        // Continue - may not exist
+      }
+      
+      // 10. Delete payment transactions
+      const { error: paymentsError } = await supabase
+        .from('payment_transactions')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (paymentsError) {
+        console.warn('Warning deleting payments:', paymentsError)
+        // Continue - may not exist
+      }
+      
+      // 11. Delete lesson transactions
+      const { error: lessonTransactionsError } = await supabase
+        .from('lesson_transactions')
+        .delete()
+        .eq('student_id', studentId)
+      
+      if (lessonTransactionsError) {
+        console.warn('Warning deleting lesson transactions:', lessonTransactionsError)
+        // Continue - may not exist
+      }
+      
+      // 12. Delete lessons (this has foreign key constraint on students)
+      const { error: lessonsError } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('student_id', studentId)
+
+      if (lessonsError) {
+        console.error('Error deleting lessons:', lessonsError)
+        throw new Error(`Failed to delete lessons: ${lessonsError.message}`)
+      }
+
+      // 13. Delete from students table
+      const { error: studentError } = await supabase
+        .from('students')
+        .delete()
+        .eq('id', studentId)
+
+      if (studentError) {
+        console.error('Error deleting student:', studentError)
+        throw new Error(`Failed to delete student record: ${studentError.message}`)
+      }
+
+      // 14. Delete from profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', studentId)
+
+      if (profileError) {
+        console.error('Error deleting profile:', profileError)
+        throw new Error(`Failed to delete profile: ${profileError.message}`)
+      }
+
+      console.log('Student deletion completed successfully')
+      alert('Student profile deleted successfully')
+      navigate('/coach/students')
+    } catch (error) {
+      console.error('Error deleting student:', error)
+      alert('Error deleting student: ' + error.message)
+    } finally {
+      setDeletingStudent(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
   const saveLeadSource = async () => {
     try {
       const { error } = await supabase
@@ -776,6 +978,20 @@ export default function StudentDetailPage() {
                       >
                         <Calendar size={18} />
                         Book Directly
+                      </button>
+                      <button 
+                        className="btn btn-outline btn-sm"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: '#dc3545',
+                          borderColor: '#dc3545'
+                        }}
+                      >
+                        <Trash2 size={18} />
+                        Delete Profile
                       </button>
                     </div>
                   </div>
@@ -1752,6 +1968,86 @@ export default function StudentDetailPage() {
             setShowCreateLesson(false)
           }}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => !deletingStudent && setShowDeleteConfirm(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div 
+            className="modal-content" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '32px',
+              maxWidth: '500px',
+              width: '90%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 600, color: '#1f2937' }}>
+                Delete Student Profile
+              </h2>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '16px', lineHeight: 1.5 }}>
+                Are you sure you want to delete this student profile? This will permanently delete:
+              </p>
+              <ul style={{ margin: '16px 0 0 20px', color: '#6b7280', fontSize: '14px', lineHeight: 1.8 }}>
+                <li>Student profile and all associated data</li>
+                <li>All lessons and lesson history</li>
+                <li>Development plans and progress</li>
+                <li>Their authentication account</li>
+              </ul>
+              <p style={{ margin: '16px 0 0 0', color: '#dc3545', fontSize: '14px', fontWeight: 600 }}>
+                This action cannot be undone.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-outline"
+                onClick={() => !deletingStudent && setShowDeleteConfirm(false)}
+                disabled={deletingStudent}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                No, Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleDeleteStudent}
+                disabled={deletingStudent}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  backgroundColor: '#dc3545',
+                  borderColor: '#dc3545',
+                  color: 'white'
+                }}
+              >
+                {deletingStudent ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

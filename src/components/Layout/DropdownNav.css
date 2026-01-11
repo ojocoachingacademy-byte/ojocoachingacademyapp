@@ -97,3 +97,28 @@
   flex-shrink: 0;
 }
 
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .dropdown-nav {
+    width: 100%;
+  }
+
+  .dropdown-trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dropdown-menu {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+    box-shadow: none;
+    border: 1px solid #E8E0F0;
+    border-radius: 8px;
+  }
+
+  .dropdown-menu-item {
+    width: 100%;
+  }
+}
+

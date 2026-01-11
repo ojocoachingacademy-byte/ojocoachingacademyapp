@@ -1,7 +1,8 @@
 .student-dashboard {
   width: 100%;
-  max-width: none;
+  max-width: 100vw;
   padding: var(--spacing-2xl) var(--spacing-xl);
+  overflow-x: hidden;
 }
 
 .dashboard-header {
@@ -380,17 +381,109 @@
 
 @media (max-width: 768px) {
   .student-dashboard {
-    padding: var(--spacing-md);
+    padding: 16px 10px;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  .dashboard-header {
+    margin-bottom: 24px;
+  }
+
+  .welcome-message {
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+
+  .header-stats-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .stat-card-small {
+    min-width: auto;
+    width: 100%;
   }
   
   .stats-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
   }
-  
-  .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-md);
+
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .lesson-card {
+    padding: 16px;
+  }
+
+  .lesson-list {
+    gap: 12px;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  table thead {
+    display: none;
+  }
+
+  table tbody tr {
+    display: block;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: white;
+  }
+
+  table td {
+    display: block;
+    text-align: right;
+    padding: 8px 0;
+    border: none;
+    position: relative;
+    padding-left: 50%;
+  }
+
+  table td:before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 45%;
+    padding-right: 10px;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    color: #666;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 12px 16px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .book-lesson-btn {
+    width: 100%;
+    margin-top: 16px;
   }
 }
 

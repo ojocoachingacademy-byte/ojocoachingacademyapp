@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp, MapPin } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp, MapPin, Menu, X } from 'lucide-react'
 import NotificationBell from '../Notifications/NotificationBell'
 import DropdownNav from './DropdownNav'
 import './Header.css'
@@ -9,6 +10,7 @@ import './DropdownNav.css'
 export default function Header({ user, isCoach }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -16,6 +18,8 @@ export default function Header({ user, isCoach }) {
   }
 
   const isActive = (path) => location.pathname === path
+
+  const closeMobileMenu = () => setMobileMenuOpen(false)
 
   return (
     <header className="app-header">
@@ -39,12 +43,23 @@ export default function Header({ user, isCoach }) {
               </div>
             </div>
         
-        <nav className="header-nav">
+        <button 
+          className="mobile-menu-toggle"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+
+        <nav className={`header-nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
           {user && (
             <>
               <button 
                 className={`nav-link ${isActive(isCoach ? '/coach' : '/dashboard') ? 'active' : ''}`}
-                onClick={() => navigate(isCoach ? '/coach' : '/dashboard')}
+                onClick={() => {
+                  navigate(isCoach ? '/coach' : '/dashboard')
+                  closeMobileMenu()
+                }}
               >
                 <LayoutDashboard size={18} />
                 Dashboard
@@ -58,6 +73,7 @@ export default function Header({ user, isCoach }) {
                       className={`dropdown-menu-item ${isActive('/coach/students') || location.pathname.startsWith('/coach/students/') ? 'active' : ''}`}
                       onClick={() => {
                         navigate('/coach/students')
+                        closeMobileMenu()
                       }}
                     >
                       <Users size={16} className="icon" />
@@ -65,14 +81,20 @@ export default function Header({ user, isCoach }) {
                     </button>
                     <button 
                       className={`dropdown-menu-item ${isActive('/coach/lessons') ? 'active' : ''}`}
-                      onClick={() => navigate('/coach/lessons')}
+                      onClick={() => {
+                        navigate('/coach/lessons')
+                        closeMobileMenu()
+                      }}
                     >
                       <Calendar size={16} className="icon" />
                       Lessons
                     </button>
                     <button 
                       className={`dropdown-menu-item ${isActive('/coach/calendar') ? 'active' : ''}`}
-                      onClick={() => navigate('/coach/calendar')}
+                      onClick={() => {
+                        navigate('/coach/calendar')
+                        closeMobileMenu()
+                      }}
                     >
                       <Calendar size={16} className="icon" />
                       Calendar
@@ -83,21 +105,30 @@ export default function Header({ user, isCoach }) {
                   <DropdownNav label="Finances" icon={DollarSign}>
                     <button 
                       className={`dropdown-menu-item ${isActive('/coach/finances') ? 'active' : ''}`}
-                      onClick={() => navigate('/coach/finances')}
+                      onClick={() => {
+                        navigate('/coach/finances')
+                        closeMobileMenu()
+                      }}
                     >
                       <DollarSign size={16} className="icon" />
                       Revenue
                     </button>
                     <button 
                       className={`dropdown-menu-item ${isActive('/coach/expenses') ? 'active' : ''}`}
-                      onClick={() => navigate('/coach/expenses')}
+                      onClick={() => {
+                        navigate('/coach/expenses')
+                        closeMobileMenu()
+                      }}
                     >
                       <Receipt size={16} className="icon" />
                       Expenses
                     </button>
                     <button 
                       className={`dropdown-menu-item ${isActive('/coach/referrals') ? 'active' : ''}`}
-                      onClick={() => navigate('/coach/referrals')}
+                      onClick={() => {
+                        navigate('/coach/referrals')
+                        closeMobileMenu()
+                      }}
                     >
                       <UserCheck size={16} className="icon" />
                       Referrals
@@ -108,7 +139,10 @@ export default function Header({ user, isCoach }) {
                   <DropdownNav label="Marketing" icon={ThumbsUp}>
                     <button 
                       className={`dropdown-menu-item ${isActive('/coach/testimonials') ? 'active' : ''}`}
-                      onClick={() => navigate('/coach/testimonials')}
+                      onClick={() => {
+                        navigate('/coach/testimonials')
+                        closeMobileMenu()
+                      }}
                     >
                       <ThumbsUp size={16} className="icon" />
                       Testimonials
@@ -118,7 +152,10 @@ export default function Header({ user, isCoach }) {
               ) : (
                 <button 
                   className={`nav-link ${isActive('/lessons') ? 'active' : ''}`}
-                  onClick={() => navigate('/lessons')}
+                  onClick={() => {
+                    navigate('/lessons')
+                    closeMobileMenu()
+                  }}
                 >
                   <Calendar size={18} />
                   Lessons
@@ -129,21 +166,30 @@ export default function Header({ user, isCoach }) {
               <DropdownNav label="Community" icon={Users}>
                 <button 
                   className={`dropdown-menu-item ${isActive('/hitting-partners') ? 'active' : ''}`}
-                  onClick={() => navigate('/hitting-partners')}
+                  onClick={() => {
+                    navigate('/hitting-partners')
+                    closeMobileMenu()
+                  }}
                 >
                   <Users size={16} className="icon" />
                   Hitting Partners
                 </button>
                 <button 
                   className={`dropdown-menu-item ${isActive('/tennis-resources') ? 'active' : ''}`}
-                  onClick={() => navigate('/tennis-resources')}
+                  onClick={() => {
+                    navigate('/tennis-resources')
+                    closeMobileMenu()
+                  }}
                 >
                   <MapPin size={16} className="icon" />
                   Tennis Resources
                 </button>
                 <button 
                   className={`dropdown-menu-item ${isActive('/messages') ? 'active' : ''}`}
-                  onClick={() => navigate('/messages')}
+                  onClick={() => {
+                    navigate('/messages')
+                    closeMobileMenu()
+                  }}
                 >
                   <MessageSquare size={16} className="icon" />
                   Messages

@@ -6,7 +6,8 @@ import './Signup.css'
 export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [accountType, setAccountType] = useState('student')
   const [ntrpLevel, setNtrpLevel] = useState('3.0')
@@ -14,9 +15,21 @@ export default function Signup() {
   const [success, setSuccess] = useState(false)
   const navigate = useNavigate()
 
+  const validatePhone = (phoneNumber) => {
+    // Remove all non-digit characters
+    const digitsOnly = phoneNumber.replace(/\D/g, '')
+    return digitsOnly.length === 10
+  }
+
   const handleSignup = async (e) => {
     e.preventDefault()
     setError(null)
+
+    // Validate phone number (must be 10 digits)
+    if (!validatePhone(phone)) {
+      setError('Phone number must be exactly 10 digits')
+      return
+    }
 
     // Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -48,6 +61,9 @@ export default function Signup() {
     }
 
     // Create profile with authenticated session
+    const fullName = `${firstName} ${lastName}`.trim()
+    const phoneDigitsOnly = phone.replace(/\D/g, '')
+    
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .insert([
@@ -55,7 +71,7 @@ export default function Signup() {
           id: authData.user.id,
           email,
           full_name: fullName,
-          phone: phone || null,
+          phone: phoneDigitsOnly,
           account_type: accountType,
           ntrp_level: ntrpLevel,
         },
@@ -129,16 +145,29 @@ export default function Signup() {
           <div className="success-message">Account created! Redirecting...</div>
         ) : (
           <form onSubmit={handleSignup} className="signup-form">
-            <div>
-              <label className="label">Full Name</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="John Doe"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label className="label">First Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Last Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
             </div>
             <div>
               <label className="label">Email</label>
@@ -163,14 +192,19 @@ export default function Signup() {
               />
             </div>
             <div>
-              <label className="label">Phone (Optional)</label>
+              <label className="label">Phone Number</label>
               <input
                 type="tel"
                 className="input"
                 placeholder="(555) 123-4567"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                required
+                maxLength={14}
               />
+              <small style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' }}>
+                Must be 10 digits
+              </small>
             </div>
             <div>
               <label className="label">Account Type</label>

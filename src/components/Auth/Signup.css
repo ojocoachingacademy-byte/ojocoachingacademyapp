@@ -76,6 +76,13 @@
   display: inline-block;
 }
 
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .signup-form > div:first-child {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 .signup-form {
   display: flex;
   flex-direction: column;
