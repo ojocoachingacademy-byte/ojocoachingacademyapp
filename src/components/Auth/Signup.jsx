@@ -7,6 +7,7 @@ import './Signup.css'
 export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
@@ -89,6 +90,12 @@ export default function Signup() {
     e.preventDefault()
     setError(null)
 
+    // Validate password match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please try again.')
+      return
+    }
+
     // Validate phone number (must be 10 digits)
     if (!validatePhone(phone)) {
       setError('Phone number must be exactly 10 digits')
@@ -114,11 +121,19 @@ export default function Signup() {
     })
 
     if (authError) {
+      // Handle specific Supabase errors
       if (authError.message.includes('already registered')) {
-        setError('An account with this email already exists. Please try logging in instead.')
+        setError('This email is already registered. Please login or reset your password.')
       } else {
         setError(authError.message)
       }
+      return
+    }
+
+    // CRITICAL: Check if user already exists
+    // Supabase returns empty identities array for existing users
+    if (authData?.user && authData.user.identities && authData.user.identities.length === 0) {
+      setError('This email is already registered. Please login instead, or reset your password if you forgot it.')
       return
     }
 
@@ -220,6 +235,27 @@ export default function Signup() {
               />
             </div>
             <div>
+              <label className="label">Confirm Password</label>
+              <input
+                type="password"
+                className="input"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              {confirmPassword && password !== confirmPassword && (
+                <small style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', display: 'block' }}>
+                  Passwords do not match
+                </small>
+              )}
+              {confirmPassword && password === confirmPassword && password.length > 0 && (
+                <small style={{ fontSize: '12px', color: '#10b981', marginTop: '4px', display: 'block' }}>
+                  ✓ Passwords match
+                </small>
+              )}
+            </div>
+            <div>
               <label className="label">Phone Number</label>
               <input
                 type="tel"
@@ -262,7 +298,29 @@ export default function Signup() {
                 <option value="5.0+">5.0+ - Expert</option>
               </select>
             </div>
-            {error && <div className="error-message">{error}</div>}
+            {error && (
+              <div className="error-message" style={{
+                background: '#FFEBEE',
+                border: '1px solid #F44336',
+                padding: '1rem',
+                borderRadius: '8px',
+                marginBottom: '1rem',
+                color: '#D32F2F'
+              }}>
+                <strong>Error:</strong> {error}
+                {error.includes('already registered') && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <a href="/login" style={{ color: '#4B2C6C', textDecoration: 'underline', marginRight: '0.5rem' }}>
+                      Go to Login
+                    </a>
+                    {'or '}
+                    <a href="/forgot-password" style={{ color: '#4B2C6C', textDecoration: 'underline' }}>
+                      Reset Password
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
               Sign Up
             </button>

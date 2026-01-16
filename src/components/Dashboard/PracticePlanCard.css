@@ -1,0 +1,209 @@
+.practice-plan-card {
+  background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
+  border-radius: 16px;
+  padding: 2rem;
+  margin: 2rem 0;
+  box-shadow: 0 8px 24px rgba(75, 44, 108, 0.15);
+  position: relative;
+  border: 3px solid #6A4C8C;
+  transition: all 0.3s ease;
+}
+
+.practice-plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(75, 44, 108, 0.25);
+}
+
+.practice-plan-card.completed {
+  background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  border-color: #4CAF50;
+}
+
+.practice-plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.practice-plan-header h3 {
+  color: #4B2C6C;
+  font-size: 1.4rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.time-badge {
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  color: #4B2C6C;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-size: 0.9rem;
+}
+
+.practice-plan-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.practice-plan-content p {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: #1f2937;
+  margin: 0;
+}
+
+.practice-plan-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.complete-button {
+  font-size: 1.1rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.3);
+  transition: all 0.3s ease;
+  border: none;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.complete-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(75, 44, 108, 0.4);
+}
+
+.complete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.motivation-text {
+  font-style: italic;
+  color: #6b7280;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.completion-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.checkmark {
+  font-size: 2rem;
+}
+
+.completion-text {
+  font-weight: 600;
+  color: #4CAF50;
+  font-size: 1.1rem;
+}
+
+.completion-date {
+  margin-left: auto;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.confetti-animation {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3rem;
+  animation: confetti-burst 2s ease-out;
+  z-index: 10;
+  display: flex;
+  gap: 1rem;
+}
+
+.confetti-animation span {
+  display: inline-block;
+  animation: confetti-float 2s ease-out;
+}
+
+@keyframes confetti-burst {
+  0% {
+    transform: translateX(-50%) translateY(0) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-30px) scale(1.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-60px) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-20px) rotate(90deg);
+  }
+  50% {
+    transform: translateY(-40px) rotate(180deg);
+  }
+  75% {
+    transform: translateY(-20px) rotate(270deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .practice-plan-card {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .practice-plan-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .practice-plan-content {
+    padding: 1rem;
+  }
+
+  .practice-plan-content p {
+    font-size: 1rem;
+  }
+
+  .practice-plan-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .complete-button {
+    width: 100%;
+  }
+
+  .completion-status {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .completion-date {
+    margin-left: 0;
+  }
+}
+
+

@@ -32,7 +32,7 @@ SITUATIONAL PLAY (10 min)
 COOL DOWN (5 min)
 - Light stretching
 - Key takeaways discussion
-- Homework: Shadow swings in front of mirror`
+- Practice Plan: Shadow swings in front of mirror`
   },
   {
     id: 'default-2',
@@ -133,7 +133,7 @@ SITUATIONAL PLAY (10 min)
 COOL DOWN (5 min)
 - Stretching
 - Movement patterns review
-- Net game homework`
+- Net game practice plan`
   },
   {
     id: 'default-5',
@@ -205,7 +205,7 @@ AGILITY GAMES (5 min)
 COOL DOWN (5 min)
 - Static stretching
 - Foam rolling if available
-- Footwork homework drills`
+- Footwork practice plan drills`
   }
 ]
 

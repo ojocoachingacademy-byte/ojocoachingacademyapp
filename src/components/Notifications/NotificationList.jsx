@@ -102,39 +102,44 @@ export default function NotificationList() {
   const markAllAsRead = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.error('No user found')
+        return
+      }
 
       const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
-      if (unreadIds.length === 0) return
+      if (unreadIds.length === 0) {
+        console.log('No unread notifications to mark')
+        return
+      }
+
+      console.log(`Marking ${unreadIds.length} notifications as read`)
+
+      // Use a single bulk update query with user_id filter for security
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .in('id', unreadIds)
+
+      if (error) {
+        console.error('Error marking all notifications as read:', error)
+        alert('Failed to mark all notifications as read. Please try again.')
+        return
+      }
 
       // Update local state immediately for better UX
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-
-      // Update notifications individually in parallel
-      const updatePromises = unreadIds.map(id =>
-        supabase
-          .from('notifications')
-          .update({ read: true })
-          .eq('id', id)
-      )
-      
-      const results = await Promise.all(updatePromises)
-      const errors = results.filter(r => r.error)
-      
-      if (errors.length > 0) {
-        console.error('Some notifications failed to update:', errors)
-      }
       
       // Refetch to ensure consistency
-      setTimeout(() => {
-        fetchNotifications()
-      }, 100)
+      await fetchNotifications()
+      
+      console.log('Successfully marked all notifications as read')
     } catch (error) {
       console.error('Error marking all as read:', error)
-      // State already updated, refetch to sync with server
-      setTimeout(() => {
-        fetchNotifications()
-      }, 100)
+      alert('Failed to mark all notifications as read. Please try again.')
+      // Refetch to sync with server
+      await fetchNotifications()
     }
   }
 

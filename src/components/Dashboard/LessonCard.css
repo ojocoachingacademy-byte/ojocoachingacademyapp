@@ -1,0 +1,245 @@
+.lesson-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.lesson-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.lesson-card.upcoming {
+  border-left: 4px solid #4B2C6C;
+}
+
+.lesson-card.past {
+  border-left: 4px solid #E0E0E0;
+}
+
+.lesson-card.expanded {
+  border-left-width: 4px;
+}
+
+/* Card Header */
+.lesson-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lesson-card-header:hover {
+  background: #F8F9FA;
+}
+
+.lesson-date-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.lesson-day {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.lesson-date {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.lesson-time {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.lesson-countdown {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  background: #4B2C6C;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+/* Indicators */
+.lesson-indicators {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.indicator {
+  font-size: 1.5rem;
+  transition: transform 0.2s ease;
+  cursor: help;
+}
+
+.indicator:hover {
+  transform: scale(1.2);
+}
+
+.indicator.practice.completed {
+  filter: brightness(1.2);
+}
+
+/* Expand Button */
+.expand-btn {
+  background: none;
+  border: none;
+  color: #4B2C6C;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.lesson-card.expanded .expand-btn {
+  transform: rotate(180deg);
+}
+
+/* Card Content */
+.lesson-card-content {
+  padding: 0 1.25rem 1.25rem 1.25rem;
+  border-top: 1px solid #E0E0E0;
+  animation: expandContent 0.3s ease;
+}
+
+@keyframes expandContent {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lesson-detail-section {
+  margin-top: 1rem;
+}
+
+.lesson-detail-section:first-child {
+  margin-top: 0;
+}
+
+.lesson-detail-section h4 {
+  color: #4B2C6C;
+  font-size: 1rem;
+  margin: 0 0 0.75rem 0;
+  font-weight: 600;
+}
+
+.detail-content {
+  background: #F8F9FA;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.detail-content p {
+  margin: 0;
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.feedback-content {
+  background: #F3F0FF;
+}
+
+.learnings-content {
+  background: #E8F5E9;
+}
+
+.practice-content {
+  background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
+  border: 2px solid #4B2C6C;
+}
+
+.practice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.practice-time {
+  font-size: 0.9rem;
+  color: #4B2C6C;
+  font-weight: 600;
+}
+
+.practice-completed {
+  font-size: 0.9rem;
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.lesson-location {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #E0E0E0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.location-icon {
+  font-size: 1.2rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .lesson-card-header {
+    flex-wrap: wrap;
+    padding: 1rem;
+  }
+
+  .lesson-date-info {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .lesson-indicators {
+    margin-left: auto;
+    order: 2;
+  }
+
+  .expand-btn {
+    order: 3;
+  }
+
+  .lesson-card-content {
+    padding: 0 1rem 1rem 1rem;
+  }
+
+  .indicator {
+    font-size: 1.25rem;
+  }
+
+  .practice-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+

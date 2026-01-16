@@ -1,0 +1,216 @@
+const { createClient } = require('@supabase/supabase-js')
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
+function getNextSunday() {
+  const now = new Date()
+  const daysUntilSunday = (7 - now.getDay()) % 7 || 7
+  const nextSunday = new Date(now)
+  nextSunday.setDate(now.getDate() + daysUntilSunday)
+  nextSunday.setHours(0, 0, 0, 0)
+  return nextSunday
+}
+
+exports.handler = async (event, context) => {
+  // This function runs on a schedule: Wednesday at 12pm
+  // Cron: 0 12 * * 3 (12pm every Wednesday)
+  
+  console.log('=== WEDNESDAY CHECK-IN EMAILS STARTED ===')
+  console.log('Time:', new Date().toISOString())
+
+  try {
+    // Get all students with upcoming Sunday lessons
+    const nextSunday = getNextSunday()
+    const nextSundayEnd = new Date(nextSunday)
+    nextSundayEnd.setHours(23, 59, 59, 999)
+    
+    console.log('Looking for lessons on:', nextSunday.toISOString())
+    
+    const { data: upcomingLessons, error: lessonsError } = await supabase
+      .from('lessons')
+      .select(`
+        id,
+        lesson_date,
+        practice_plan,
+        practice_plan_time_estimate,
+        practice_plan_completed,
+        student_id,
+        students!inner(
+          id,
+          profiles!inner(
+            full_name,
+            email
+          )
+        )
+      `)
+      .gte('lesson_date', nextSunday.toISOString())
+      .lte('lesson_date', nextSundayEnd.toISOString())
+      .eq('status', 'scheduled')
+    
+    if (lessonsError) {
+      console.error('Error fetching lessons:', lessonsError)
+      throw lessonsError
+    }
+
+    console.log(`Found ${upcomingLessons?.length || 0} upcoming Sunday lessons`)
+
+    if (!upcomingLessons || upcomingLessons.length === 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'No upcoming Sunday lessons found' })
+      }
+    }
+
+    // Get SendGrid configuration
+    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
+    const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL
+
+    if (!SENDGRID_API_KEY || !SENDGRID_FROM_EMAIL) {
+      console.error('SendGrid not configured')
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'SendGrid not configured' })
+      }
+    }
+
+    let sentCount = 0
+    let errorCount = 0
+
+    // Send email to each student
+    for (const lesson of upcomingLessons) {
+      try {
+        const studentEmail = lesson.students.profiles.email
+        const studentName = lesson.students.profiles.full_name.split(' ')[0]
+        
+        console.log(`Processing student: ${studentName} (${studentEmail})`)
+
+        // Get last lesson for context
+        const { data: lastLesson } = await supabase
+          .from('lessons')
+          .select('coach_feedback, student_learnings, lesson_date')
+          .eq('student_id', lesson.student_id)
+          .eq('status', 'completed')
+          .order('lesson_date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        // Build email content
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #4B2C6C;">Midweek Check-In 👋</h2>
+            
+            <p style="line-height: 1.8; color: #333;">Hey ${studentName},</p>
+            
+            <p style="line-height: 1.8; color: #333;">Hope your week is going well!</p>
+            
+            ${lastLesson?.coach_feedback ? `
+              <div style="background: #E8F5E9; padding: 20px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #2E7D32; margin-top: 0;">🌟 Quick Win from Sunday:</h3>
+                <p style="line-height: 1.6; color: #333;">${lastLesson.coach_feedback.substring(0, 200)}${lastLesson.coach_feedback.length > 200 ? '...' : ''}</p>
+              </div>
+            ` : ''}
+            
+            ${lesson.practice_plan ? `
+              <div style="background: linear-gradient(135deg, #E9E3FF 0%, #F3F0FF 100%); padding: 20px; border-radius: 12px; margin: 20px 0; border: 3px solid #6A4C8C;">
+                <h3 style="color: #4B2C6C; margin-top: 0;">🎯 THIS WEEK'S PRACTICE FOCUS</h3>
+                <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                  <p style="line-height: 1.6; color: #333; font-size: 16px; margin: 0;">
+                    ${lesson.practice_plan}
+                  </p>
+                </div>
+                <div style="background: white; padding: 12px; border-radius: 8px; display: inline-block;">
+                  <span style="font-weight: 600; color: #4B2C6C;">⏱️ ${lesson.practice_plan_time_estimate || 15} minutes</span>
+                </div>
+              </div>
+            ` : ''}
+            
+            <div style="background: #F3F0FF; padding: 20px; border-radius: 12px; margin: 20px 0;">
+              <h3 style="color: #4B2C6C; margin-top: 0;">👀 Looking Ahead:</h3>
+              <p style="line-height: 1.6; color: #333;">See you this Sunday for your lesson! We'll build on what we worked on last time.</p>
+            </div>
+            
+            <div style="background: #FFF9C4; padding: 15px; border-radius: 8px; margin: 20px 0; border: 2px solid #F9A825;">
+              <p style="margin: 0; color: #333; font-size: 15px;">
+                <strong>Quick check-in:</strong> Have you had a chance to try the practice focus yet? 
+                Even 5 minutes makes a difference! 💪
+              </p>
+              <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">
+                Hit reply and let me know how it's going!
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://ojocoachingacademyapp.netlify.app/dashboard" style="background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+                Mark Practice as Complete
+              </a>
+            </div>
+            
+            <p style="color: #666; margin-top: 30px; line-height: 1.6;">
+              Questions? Just hit reply!<br><br>
+              - Coach Tobi
+            </p>
+          </div>
+        `
+
+        // Send email via SendGrid
+        const emailData = {
+          personalizations: [{
+            to: [{ email: studentEmail }],
+            subject: `Midweek Check-In - ${studentName}`
+          }],
+          from: { email: SENDGRID_FROM_EMAIL },
+          content: [{
+            type: 'text/html',
+            value: emailHtml
+          }]
+        }
+
+        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(emailData)
+        })
+
+        if (response.ok) {
+          console.log(`Email sent successfully to ${studentEmail}`)
+          sentCount++
+        } else {
+          const errorText = await response.text()
+          console.error(`Failed to send email to ${studentEmail}:`, response.status, errorText)
+          errorCount++
+        }
+
+      } catch (error) {
+        console.error(`Error processing student ${lesson.student_id}:`, error)
+        errorCount++
+      }
+    }
+
+    console.log(`=== CHECK-IN EMAILS COMPLETE ===`)
+    console.log(`Sent: ${sentCount}, Errors: ${errorCount}`)
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ 
+        message: `Sent ${sentCount} midweek check-in emails`,
+        sent: sentCount,
+        errors: errorCount
+      })
+    }
+
+  } catch (error) {
+    console.error('Error sending midweek emails:', error)
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Failed to send emails', message: error.message })
+    }
+  }
+}
+
+

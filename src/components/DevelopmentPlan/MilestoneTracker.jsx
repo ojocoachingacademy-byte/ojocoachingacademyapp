@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { getMilestonesByLevel } from './MilestonesConstants'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Target } from 'lucide-react'
 import './MilestoneTracker.css'
 
-export default function MilestoneTracker({ studentId, isCoach = false, playerLevel = 'beginner' }) {
+export default function MilestoneTracker({ studentId, isCoach = false, playerLevel = 'beginner', highlightTargetMilestone = null }) {
   const [achievedMilestones, setAchievedMilestones] = useState([])
   const [loading, setLoading] = useState(true)
   
@@ -103,9 +103,6 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
 
   return (
     <div className="milestone-board">
-      <h3>Your Progress Ladder 🎾 {playerLevel === 'advanced' && '(Advanced Level)'}</h3>
-      <p>Complete milestones to level up your game!</p>
-      
       {loading ? (
         <div>Loading...</div>
       ) : (
@@ -125,15 +122,18 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                 {rowMilestones.map(milestone => {
                   const achieved = isAchieved(milestone.number)
                   const nextToAchieve = !achieved && achievedMilestones.length + 1 === milestone.number
+                  const isTarget = highlightTargetMilestone && milestone.number === highlightTargetMilestone
                   return (
                     <div
                       key={milestone.number}
-                      className={`milestone-node ${achieved ? 'achieved' : ''} ${nextToAchieve ? 'next-up' : ''} ${isCoach ? 'clickable' : ''}`}
+                      className={`milestone-node ${achieved ? 'achieved' : ''} ${nextToAchieve ? 'next-up' : ''} ${isTarget ? 'target-milestone' : ''} ${isCoach ? 'clickable' : ''}`}
                       onClick={() => isCoach && handleToggleMilestone(milestone)}
                     >
                       <div className="node-circle">
                         <div className="milestone-number">{milestone.number}</div>
                         {achieved && <CheckCircle className="check-icon" size={24} />}
+                        {isTarget && !achieved && <Target className="target-icon" size={20} />}
+                        {isTarget && achieved && <Target className="target-icon achieved-target" size={20} />}
                       </div>
                       <div className="milestone-info">
                         <div className="milestone-name">{milestone.name}</div>
@@ -160,6 +160,14 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
           <div className="legend-node"></div>
           <span>Not Yet</span>
         </div>
+        {highlightTargetMilestone && (
+          <div className="legend-item">
+            <div className="legend-node target-milestone">
+              <Target size={16} color="#4B2C6C" />
+            </div>
+            <span>Your Goal</span>
+          </div>
+        )}
         {isCoach && (
           <div className="legend-hint">
             💡 Click any milestone to mark as achieved

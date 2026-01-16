@@ -70,34 +70,40 @@ export default function EmailConfirmed() {
           
           // Sign out the auto-created session for security (force manual login)
           await supabase.auth.signOut()
-          
-          // Countdown to auto-redirect
-          const timer = setInterval(() => {
-            setCountdown(prev => {
-              if (prev <= 1) {
-                clearInterval(timer)
-                navigate('/login')
-                return 0
-              }
-              return prev - 1
-            })
-          }, 1000)
-          
-          return () => clearInterval(timer)
         } else {
           // Not confirmed or no session, redirect to login
           setLoading(false)
-          navigate('/login')
+          // Navigate after component has mounted
+          setTimeout(() => navigate('/login'), 100)
         }
       } catch (error) {
         console.error('Error checking confirmation:', error)
         setLoading(false)
-        navigate('/login')
+        setTimeout(() => navigate('/login'), 100)
       }
     }
     
     checkConfirmation()
   }, [navigate])
+
+  // Handle countdown and redirect separately
+  useEffect(() => {
+    if (!verified || loading) return
+
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          // Navigate after state update completes
+          setTimeout(() => navigate('/login'), 100)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    
+    return () => clearInterval(timer)
+  }, [verified, loading, navigate])
 
   if (loading) {
     return (

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2 } from 'lucide-react'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
+import StudentPracticePlans from './StudentPracticePlans'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 import AddPackageModal from '../Payments/AddPackageModal'
@@ -71,7 +73,7 @@ export default function StudentDetailPage() {
   }, [student?.referred_by_student_id])
 
   const fetchReferringStudent = async () => {
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name')
       .eq('id', student.referred_by_student_id)
@@ -82,7 +84,7 @@ export default function StudentDetailPage() {
 
   const fetchAllStudents = async () => {
     // Fetch students and profiles separately to avoid relationship ambiguity
-    const { data: studentsData } = await supabase
+    const { data: studentsData } = await supabaseAdmin
       .from('students')
       .select('id')
       .eq('is_active', true)
@@ -90,7 +92,7 @@ export default function StudentDetailPage() {
     
     if (studentsData) {
       const studentIds = studentsData.map(s => s.id)
-      const { data: profilesData } = await supabase
+      const { data: profilesData } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name')
         .in('id', studentIds)
@@ -110,17 +112,39 @@ export default function StudentDetailPage() {
     
     try {
       // Fetch lesson dates from lesson_transactions
-      const { data: lessonTransactions } = await supabase
+      const { data: lessonTransactions } = await supabaseAdmin
         .from('lesson_transactions')
-        .select('transaction_date')
+        .select('transaction_date, transaction_type')
         .eq('student_id', id)
         .eq('transaction_type', 'lesson_taken')
         .order('transaction_date', { ascending: true })
       
       const lessonDates = (lessonTransactions || []).map(t => t.transaction_date).filter(Boolean)
       
-      const totalRevenue = parseFloat(student.total_revenue || 0)
-      const totalLessonsPurchased = student.total_lessons_purchased || 0
+      // Fetch payment transactions to calculate revenue from transactions
+      const { data: paymentTransactions } = await supabaseAdmin
+        .from('lesson_transactions')
+        .select('amount_paid, package_size, transaction_date')
+        .eq('student_id', id)
+        .eq('transaction_type', 'package_purchase')
+        .order('transaction_date', { ascending: true })
+      
+      // Calculate revenue from payment transactions
+      const revenueFromTransactions = (paymentTransactions || []).reduce((sum, t) => {
+        const amount = parseFloat(t.amount_paid || 0)
+        return sum + (isNaN(amount) ? 0 : amount)
+      }, 0)
+      
+      // Calculate total lessons purchased from payment transactions
+      const lessonsPurchasedFromTransactions = (paymentTransactions || []).reduce((sum, t) => {
+        const size = parseInt(t.package_size || 0, 10)
+        return sum + (isNaN(size) ? 0 : size)
+      }, 0)
+      
+      // Use student.total_revenue and total_lessons_purchased as fallback, but prefer transaction data
+      // This ensures we're always in sync with actual transactions
+      const totalRevenue = revenueFromTransactions > 0 ? revenueFromTransactions : parseFloat(student.total_revenue || 0)
+      const totalLessonsPurchased = lessonsPurchasedFromTransactions > 0 ? lessonsPurchasedFromTransactions : (student.total_lessons_purchased || 0)
       const avgPerLesson = totalLessonsPurchased > 0 ? totalRevenue / totalLessonsPurchased : 0
       
       setFinancialData({
@@ -140,7 +164,7 @@ export default function StudentDetailPage() {
   const handleSaveRevenue = async () => {
     try {
       const revenue = parseFloat(editRevenueValue) || 0
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('students')
         .update({ total_revenue: revenue })
         .eq('id', id)
@@ -164,7 +188,7 @@ export default function StudentDetailPage() {
   const handleSaveLessonsPurchased = async () => {
     try {
       const lessonsPurchased = parseInt(editLessonsPurchasedValue) || 0
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('students')
         .update({ total_lessons_purchased: lessonsPurchased })
         .eq('id', id)
@@ -188,7 +212,7 @@ export default function StudentDetailPage() {
   const handleSaveCredits = async () => {
     try {
       const credits = parseInt(editCreditsValue) || 0
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('students')
         .update({ lesson_credits: credits })
         .eq('id', id)
@@ -209,7 +233,7 @@ export default function StudentDetailPage() {
     if (student && activeTab === 'financial') {
       fetchFinancialData()
     }
-  }, [student, activeTab, id])
+  }, [student, activeTab, id, student?.total_revenue, student?.total_lessons_purchased, student?.lesson_credits])
 
   const fetchStudentData = async () => {
     try {
@@ -217,7 +241,7 @@ export default function StudentDetailPage() {
       console.log('Student ID:', id)
       
       // Fetch student and profile separately to avoid relationship ambiguity
-      const { data: studentData, error: studentError } = await supabase
+      const { data: studentData, error: studentError } = await supabaseAdmin
         .from('students')
         .select('*')
         .eq('id', id)
@@ -228,7 +252,7 @@ export default function StudentDetailPage() {
         throw studentError
       }
 
-      const { data: profileData } = await supabase
+      const { data: profileData } = await supabaseAdmin
         .from('profiles')
         .select('full_name, email, ntrp_level, phone')
         .eq('id', id)
@@ -283,7 +307,7 @@ export default function StudentDetailPage() {
 
   const fetchLessons = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('lessons')
         .select('*')
         .eq('student_id', id)
@@ -304,7 +328,7 @@ export default function StudentDetailPage() {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('lessons')
         .delete()
         .eq('id', lessonId)
@@ -326,7 +350,7 @@ export default function StudentDetailPage() {
 
   const savePrivateNotes = async () => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('students')
         .update({ private_coach_notes: privateNotes })
         .eq('id', id)
@@ -359,7 +383,7 @@ export default function StudentDetailPage() {
 
       console.log('Formatted update data:', updateData)
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('students')
         .update(updateData)
         .eq('id', id)
@@ -376,7 +400,7 @@ export default function StudentDetailPage() {
       console.log('Save successful, returned data:', data)
 
       // Verify the save
-      const { data: verifyData, error: verifyError } = await supabase
+      const { data: verifyData, error: verifyError } = await supabaseAdmin
         .from('students')
         .select('development_plan, development_plan_notes')
         .eq('id', id)
@@ -419,7 +443,7 @@ export default function StudentDetailPage() {
       const fullName = `${profileFormData.first_name} ${profileFormData.last_name}`.trim()
       
       // Update profiles table
-      const { error: profileError } = await supabase
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
           full_name: fullName,
@@ -432,7 +456,7 @@ export default function StudentDetailPage() {
       if (profileError) throw profileError
 
       // Update students table (lesson_credits)
-      const { error: studentError } = await supabase
+      const { error: studentError } = await supabaseAdmin
         .from('students')
         .update({
           lesson_credits: profileFormData.lesson_credits
@@ -455,7 +479,7 @@ export default function StudentDetailPage() {
   const toggleActiveStatus = async () => {
     try {
       const newStatus = !student.is_active
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('students')
         .update({ is_active: newStatus })
         .eq('id', id)
@@ -471,7 +495,7 @@ export default function StudentDetailPage() {
   }
 
   const handleDeleteStudent = async () => {
-    if (!student) return
+    if (!student || deletingStudent) return // Prevent multiple clicks
     
     setDeletingStudent(true)
     try {
@@ -512,7 +536,21 @@ export default function StudentDetailPage() {
 
       if (!response.ok) {
         console.error('Error deleting user:', result)
-        throw new Error(`Failed to delete user: ${result.error || result.details || 'Unknown error'}`)
+        
+        // Provide more helpful error messages
+        let errorMessage = result.error || result.details || 'Unknown error'
+        
+        if (result.details && result.details.includes('configuration')) {
+          errorMessage = 'Server configuration error. Please contact support or check Netlify environment variables.'
+        } else if (result.details && result.details.includes('not configured')) {
+          errorMessage = 'Server configuration error. Please contact support.'
+        } else if (result.code === 'PGRST116' || result.details?.includes('not found')) {
+          errorMessage = 'User not found. They may have already been deleted.'
+        } else if (result.details) {
+          errorMessage = `Failed to delete user: ${result.details}`
+        }
+        
+        throw new Error(errorMessage)
       }
 
       console.log('User and all related records deleted successfully:', result)
@@ -1022,7 +1060,7 @@ export default function StudentDetailPage() {
                   className="btn btn-outline"
                   onClick={async () => {
                     const newLevel = student?.player_level === 'beginner' ? 'advanced' : 'beginner'
-                    const { error } = await supabase
+                    const { error } = await supabaseAdmin
                       .from('students')
                       .update({ player_level: newLevel })
                       .eq('id', student.id)
@@ -1078,6 +1116,9 @@ export default function StudentDetailPage() {
                 </div>
               </div>
             )}
+
+            {/* Practice Plan Completion Tracking */}
+            <StudentPracticePlans studentId={id} />
           </div>
         )}
 
@@ -1281,7 +1322,7 @@ export default function StudentDetailPage() {
               onChange={async (e) => {
                 const newNotes = e.target.value
                 try {
-                  const { error } = await supabase
+                  const { error } = await supabaseAdmin
                     .from('students')
                     .update({ development_plan_notes: newNotes })
                     .eq('id', id)

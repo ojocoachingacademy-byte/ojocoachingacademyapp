@@ -124,17 +124,27 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.error('No user found')
+        return
+      }
 
       const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
-      if (unreadIds.length === 0) return
+      if (unreadIds.length === 0) {
+        console.log('No unread notifications to mark')
+        return
+      }
 
+      console.log(`Marking ${unreadIds.length} notifications as read`)
+
+      // Use a single bulk update query with user_id filter for security
       const { error } = await supabase
         .from('notifications')
         .update({ 
           read: true, 
           read_at: new Date().toISOString() 
         })
+        .eq('user_id', user.id)
         .in('id', unreadIds)
 
       if (error) {
@@ -145,6 +155,8 @@ export default function NotificationBell() {
       // Update local state
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
       setUnreadCount(0)
+      
+      console.log('Successfully marked all notifications as read')
     } catch (error) {
       console.error('Error marking all notifications as read:', error)
       // Silently fail - don't interrupt user experience

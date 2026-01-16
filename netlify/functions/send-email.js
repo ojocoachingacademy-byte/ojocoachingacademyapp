@@ -2,21 +2,48 @@
 // This is a template - you'll need to configure your email service
 
 exports.handler = async (event, context) => {
+  // CORS headers for browser requests
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  }
+
+  // Handle preflight OPTIONS request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    }
+  }
+
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers,
       body: JSON.stringify({ error: 'Method not allowed' })
     }
   }
 
   try {
-    const { to, subject, html, text } = JSON.parse(event.body)
+    // Parse body - handle both string and object
+    let bodyData
+    if (typeof event.body === 'string') {
+      bodyData = JSON.parse(event.body)
+    } else {
+      bodyData = event.body
+    }
+
+    const { to, subject, html, text } = bodyData
 
     // Validate required fields
     if (!to || !subject || (!html && !text)) {
       return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ error: 'Missing required fields: to, subject, and html/text are required' })
       }
     }
@@ -43,9 +70,7 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify({ 
         success: true,
         message: 'Email sent successfully' 
@@ -55,6 +80,7 @@ exports.handler = async (event, context) => {
     console.error('Error sending email:', error)
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ error: error.message || 'Internal server error' })
     }
   }

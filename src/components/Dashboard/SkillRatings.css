@@ -1,0 +1,26 @@
+.skill-ratings {
+  width: 100%;
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.skill-ratings-loading,
+.no-skill-ratings {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  background: white;
+  border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

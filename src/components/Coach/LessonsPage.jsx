@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save } from 'lucide-react'
 import './LessonsPage.css'
@@ -28,7 +29,7 @@ export default function LessonsPage() {
   const fetchLessons = async () => {
     try {
       // First, get all active student IDs
-      const { data: activeStudents, error: studentsError } = await supabase
+      const { data: activeStudents, error: studentsError } = await supabaseAdmin
         .from('students')
         .select('id')
         .eq('is_active', true)
@@ -42,7 +43,7 @@ export default function LessonsPage() {
       // Fetch lessons only for active students
       let lessonsData = []
       if (activeStudentIds.length > 0) {
-        const { data, error: lessonsError } = await supabase
+        const { data, error: lessonsError } = await supabaseAdmin
           .from('lessons')
           .select('*')
           .in('student_id', activeStudentIds)
@@ -56,7 +57,7 @@ export default function LessonsPage() {
       const studentIds = [...new Set((lessonsData || []).map(l => l.student_id).filter(Boolean))]
       
       // Fetch profiles for those students
-      const { data: profilesData } = await supabase
+      const { data: profilesData } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name, email')
         .in('id', studentIds)
@@ -89,7 +90,7 @@ export default function LessonsPage() {
   const handleUpdateLessonStatus = async (lessonId, newStatus) => {
     try {
       // Update lesson status
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('lessons')
         .update({ status: newStatus })
         .eq('id', lessonId)
@@ -102,7 +103,7 @@ export default function LessonsPage() {
         const lesson = lessons.find(l => l.id === lessonId)
         if (lesson && lesson.student_id) {
           // Get current credits
-          const { data: student } = await supabase
+          const { data: student } = await supabaseAdmin
             .from('students')
             .select('lesson_credits')
             .eq('id', lesson.student_id)
@@ -113,7 +114,7 @@ export default function LessonsPage() {
             const newCredits = Math.max(0, currentCredits - 1)
 
             // Deduct 1 credit
-            await supabase
+            await supabaseAdmin
               .from('students')
               .update({ lesson_credits: newCredits })
               .eq('id', lesson.student_id)
@@ -141,7 +142,7 @@ export default function LessonsPage() {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('lessons')
         .update({ coach_feedback: feedbackText.trim() })
         .eq('id', selectedLesson.id)
@@ -149,7 +150,7 @@ export default function LessonsPage() {
       if (error) throw error
 
       // Create notification for student
-      await supabase
+      await supabaseAdmin
         .from('notifications')
         .insert({
           user_id: selectedLesson.student_id,
@@ -497,7 +498,7 @@ export default function LessonsPage() {
                           e.stopPropagation()
                           try {
                             const dateTime = new Date(`${editLessonDate}T${editLessonTime}`)
-                            const { error } = await supabase
+                            const { error } = await supabaseAdmin
                               .from('lessons')
                               .update({
                                 lesson_date: dateTime.toISOString(),
@@ -638,7 +639,18 @@ export default function LessonsPage() {
                         onClick={async (e) => {
                           e.stopPropagation()
                           try {
-                            const { error } = await supabase
+                            // Check if this is the first lesson plan for this student
+                            const { data: studentLessons } = await supabaseAdmin
+                              .from('lessons')
+                              .select('id, lesson_plan')
+                              .eq('student_id', selectedLesson.student_id)
+                              .not('lesson_plan', 'is', null)
+                              .neq('lesson_plan', '')
+
+                            const isFirstLessonPlan = !studentLessons || studentLessons.length === 0
+
+                            // Update lesson plan
+                            const { error } = await supabaseAdmin
                               .from('lessons')
                               .update({ lesson_plan: lessonPlanText })
                               .eq('id', selectedLesson.id)
@@ -649,6 +661,38 @@ export default function LessonsPage() {
                             setSelectedLesson({ ...selectedLesson, lesson_plan: lessonPlanText })
                             setLessons(lessons.map(l => l.id === selectedLesson.id ? { ...l, lesson_plan: lessonPlanText } : l))
                             setEditingPlan(false)
+
+                            // Send notification if this is the first lesson plan
+                            if (isFirstLessonPlan && lessonPlanText.trim()) {
+                              try {
+                                // Get student profile info
+                                const { data: profile } = await supabaseAdmin
+                                  .from('profiles')
+                                  .select('full_name, email')
+                                  .eq('id', selectedLesson.student_id)
+                                  .single()
+
+                                if (profile) {
+                                  await fetch('/.netlify/functions/notify-lesson-plan-ready', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                      studentId: selectedLesson.student_id,
+                                      studentName: profile.full_name,
+                                      studentEmail: profile.email,
+                                      lessonId: selectedLesson.id,
+                                      lessonDate: selectedLesson.lesson_date,
+                                      lessonPlan: lessonPlanText
+                                    })
+                                  })
+                                }
+                              } catch (notifError) {
+                                // Don't block lesson plan save if notification fails
+                                console.error('Error sending lesson plan notification:', notifError)
+                              }
+                            }
                           } catch (error) {
                             console.error('Error updating lesson plan:', error)
                             alert('Error updating lesson plan: ' + error.message)

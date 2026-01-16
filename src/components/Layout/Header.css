@@ -208,3 +208,40 @@
   }
 }
 
+/* Student Header - Minimal Actions */
+.student-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.profile-icon-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+  padding: 0;
+}
+
+.profile-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+  .student-header-actions {
+    gap: 0.75rem;
+  }
+  
+  .profile-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+}

@@ -5,6 +5,20 @@ import '../shared/Modal.css'
 import './BookLessonModal.css'
 
 export default function BookLessonModal({ isOpen, onClose, studentId, studentEmail, availableCredits }) {
+  // Add ESC key support to close modal
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose()
+      }
+    }
+    
+    if (isOpen) {
+      window.addEventListener('keydown', handleEsc)
+      return () => window.removeEventListener('keydown', handleEsc)
+    }
+  }, [isOpen, onClose])
+
   useEffect(() => {
     if (isOpen) {
       (async function () {
@@ -40,7 +54,7 @@ export default function BookLessonModal({ isOpen, onClose, studentId, studentEma
               </p>
             )}
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close modal">×</button>
         </div>
         
         <div className="cal-embed-container">

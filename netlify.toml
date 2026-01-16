@@ -7,8 +7,17 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-[functions."send-lesson-reminders"]
-  schedule = "0 14 * * 4"
+[functions."scheduled-calendar-sync"]
+  schedule = "*/30 * * * *"
+
+[functions."send-wednesday-checkins"]
+  schedule = "0 12 * * 3"
+
+[functions."send-lesson-recap"]
+  schedule = "0 18 * * 0"
+
+[functions."process-scheduled-notifications"]
+  schedule = "*/10 * * * *"
 
 [[redirects]]
   from = "/*"

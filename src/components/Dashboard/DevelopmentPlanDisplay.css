@@ -1,0 +1,102 @@
+.development-plan-display {
+  width: 100%;
+}
+
+.plan-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #F8F9FA;
+  border-radius: 12px;
+}
+
+.plan-section h3 {
+  color: #4B2C6C;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem 0;
+}
+
+.plan-item {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.plan-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.plan-item strong {
+  display: block;
+  color: #333;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.plan-item p {
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.milestone-section {
+  background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
+}
+
+.plan-actions {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.3);
+}
+
+.no-development-plan {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.no-development-plan p {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .plan-section {
+    padding: 1rem;
+  }
+
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

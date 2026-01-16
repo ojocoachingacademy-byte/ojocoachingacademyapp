@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Search, Award, Calendar, User, Edit2, Check, X, UserPlus } from 'lucide-react'
 import AddStudentModal from './AddStudentModal'
@@ -25,7 +26,7 @@ export default function StudentsPage() {
     try {
       // Fetch students - try with all columns, fallback if needed
       let studentsData = []
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('students')
         .select('*')
         .order('id', { ascending: true })
@@ -41,7 +42,7 @@ export default function StudentsPage() {
       // Fetch profiles for all students
       if (studentsData.length > 0) {
         const studentIds = studentsData.map(s => s.id)
-        const { data: profilesData } = await supabase
+        const { data: profilesData } = await supabaseAdmin
           .from('profiles')
           .select('id, full_name, email, ntrp_level, phone')
           .in('id', studentIds)
@@ -120,7 +121,7 @@ export default function StudentsPage() {
   const handleSaveCredits = async (e, studentId) => {
     e.stopPropagation()
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('students')
         .update({ lesson_credits: parseInt(editCreditsValue) || 0 })
         .eq('id', studentId)

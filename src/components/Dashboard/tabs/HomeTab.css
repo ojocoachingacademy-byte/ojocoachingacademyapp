@@ -1,0 +1,406 @@
+.home-tab {
+  max-width: 800px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.home-tab-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.home-tab-loading .spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4B2C6C;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Header */
+.home-header {
+  margin-bottom: 2rem;
+}
+
+.home-header h1 {
+  color: #4B2C6C;
+  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.home-subtitle {
+  color: #666;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Quick Stats Bar */
+.quick-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #4B2C6C;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: #e0e0e0;
+}
+
+/* Next Lesson Card */
+.next-lesson-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-left: 4px solid #4B2C6C;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.card-header h3 {
+  color: #4B2C6C;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.lesson-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.lesson-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lesson-date .day {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.lesson-date .date {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #4B2C6C;
+}
+
+.lesson-date .time {
+  font-size: 1rem;
+  color: #666;
+}
+
+.lesson-location {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.location-icon {
+  font-size: 1.2rem;
+}
+
+.view-plan-btn {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* Recent Feedback Card */
+.recent-feedback-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.feedback-date {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.feedback-preview {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #F3F0FF;
+  border-radius: 8px;
+}
+
+.feedback-preview p {
+  margin: 0;
+  color: #333;
+  line-height: 1.6;
+}
+
+.read-more-btn {
+  color: #4B2C6C;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: gap 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.95rem;
+}
+
+.read-more-btn:hover {
+  gap: 0.5rem;
+}
+
+/* Recent Wins Section */
+.recent-wins-section {
+  margin-bottom: 1.5rem;
+}
+
+.recent-wins-section h3 {
+  color: #4B2C6C;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* First Lesson CTA */
+.first-lesson-cta {
+  background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.first-lesson-cta h3 {
+  color: #4B2C6C;
+  margin-bottom: 0.5rem;
+  font-size: 1.3rem;
+}
+
+.first-lesson-cta p {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+/* Welcome Message Card - Stage 1 */
+.welcome-message-card {
+  background: white;
+  border: 2px solid #4B2C6C;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.1);
+}
+
+.welcome-message-card .card-header {
+  margin-bottom: 1rem;
+}
+
+.welcome-message-card .card-header h3 {
+  color: #4B2C6C;
+  font-size: 1.5rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.welcome-message-content {
+  color: #333;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.welcome-message-content p {
+  margin: 0;
+}
+
+/* Credit Banners */
+.low-credits-banner,
+.zero-credits-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.low-credits-banner {
+  background: #FFF3E0;
+  border-left: 4px solid #FF9800;
+}
+
+.zero-credits-banner {
+  background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
+  border-left: 4px solid #4B2C6C;
+}
+
+.banner-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner-content strong {
+  display: block;
+  color: #333;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.banner-content p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary,
+.btn-text {
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(75, 44, 108, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary.btn-large {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+}
+
+.btn-secondary {
+  background: white;
+  color: #4B2C6C;
+  border: 2px solid #4B2C6C;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+}
+
+.btn-secondary:hover {
+  background: #F3F0FF;
+}
+
+.btn-text {
+  background: none;
+  padding: 0;
+  color: #4B2C6C;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .home-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .quick-stats {
+    padding: 1rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+  }
+
+  .lesson-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .lesson-date .date {
+    font-size: 1.3rem;
+  }
+
+  .low-credits-banner,
+  .zero-credits-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .banner-content {
+    width: 100%;
+  }
+}

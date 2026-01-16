@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Award, Target, Edit2, TrendingUp } from 'lucide-react'
+import { Users, Calendar, Award, Target, Edit2, TrendingUp, MessageSquare } from 'lucide-react'
+import { trackEvent, EVENTS } from '../../utils/analytics'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
@@ -10,9 +11,17 @@ import TestimonialRequestBanner from '../Testimonials/TestimonialRequestBanner'
 import MilestoneTracker from '../DevelopmentPlan/MilestoneTracker'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import GettingStartedChecklist from './GettingStartedChecklist'
+import PracticePlanCard from './PracticePlanCard'
+import StudentTabs from './StudentTabs'
+import HomeTab from './tabs/HomeTab'
+import ProgressTab from './tabs/ProgressTab'
+import LessonsTab from './tabs/LessonsTab'
+import ProfileTab from './tabs/ProfileTab'
+import OnboardingFlow from '../Onboarding/OnboardingFlow'
 import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 
 export default function StudentDashboard() {
+  const [activeTab, setActiveTab] = useState('home')
   const [profile, setProfile] = useState(null)
   const [student, setStudent] = useState(null)
   const [lessons, setLessons] = useState([])
@@ -28,11 +37,24 @@ export default function StudentDashboard() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false)
   const [showAllPast, setShowAllPast] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
-  const [homework, setHomework] = useState([])
+  const [currentPracticePlan, setCurrentPracticePlan] = useState(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const developmentPlanRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchStudentData()
+    
+    // Listen for profile modal open event from header
+    const handleOpenProfileModal = () => {
+      setShowProfileModal(true)
+    }
+    window.addEventListener('openProfileModal', handleOpenProfileModal)
+    
+    return () => {
+      window.removeEventListener('openProfileModal', handleOpenProfileModal)
+    }
   }, [])
 
   const fetchStudentData = async () => {
@@ -67,6 +89,11 @@ export default function StudentDashboard() {
       if (studentError) throw studentError
       setStudent(studentData)
 
+      // Check if onboarding needed
+      if (!studentData.onboarding_completed) {
+        setShowOnboarding(true)
+      }
+
       // Development plan is stored in studentData.development_plan (JSON)
 
       // Get lessons
@@ -82,8 +109,8 @@ export default function StudentDashboard() {
       // Development plan is stored in student.development_plan (JSON)
       // It will be loaded from studentData
 
-      // Fetch homework
-      await fetchHomework(user.id)
+      // Fetch current practice plan (most recent incomplete one)
+      await fetchCurrentPracticePlan(user.id)
 
       setLoading(false)
     } catch (error) {
@@ -92,54 +119,33 @@ export default function StudentDashboard() {
     }
   }
 
-  // Fetch homework for student
-  const fetchHomework = async (studentId) => {
+  // Fetch current practice plan for student (most recent incomplete one)
+  const fetchCurrentPracticePlan = async (studentId) => {
     if (!studentId) return
     
     try {
       const { data, error } = await supabase
-        .from('lesson_homework')
+        .from('lessons')
         .select('*')
         .eq('student_id', studentId)
-        .eq('completed', false)
-        .order('created_at', { ascending: false })
+        .not('practice_plan', 'is', null)
+        .order('lesson_date', { ascending: false })
+        .limit(5)
       
       if (error) {
-        console.error('Error fetching homework:', error)
+        console.error('Error fetching practice plan:', error)
         return
       }
       
-      if (data) {
-        setHomework(data)
-      }
-    } catch (error) {
-      console.error('Error fetching homework:', error)
-    }
-  }
-
-  // Toggle homework completion
-  const handleToggleHomework = async (homeworkId, currentCompleted) => {
-    try {
-      const { error } = await supabase
-        .from('lesson_homework')
-        .update({ 
-          completed: !currentCompleted,
-          completed_at: !currentCompleted ? new Date().toISOString() : null
-        })
-        .eq('id', homeworkId)
-      
-      if (error) {
-        console.error('Error updating homework:', error)
-        alert('Error updating homework')
+      if (data && data.length > 0) {
+        // Find the most recent incomplete practice plan, or the most recent one if all are complete
+        const incomplete = data.find(lesson => !lesson.practice_plan_completed)
+        setCurrentPracticePlan(incomplete || data[0])
       } else {
-        // Refresh homework list
-        if (user) {
-          await fetchHomework(user.id)
-        }
+        setCurrentPracticePlan(null)
       }
     } catch (error) {
-      console.error('Error toggling homework:', error)
-      alert('Error updating homework')
+      console.error('Error fetching practice plan:', error)
     }
   }
 
@@ -329,12 +335,108 @@ export default function StudentDashboard() {
     })
   }, [lessons, student, pastLessons.length])
 
+  // Prepare student data object for tab components
+  const studentData = student && profile ? {
+    ...student,
+    profiles: profile
+  } : null
+
+  const renderTabContent = () => {
+    switch(activeTab) {
+      case 'home':
+        return <HomeTab 
+          studentData={studentData} 
+          onBookLesson={() => setShowBookingModal(true)}
+        />
+      case 'progress':
+        return (
+          <ProgressTab 
+            studentData={studentData} 
+            onEditPlan={() => {
+              setEditingPlan(true)
+              setActiveTab('progress')
+              setTimeout(() => {
+                developmentPlanRef.current?.scrollIntoView({ 
+                  behavior: 'smooth', 
+                  block: 'start' 
+                })
+              }, 100)
+            }}
+          />
+        )
+      case 'lessons':
+        return (
+          <LessonsTab 
+            studentData={studentData} 
+            onBookLesson={() => setShowBookingModal(true)}
+          />
+        )
+      case 'community':
+        return (
+          <div className="community-tab-content">
+            <div className="community-section">
+              <h2>Community</h2>
+              <div className="community-options">
+                <button 
+                  className="community-option-card"
+                  onClick={() => navigate('/hitting-partners')}
+                >
+                  <Users size={24} />
+                  <h3>Hitting Partners</h3>
+                  <p>Find players to practice with</p>
+                </button>
+                <button 
+                  className="community-option-card"
+                  onClick={() => navigate('/tennis-resources')}
+                >
+                  <Award size={24} />
+                  <h3>Tennis Resources</h3>
+                  <p>Helpful guides and information</p>
+                </button>
+                <button 
+                  className="community-option-card"
+                  onClick={() => navigate('/messages')}
+                >
+                  <MessageSquare size={24} />
+                  <h3>Messages</h3>
+                  <p>Chat with your coach and partners</p>
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      default:
+        return <HomeTab 
+          studentData={studentData} 
+          onBookLesson={() => setShowBookingModal(true)}
+        />
+    }
+  }
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    // Refresh student data to get updated onboarding status
+    fetchStudentData()
+  }
+
   if (loading) {
     return (
-      <div className="student-dashboard">
-        <div className="spinner"></div>
-        <p className="text-center" style={{ color: '#666' }}>Loading...</p>
+      <div className="student-dashboard-wrapper">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>Loading your dashboard...</p>
+        </div>
       </div>
+    )
+  }
+
+  // Show onboarding if needed
+  if (showOnboarding && student && studentData) {
+    return (
+      <OnboardingFlow 
+        studentData={studentData}
+        onComplete={handleOnboardingComplete}
+      />
     )
   }
   
@@ -353,7 +455,49 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="student-dashboard">
+    <div className="student-dashboard-wrapper">
+      <StudentTabs 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        showCommunity={Boolean(student?.onboarding_completed)}
+      />
+      
+      <div className="student-dashboard-content">
+        {renderTabContent()}
+        
+        {/* Profile Modal */}
+        {showProfileModal && (
+          <div className="profile-modal-overlay" onClick={() => setShowProfileModal(false)}>
+            <div className="profile-modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="profile-modal-header">
+                <h2>Profile</h2>
+                <button 
+                  className="profile-modal-close"
+                  onClick={() => setShowProfileModal(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="profile-modal-body">
+                <ProfileTab 
+                  studentData={studentData} 
+                  onBookLesson={() => {
+                    setShowBookingModal(true)
+                    setShowProfileModal(false)
+                  }}
+                  onProfileUpdate={() => {
+                    fetchStudentData()
+                    setShowProfileModal(false)
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Legacy content temporarily hidden - will migrate to tabs in Steps 2-5 */}
+        <div style={{ display: 'none' }}>
+          <div className="student-dashboard">
       {/* Header */}
       <div className="dashboard-header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
@@ -411,7 +555,16 @@ export default function StudentDashboard() {
             hasDevelopmentPlan={hasDevelopmentPlan}
             hasUpcomingLesson={hasUpcomingLesson}
             hasCompletedLesson={hasCompletedLesson}
-            onSetGoals={() => setEditingPlan(true)}
+            onSetGoals={() => {
+              setEditingPlan(true)
+              // Scroll to development plan form after a brief delay to ensure it's rendered
+              setTimeout(() => {
+                developmentPlanRef.current?.scrollIntoView({ 
+                  behavior: 'smooth', 
+                  block: 'start' 
+                })
+              }, 100)
+            }}
             onBookLesson={() => setShowBookingModal(true)}
           />
         )
@@ -437,7 +590,16 @@ export default function StudentDashboard() {
                   <p className="next-steps-description">Tell us what you want to achieve with tennis. This helps your coach create the perfect plan for you!</p>
                 </div>
                 <button
-                  onClick={() => setEditingPlan(true)}
+                  onClick={() => {
+                    setEditingPlan(true)
+                    // Scroll to development plan form after a brief delay
+                    setTimeout(() => {
+                      developmentPlanRef.current?.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                      })
+                    }, 100)
+                  }}
                   className="btn btn-primary btn-lg next-steps-button"
                 >
                   Set Your Goals →
@@ -509,51 +671,19 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* Homework Section */}
-      {homework.length > 0 && (
+      {/* Practice Plan Section */}
+      {currentPracticePlan && (
+        <PracticePlanCard 
+          lesson={currentPracticePlan} 
+          onComplete={() => fetchCurrentPracticePlan(user.id)}
+        />
+      )}
+      {!currentPracticePlan && pastLessons.length > 0 && (
         <div className="section">
-          <h2 className="section-title">Homework Before Next Lesson 📝</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {homework.map(hw => (
-              <div 
-                key={hw.id}
-                style={{
-                  padding: '16px',
-                  background: 'white',
-                  borderRadius: '8px',
-                  border: '2px solid #e5e7eb',
-                  display: 'flex',
-                  alignItems: 'start',
-                  gap: '12px'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={hw.completed || false}
-                  onChange={() => handleToggleHomework(hw.id, hw.completed || false)}
-                  style={{ 
-                    width: '20px', 
-                    height: '20px', 
-                    marginTop: '2px',
-                    cursor: 'pointer'
-                  }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    fontSize: '16px',
-                    color: hw.completed ? '#9ca3af' : '#111',
-                    textDecoration: hw.completed ? 'line-through' : 'none'
-                  }}>
-                    {hw.homework_text}
-                  </div>
-                  {hw.completed && hw.completed_at && (
-                    <div style={{ fontSize: '12px', color: '#059669', marginTop: '4px' }}>
-                      ✓ Completed {new Date(hw.completed_at).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="empty-state-card">
+            <div className="empty-state-icon">🎯</div>
+            <h3 className="empty-state-title">No Practice Plan Yet</h3>
+            <p className="empty-state-text">Your coach will assign a practice plan after your next lesson!</p>
           </div>
         </div>
       )}
@@ -704,7 +834,7 @@ export default function StudentDashboard() {
 
       {/* Development Plan */}
       {editingPlan ? (
-        <div className="section">
+        <div className="section" ref={developmentPlanRef}>
           <h2 className="section-title">
             <Target size={24} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
             Edit Development Plan
@@ -824,7 +954,15 @@ export default function StudentDashboard() {
                 </h2>
                 <button 
                   className="btn btn-primary"
-                  onClick={() => setEditingPlan(true)}
+                  onClick={() => {
+                    setEditingPlan(true)
+                    setTimeout(() => {
+                      developmentPlanRef.current?.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                      })
+                    }, 100)
+                  }}
                 >
                   <Edit2 size={18} />
                   Edit Your Plan →
@@ -1078,7 +1216,15 @@ export default function StudentDashboard() {
             </p>
             <button 
               className="btn btn-primary"
-              onClick={() => setEditingPlan(true)}
+              onClick={() => {
+                setEditingPlan(true)
+                setTimeout(() => {
+                  developmentPlanRef.current?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                  })
+                }, 100)
+              }}
             >
               <Target size={18} />
               Create Development Plan
@@ -1225,6 +1371,9 @@ export default function StudentDashboard() {
         studentEmail={user?.email || profile?.email}
         availableCredits={student?.lesson_credits || 0}
       />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

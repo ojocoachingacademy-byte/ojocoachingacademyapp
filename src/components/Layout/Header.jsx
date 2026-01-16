@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp, MapPin, Menu, X } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp, MapPin, Menu, X, Bell, User } from 'lucide-react'
 import NotificationBell from '../Notifications/NotificationBell'
 import DropdownNav from './DropdownNav'
 import './Header.css'
@@ -43,29 +43,60 @@ export default function Header({ user, isCoach }) {
               </div>
             </div>
         
-        <button 
-          className="mobile-menu-toggle"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        {/* Student Dashboard - Minimal Header (Always visible, even on mobile) */}
+        {!isCoach && location.pathname === '/dashboard' && user && (
+          <div className="student-header-actions">
+            <NotificationBell />
+            <button 
+              className="profile-btn-with-label"
+              onClick={() => {
+                // Trigger profile modal in StudentDashboard
+                window.dispatchEvent(new CustomEvent('openProfileModal'))
+              }}
+              aria-label="Profile"
+            >
+              <User size={18} />
+              <span className="profile-btn-label">Profile</span>
+            </button>
+            <button 
+              className="logout-btn-minimal"
+              onClick={handleLogout}
+              aria-label="Logout"
+            >
+              <LogOut size={18} />
+              <span className="logout-btn-label">Logout</span>
+            </button>
+          </div>
+        )}
+
+        {!(!isCoach && location.pathname === '/dashboard') && (
+          <button 
+            className="mobile-menu-toggle"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        )}
 
         <nav className={`header-nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
           {user && (
             <>
-              <button 
-                className={`nav-link ${isActive(isCoach ? '/coach' : '/dashboard') ? 'active' : ''}`}
-                onClick={() => {
-                  navigate(isCoach ? '/coach' : '/dashboard')
-                  closeMobileMenu()
-                }}
-              >
-                <LayoutDashboard size={18} />
-                Dashboard
-              </button>
+              {/* Regular navigation (not student dashboard) */}
+              {!(!isCoach && location.pathname === '/dashboard') && (
+                <>
+                  <button 
+                    className={`nav-link ${isActive(isCoach ? '/coach' : '/dashboard') ? 'active' : ''}`}
+                    onClick={() => {
+                      navigate(isCoach ? '/coach' : '/dashboard')
+                      closeMobileMenu()
+                    }}
+                  >
+                    <LayoutDashboard size={18} />
+                    Dashboard
+                  </button>
 
-              {isCoach ? (
+                  {isCoach ? (
                 <>
                   {/* Coach Management Dropdown */}
                   <DropdownNav label="Manage" icon={Users}>
@@ -149,7 +180,7 @@ export default function Header({ user, isCoach }) {
                     </button>
                   </DropdownNav>
                 </>
-              ) : (
+              ) : !isCoach ? (
                 <button 
                   className={`nav-link ${isActive('/lessons') ? 'active' : ''}`}
                   onClick={() => {
@@ -160,7 +191,7 @@ export default function Header({ user, isCoach }) {
                   <Calendar size={18} />
                   Lessons
                 </button>
-              )}
+              ) : null}
 
               {/* Community Dropdown */}
               <DropdownNav label="Community" icon={Users}>
@@ -196,21 +227,23 @@ export default function Header({ user, isCoach }) {
                 </button>
               </DropdownNav>
 
-              {!isCoach && (
-                <button 
-                  className={`nav-link ${isActive('/settings') ? 'active' : ''}`}
-                  onClick={() => navigate('/settings')}
-                >
-                  <Settings size={18} />
-                  Settings
-                </button>
-              )}
+                    {!isCoach && (
+                      <button 
+                        className={`nav-link ${isActive('/settings') ? 'active' : ''}`}
+                        onClick={() => navigate('/settings')}
+                      >
+                        <Settings size={18} />
+                        Settings
+                      </button>
+                    )}
 
-              <NotificationBell />
-              <button className="logout-btn" onClick={handleLogout}>
-                <LogOut size={18} />
-                Logout
-              </button>
+                    <NotificationBell />
+                    <button className="logout-btn" onClick={handleLogout}>
+                      <LogOut size={18} />
+                      Logout
+                    </button>
+                  </>
+                )}
             </>
           )}
         </nav>

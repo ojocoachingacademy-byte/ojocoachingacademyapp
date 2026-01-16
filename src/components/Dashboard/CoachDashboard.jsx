@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical, Edit2 } from 'lucide-react'
 import Anthropic from '@anthropic-ai/sdk'
 import { GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
-import CalendarSync from '../Calendar/CalendarSync'
 import LessonTemplates from '../Templates/LessonTemplates'
+import LogPaymentModal from '../Coach/LogPaymentModal'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -63,7 +64,9 @@ export default function CoachDashboard() {
   const [generatingPlan, setGeneratingPlan] = useState(false)
   const [selectedFeedbackLesson, setSelectedFeedbackLesson] = useState(null)
   const [coachFeedback, setCoachFeedback] = useState('')
-  const [homework, setHomework] = useState('')
+  const [practicePlan, setPracticePlan] = useState('')
+  const [practicePlanTime, setPracticePlanTime] = useState('15')
+  const [generatingPracticePlan, setGeneratingPracticePlan] = useState(false)
   const [isEditingPlan, setIsEditingPlan] = useState(false)
   const [refinementFeedback, setRefinementFeedback] = useState('')
   const [refiningPlan, setRefiningPlan] = useState(false)
@@ -76,6 +79,7 @@ export default function CoachDashboard() {
   const [showAllCompleted, setShowAllCompleted] = useState(false)
   const [showAllStudents, setShowAllStudents] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showLogPayment, setShowLogPayment] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -88,7 +92,7 @@ export default function CoachDashboard() {
       const now = new Date()
       const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
       
-      await supabase
+      await supabaseAdmin
         .from('lessons')
         .update({ status: 'completed' })
         .eq('status', 'scheduled')
@@ -98,18 +102,13 @@ export default function CoachDashboard() {
     }
   }
 
-  const handleSyncComplete = () => {
-    // Refresh lessons after sync
-    fetchCoachData()
-  }
-
   const fetchCoachData = async () => {
     try {
       // Fetch students - try with is_active filter, fallback if column doesn't exist
       let studentsData = []
       
       // First try with is_active filter
-      let { data, error } = await supabase
+      let { data, error } = await supabaseAdmin
         .from('students')
         .select('*')
         .eq('is_active', true)
@@ -117,7 +116,7 @@ export default function CoachDashboard() {
       if (error) {
         // Fallback: fetch all students if is_active column doesn't exist
         console.log('Fallback: fetching all students')
-        const fallback = await supabase
+        const fallback = await supabaseAdmin
           .from('students')
           .select('*')
         data = fallback.data
@@ -135,7 +134,7 @@ export default function CoachDashboard() {
       let studentsWithProfiles = []
       if (studentsData.length > 0) {
         const studentIds = studentsData.map(s => s.id)
-        const { data: profilesData } = await supabase
+        const { data: profilesData } = await supabaseAdmin
           .from('profiles')
           .select('id, full_name, email, ntrp_level, phone')
           .in('id', studentIds)
@@ -155,7 +154,7 @@ export default function CoachDashboard() {
       let lessonsData = []
       
       if (activeStudentIds.length > 0) {
-        const { data, error: lessonsError } = await supabase
+        const { data, error: lessonsError } = await supabaseAdmin
           .from('lessons')
           .select('*')
           .in('student_id', activeStudentIds)
@@ -210,7 +209,7 @@ export default function CoachDashboard() {
 
     try {
       // Create the lesson
-      const { error: lessonError } = await supabase
+      const { error: lessonError } = await supabaseAdmin
         .from('lessons')
         .insert([
           {
@@ -226,14 +225,14 @@ export default function CoachDashboard() {
       }
 
       // Deduct one credit if student has credits
-      const { data: student } = await supabase
+      const { data: student } = await supabaseAdmin
         .from('students')
         .select('lesson_credits')
         .eq('id', selectedStudent)
         .single()
 
       if (student && student.lesson_credits > 0) {
-        const { error: creditError } = await supabase
+        const { error: creditError } = await supabaseAdmin
           .from('students')
           .update({ lesson_credits: student.lesson_credits - 1 })
           .eq('id', selectedStudent)
@@ -260,7 +259,7 @@ export default function CoachDashboard() {
   const handleUpdateCredits = async (studentId, currentCredits, change) => {
     const newCredits = currentCredits + change
     
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('students')
       .update({ lesson_credits: newCredits })
       .eq('id', studentId)
@@ -324,7 +323,7 @@ export default function CoachDashboard() {
       const studentId = selectedLesson.student_id
       
       // Fetch student and profile separately to avoid ambiguous relationship error
-      const { data: student, error: studentError } = await supabase
+      const { data: student, error: studentError } = await supabaseAdmin
         .from('students')
         .select('*')
         .eq('id', studentId)
@@ -332,7 +331,7 @@ export default function CoachDashboard() {
 
       if (studentError) throw studentError
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('*')
         .eq('id', studentId)
@@ -365,7 +364,7 @@ export default function CoachDashboard() {
 
       // Get achieved milestones
       const milestones = getMilestonesByLevel(playerLevel)
-      const { data: achievedMilestonesData, error: milestonesError } = await supabase
+      const { data: achievedMilestonesData, error: milestonesError } = await supabaseAdmin
         .from('student_milestones')
         .select('milestone_number, milestone_name, achieved_at')
         .eq('student_id', studentId)
@@ -413,7 +412,7 @@ export default function CoachDashboard() {
       }
 
       // Get last lesson's learnings
-      const { data: lastLessonData, error: lastLessonError } = await supabase
+      const { data: lastLessonData, error: lastLessonError } = await supabaseAdmin
         .from('lessons')
         .select('student_learnings')
         .eq('student_id', studentId)
@@ -425,7 +424,7 @@ export default function CoachDashboard() {
       const lastLessonLearnings = lastLessonData?.student_learnings || null
 
       // Get recent lesson plans (last 2 completed lessons)
-      const { data: recentLessonsData, error: recentLessonsError } = await supabase
+      const { data: recentLessonsData, error: recentLessonsError } = await supabaseAdmin
         .from('lessons')
         .select('lesson_plan')
         .eq('student_id', studentId)
@@ -511,7 +510,7 @@ export default function CoachDashboard() {
         updateData.student_lesson_plan = studentPlan
       }
 
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('lessons')
         .update(updateData)
         .eq('id', selectedLesson.id)
@@ -575,126 +574,191 @@ Do NOT use markdown formatting - just plain text with line breaks.`
     }
   }
 
-  // Load homework for a lesson
-  const loadHomework = async (lessonId) => {
+  // Load practice plan for a lesson
+  const loadPracticePlan = async (lessonId) => {
     if (!lessonId) {
-      setHomework('')
+      setPracticePlan('')
+      setPracticePlanTime('15')
       return
     }
 
     try {
-      const { data, error } = await supabase
-        .from('lesson_homework')
-        .select('*')
-        .eq('lesson_id', lessonId)
+      const { data, error } = await supabaseAdmin
+        .from('lessons')
+        .select('practice_plan, practice_plan_time_estimate')
+        .eq('id', lessonId)
         .single()
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-        console.error('Error loading homework:', error)
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading practice plan:', error)
       } else if (data) {
-        setHomework(data.homework_text || '')
+        setPracticePlan(data.practice_plan || '')
+        setPracticePlanTime(data.practice_plan_time_estimate?.toString() || '15')
       } else {
-        setHomework('')
+        setPracticePlan('')
+        setPracticePlanTime('15')
       }
     } catch (error) {
-      console.error('Error loading homework:', error)
-      setHomework('')
+      console.error('Error loading practice plan:', error)
+      setPracticePlan('')
+      setPracticePlanTime('15')
     }
   }
 
-  // Save homework assignment
-  const handleSaveHomework = async () => {
-    if (!selectedFeedbackLesson || !homework.trim()) {
-      alert('Please enter homework')
-      return
-    }
-
+  // Generate AI practice plan suggestion
+  const handleGeneratePracticePlan = async () => {
+    if (!selectedFeedbackLesson) return
+    
+    setGeneratingPracticePlan(true)
+    
     try {
-      // Check if homework already exists for this lesson
-      const { data: existing } = await supabase
-        .from('lesson_homework')
-        .select('id')
-        .eq('lesson_id', selectedFeedbackLesson.id)
+      // Gather context
+      const { data: student } = await supabaseAdmin
+        .from('students')
+        .select('id, development_plan, player_level, profiles!inner(full_name)')
+        .eq('id', selectedFeedbackLesson.student_id)
         .single()
-
-      const user = await supabase.auth.getUser()
-
-      if (existing) {
-        // Update existing homework
-        const { error } = await supabase
-          .from('lesson_homework')
-          .update({
-            homework_text: homework.trim(),
-            assigned_by: user.data.user?.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('lesson_id', selectedFeedbackLesson.id)
-
-        if (error) throw error
-      } else {
-        // Insert new homework
-        const { error } = await supabase
-          .from('lesson_homework')
-          .insert({
-            lesson_id: selectedFeedbackLesson.id,
-            student_id: selectedFeedbackLesson.student_id,
-            homework_text: homework.trim(),
-            assigned_by: user.data.user?.id
-          })
-
-        if (error) throw error
+      
+      if (!student) {
+        throw new Error('Student not found')
       }
 
-      alert('Homework assigned!')
-      // Don't clear homework - keep it visible in case coach wants to edit
+      const { data: recentLessons } = await supabaseAdmin
+        .from('lessons')
+        .select('lesson_plan, coach_feedback, created_at')
+        .eq('student_id', selectedFeedbackLesson.student_id)
+        .order('created_at', { ascending: false })
+        .limit(3)
+      
+      // Parse development plan for goals
+      let goals = 'Not specified'
+      if (student.development_plan) {
+        try {
+          const plan = typeof student.development_plan === 'string' 
+            ? JSON.parse(student.development_plan) 
+            : student.development_plan
+          if (plan.section1?.bigGoal) {
+            const goalOption = GOAL_OPTIONS.find(g => g.value === plan.section1.bigGoal)
+            goals = goalOption ? goalOption.label : plan.section1.bigGoal
+          }
+        } catch (e) {
+          console.error('Error parsing development plan:', e)
+        }
+      }
+      
+      // Call AI function
+      const response = await fetch('/.netlify/functions/generate-practice-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: student.profiles.full_name,
+          goals: goals,
+          skillLevel: student.player_level || 'beginner',
+          todayLessonPlan: selectedFeedbackLesson.lesson_plan || '',
+          todayNotes: selectedFeedbackLesson.coach_feedback || '',
+          recentLessons: recentLessons || []
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate practice plan')
+      }
+      
+      const data = await response.json()
+      
+      setPracticePlan(data.practicePlan || '')
+      setPracticePlanTime(data.estimatedTime || '15')
+      
     } catch (error) {
-      console.error('Error saving homework:', error)
-      alert('Error saving homework: ' + error.message)
+      console.error('Error generating practice plan:', error)
+      alert('Failed to generate suggestion. Please write one manually.')
+    } finally {
+      setGeneratingPracticePlan(false)
     }
   }
+
 
   const handleFeedbackLessonClick = async (lesson) => {
     setSelectedFeedbackLesson(lesson)
     setCoachFeedback(lesson.coach_feedback || '')
-    // Load existing homework for this lesson
-    await loadHomework(lesson.id)
+    // Load existing practice plan for this lesson
+    await loadPracticePlan(lesson.id)
   }
 
   const handleCloseFeedbackModal = () => {
     setSelectedFeedbackLesson(null)
     setCoachFeedback('')
-    setHomework('')
+    setPracticePlan('')
+    setPracticePlanTime('15')
   }
 
-  const handleSaveFeedback = async () => {
-    if (!selectedFeedbackLesson || !coachFeedback.trim()) {
-      alert('Please enter feedback')
+  const handleSubmitFeedback = async () => {
+    if (!selectedFeedbackLesson) {
+      alert('No lesson selected')
+      return
+    }
+
+    // Feedback is optional, but if provided it should not be empty
+    if (coachFeedback.trim() && coachFeedback.trim().length < 10) {
+      alert('Please provide more detailed feedback (at least 10 characters) or leave it empty')
       return
     }
 
     try {
-      const { error } = await supabase
+      // Save feedback (can be empty string to clear it)
+      const { error: feedbackError } = await supabaseAdmin
         .from('lessons')
-        .update({ coach_feedback: coachFeedback })
+        .update({ coach_feedback: coachFeedback.trim() || null })
         .eq('id', selectedFeedbackLesson.id)
 
-      if (error) throw error
+      if (feedbackError) throw feedbackError
 
-      // Create notification for student
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: selectedFeedbackLesson.student_id,
-          type: 'feedback_posted',
-          title: 'Coach Feedback Posted',
-          body: `Your coach has posted feedback for your lesson on ${new Date(selectedFeedbackLesson.lesson_date).toLocaleDateString()}`,
-          link: `/dashboard`,
-          read: false
-        })
+      // Save practice plan (optional - can be empty to remove practice plan)
+      const practicePlanUpdate = {
+        practice_plan: practicePlan.trim() || null,
+        practice_plan_time_estimate: practicePlan.trim() ? parseInt(practicePlanTime) : null,
+        practice_plan_completed: false, // Reset completion when updating
+        practice_plan_completed_at: null
+      }
 
-      alert('Feedback saved!')
+      const { error: practicePlanError } = await supabaseAdmin
+        .from('lessons')
+        .update(practicePlanUpdate)
+        .eq('id', selectedFeedbackLesson.id)
+
+      if (practicePlanError) throw practicePlanError
+
+      // Create notification for student only if feedback was provided
+      if (coachFeedback.trim()) {
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id: selectedFeedbackLesson.student_id,
+            type: 'feedback_posted',
+            title: 'Coach Feedback Posted',
+            body: `Your coach has posted feedback for your lesson on ${new Date(selectedFeedbackLesson.lesson_date).toLocaleDateString()}`,
+            link: `/dashboard`,
+            read: false
+          })
+      }
+
+      alert('Feedback and practice plan saved!')
+      
+      // Create notification for student if practice plan was added
+      if (practicePlan.trim()) {
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id: selectedFeedbackLesson.student_id,
+            type: 'practice_plan_assigned',
+            title: 'New Practice Plan Assigned',
+            body: `Your coach has assigned a new practice plan for this week!`,
+            link: `/dashboard`,
+            read: false
+          })
+      }
       handleCloseFeedbackModal()
-      fetchCoachData() // Refresh to remove from pending list
+      fetchCoachData() // Refresh data
     } catch (error) {
       console.error('Error saving feedback:', error)
       alert('Error saving feedback: ' + error.message)
@@ -704,19 +768,19 @@ Do NOT use markdown formatting - just plain text with line breaks.`
   const handleUpdateLessonStatus = async (lessonId, newStatus) => {
     try {
       // Update lesson status
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('lessons')
         .update({ status: newStatus })
         .eq('id', lessonId)
 
       if (error) throw error
 
-      // If completing a lesson, deduct credit from student
+      // If completing a lesson, deduct credit from student and record in lesson_transactions
       if (newStatus === 'completed') {
         // Get lesson details to find student
-        const { data: lesson } = await supabase
+        const { data: lesson } = await supabaseAdmin
           .from('lessons')
-          .select('student_id, students(lesson_credits)')
+          .select('student_id, lesson_date, students(lesson_credits)')
           .eq('id', lessonId)
           .single()
 
@@ -725,13 +789,49 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           const newCredits = Math.max(0, currentCredits - 1)
 
           // Deduct 1 credit
-          const { error: creditError } = await supabase
+          const { error: creditError } = await supabaseAdmin
             .from('students')
             .update({ lesson_credits: newCredits })
             .eq('id', lesson.student_id)
 
           if (!creditError) {
             console.log(`Credit deducted for student. New balance: ${newCredits}`)
+          }
+
+          // Record lesson in lesson_transactions for financial tracking
+          // Check if transaction already exists to avoid duplicates
+          try {
+            const lessonDate = lesson.lesson_date ? new Date(lesson.lesson_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+            
+            // Check if transaction already exists
+            const { data: existingTransaction } = await supabaseAdmin
+              .from('lesson_transactions')
+              .select('id')
+              .eq('student_id', lesson.student_id)
+              .eq('transaction_date', lessonDate)
+              .eq('transaction_type', 'lesson_taken')
+              .maybeSingle()
+            
+            // Only insert if it doesn't already exist
+            if (!existingTransaction) {
+              const { error: txInsertError } = await supabaseAdmin
+                .from('lesson_transactions')
+                .insert({
+                  student_id: lesson.student_id,
+                  transaction_date: lessonDate,
+                  transaction_type: 'lesson_taken',
+                  amount_paid: 0,
+                  package_size: 0,
+                  notes: 'Lesson completed'
+                })
+              
+              if (txInsertError) {
+                console.warn('Could not record lesson transaction:', txInsertError.message)
+              }
+            }
+          } catch (txError) {
+            // If table doesn't exist or insert fails, log but don't fail the status update
+            console.warn('Could not record lesson transaction:', txError.message)
           }
         }
       }
@@ -771,7 +871,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       // Combine date and time into ISO string
       const dateTime = new Date(`${editLessonDate}T${editLessonTime}`)
       
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('lessons')
         .update({
           lesson_date: dateTime.toISOString(),
@@ -812,7 +912,6 @@ Do NOT use markdown formatting - just plain text with line breaks.`
   return (
     <div className="page-container">
       <div className="coach-dashboard">
-      <CalendarSync onSyncComplete={handleSyncComplete} />
       {/* Header */}
       <div className="dashboard-header">
         <h1 className="dashboard-title">Coach Dashboard</h1>
@@ -830,6 +929,18 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
       {/* Quick Actions */}
       <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <button 
+          className="btn btn-primary"
+          onClick={() => setShowLogPayment(true)}
+          style={{ 
+            fontSize: '18px', 
+            padding: '14px 28px',
+            background: 'linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%)',
+            border: 'none'
+          }}
+        >
+          💳 Log Payment
+        </button>
         <button 
           className="btn btn-primary"
           onClick={() => setShowCreateLesson(!showCreateLesson)}
@@ -1575,28 +1686,41 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 </div>
               )}
 
-              {selectedLessonDetail.coach_feedback && (
+              {selectedLessonDetail.status === 'completed' && (
                 <div style={{ marginBottom: '24px' }}>
-                  <h3 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>Coach Feedback</h3>
-                  <div style={{ padding: '16px', backgroundColor: '#E8F5E9', borderRadius: '8px', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                    {selectedLessonDetail.coach_feedback}
-                  </div>
-                </div>
-              )}
-
-              {selectedLessonDetail.student_learnings && !selectedLessonDetail.coach_feedback && (
-                <div style={{ marginBottom: '24px' }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={async () => {
-                      setSelectedFeedbackLesson(selectedLessonDetail)
-                      setCoachFeedback(selectedLessonDetail.coach_feedback || '')
-                      await loadHomework(selectedLessonDetail.id)
-                      handleCloseLessonDetail()
-                    }}
-                  >
-                    Add Feedback
-                  </button>
+                  {selectedLessonDetail.coach_feedback ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Coach Feedback</h3>
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={async () => {
+                            setSelectedFeedbackLesson(selectedLessonDetail)
+                            setCoachFeedback(selectedLessonDetail.coach_feedback || '')
+                            await loadHomework(selectedLessonDetail.id)
+                            handleCloseLessonDetail()
+                          }}
+                        >
+                          Edit Feedback
+                        </button>
+                      </div>
+                      <div style={{ padding: '16px', backgroundColor: '#E8F5E9', borderRadius: '8px', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                        {selectedLessonDetail.coach_feedback}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      onClick={async () => {
+                        setSelectedFeedbackLesson(selectedLessonDetail)
+                        setCoachFeedback('')
+                        await loadHomework(selectedLessonDetail.id)
+                        handleCloseLessonDetail()
+                      }}
+                    >
+                      Add Feedback
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1678,34 +1802,74 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             </div>
 
             <div style={{ marginTop: '24px', marginBottom: '20px' }}>
-              <h4 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>Homework for Next Lesson</h4>
-              <textarea
-                value={homework}
-                onChange={(e) => setHomework(e.target.value)}
-                placeholder="e.g., Practice 30 serves targeting corners, 3x this week"
-                rows={3}
-                className="input"
-                style={{
-                  width: '100%',
-                  marginBottom: '12px',
-                  padding: '10px',
-                  fontSize: '14px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <button 
-                className="btn btn-primary"
-                onClick={handleSaveHomework}
-                disabled={!homework.trim()}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px'
-                }}
-              >
-                Assign Homework
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', fontSize: '16px' }}>
+                  🎯 Set This Week's Practice Plan
+                </label>
+                <button 
+                  onClick={handleGeneratePracticePlan} 
+                  className="btn btn-secondary"
+                  disabled={generatingPracticePlan}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {generatingPracticePlan ? '🤖 Generating...' : '✨ Get AI Suggestion'}
+                </button>
+              </div>
+              <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px', fontStyle: 'italic' }}>
+                AI will suggest a personalized focus based on their goals and today's lesson
+              </p>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
+                  Practice Plan (ONE focus for this week)
+                </label>
+                <textarea
+                  value={practicePlan}
+                  onChange={(e) => setPracticePlan(e.target.value)}
+                  placeholder="Example: Focus on serve toss consistency - 50 tosses in front of mirror, keeping arm relaxed"
+                  rows={4}
+                  className="input"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    fontSize: '14px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
+                  Estimated Time
+                </label>
+                <select 
+                  value={practicePlanTime} 
+                  onChange={(e) => setPracticePlanTime(e.target.value)}
+                  className="input"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    fontSize: '14px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontFamily: 'inherit'
+                  }}
+                >
+                  <option value="5">5 minutes</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15">15 minutes</option>
+                  <option value="20">20 minutes</option>
+                  <option value="30">30 minutes</option>
+                </select>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -1724,7 +1888,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                 Cancel
               </button>
               <button
-                onClick={handleSaveFeedback}
+                onClick={handleSubmitFeedback}
                 style={{
                   padding: '10px 20px',
                   fontSize: '16px',
@@ -1740,6 +1904,17 @@ Do NOT use markdown formatting - just plain text with line breaks.`
             </div>
           </div>
         </div>
+      )}
+
+      {/* Log Payment Modal */}
+      {showLogPayment && (
+        <LogPaymentModal
+          onClose={() => setShowLogPayment(false)}
+          onSuccess={() => {
+            fetchCoachData()
+            setShowLogPayment(false)
+          }}
+        />
       )}
       </div>
     </div>

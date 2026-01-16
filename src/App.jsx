@@ -5,6 +5,8 @@ import Header from './components/Layout/Header'
 import Login from './components/Auth/Login'
 import Signup from './components/Auth/Signup'
 import EmailConfirmed from './components/Auth/EmailConfirmed'
+import ForgotPassword from './components/Auth/ForgotPassword'
+import ResetPassword from './components/Auth/ResetPassword'
 import StudentDashboard from './components/Dashboard/StudentDashboard'
 import CoachDashboard from './components/Dashboard/CoachDashboard'
 import MessageCenter from './components/Messaging/MessageCenter'
@@ -24,6 +26,7 @@ import TestimonialsManagement from './components/Testimonials/TestimonialsManage
 import TennisResources from './components/TennisResources/TennisResources'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
+import { trackEvent, EVENTS } from './utils/analytics'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -35,6 +38,8 @@ function App() {
       setSession(session)
       if (session) {
         fetchProfile(session.user.id)
+        // Track login event
+        trackEvent(EVENTS.LOGIN)
       } else {
         setLoading(false)
       }
@@ -46,6 +51,10 @@ function App() {
       setSession(session)
       if (session) {
         fetchProfile(session.user.id)
+        // Track login event on auth state change
+        if (_event === 'SIGNED_IN') {
+          trackEvent(EVENTS.LOGIN)
+        }
       }
     })
 
@@ -76,6 +85,8 @@ function App() {
       <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
         <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/dashboard" />} />
+        <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
+        <Route path="/reset-password" element={!session ? <ResetPassword /> : <Navigate to="/dashboard" />} />
         <Route path="/auth/confirmed" element={<EmailConfirmed />} />
             <Route 
               path="/dashboard" 
