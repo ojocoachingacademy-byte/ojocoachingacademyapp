@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { trackEvent, EVENTS } from '../../utils/analytics'
 import { GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
@@ -11,6 +11,7 @@ import './OnboardingFlow.css'
 
 const OnboardingFlow = ({ studentData, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(1)
+  const containerRef = useRef(null)
   const [developmentPlanData, setDevelopmentPlanData] = useState({
     section1: {
       triggerReason: '',
@@ -40,6 +41,17 @@ const OnboardingFlow = ({ studentData, onComplete }) => {
   useEffect(() => {
     trackEvent(EVENTS.ONBOARDING_START)
   }, [])
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      })
+    }
+  }, [currentStep])
 
   const updateDevelopmentPlan = (updates) => {
     setDevelopmentPlanData(prev => {
@@ -221,7 +233,7 @@ const OnboardingFlow = ({ studentData, onComplete }) => {
 
   return (
     <div className="onboarding-overlay">
-      <div className="onboarding-container">
+      <div className="onboarding-container" ref={containerRef}>
         {/* Progress Bar */}
         <div className="onboarding-progress-bar">
           <div 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Save, User, Mail, Phone, Award, Trophy } from 'lucide-react'
+import StudentPageWrapper from '../Layout/StudentPageWrapper'
 import './StudentSettings.css'
 
 export default function StudentSettings() {
@@ -301,15 +302,18 @@ export default function StudentSettings() {
 
   if (loading) {
     return (
-      <div className="settings-page">
-        <div className="spinner"></div>
-        <p style={{ textAlign: 'center', color: '#666', marginTop: '16px' }}>Loading profile...</p>
-      </div>
+      <StudentPageWrapper>
+        <div className="settings-page">
+          <div className="spinner"></div>
+          <p style={{ textAlign: 'center', color: '#666', marginTop: '16px' }}>Loading profile...</p>
+        </div>
+      </StudentPageWrapper>
     )
   }
 
   return (
-    <div className="settings-page">
+    <StudentPageWrapper>
+      <div className="settings-page">
       <div className="settings-header">
         <h1 className="page-title">Settings</h1>
         <p className="page-subtitle">Manage your profile information</p>
@@ -534,7 +538,8 @@ export default function StudentSettings() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </StudentPageWrapper>
   )
 }
 

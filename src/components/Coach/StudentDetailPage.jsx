@@ -14,6 +14,9 @@ import SelectProfileModal from './SelectProfileModal'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import CreateLessonModal from '../Calendar/CreateLessonModal'
 import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
+import { safeJsonParse } from '../../utils/safeJsonParse'
+import { logger } from '../../utils/logger'
+import { retrySupabaseQuery } from '../../utils/retry'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -46,9 +49,16 @@ export default function StudentDetailPage() {
   const [editingRevenue, setEditingRevenue] = useState(false)
   const [editingLessonsPurchased, setEditingLessonsPurchased] = useState(false)
   const [editingCredits, setEditingCredits] = useState(false)
+  const [savingRevenue, setSavingRevenue] = useState(false)
+  const [savingLessonsPurchased, setSavingLessonsPurchased] = useState(false)
+  const [savingCredits, setSavingCredits] = useState(false)
   const [editRevenueValue, setEditRevenueValue] = useState('')
   const [editLessonsPurchasedValue, setEditLessonsPurchasedValue] = useState('')
   const [editCreditsValue, setEditCreditsValue] = useState('')
+  const [focusAreas, setFocusAreas] = useState([])
+  const [editingFocusArea, setEditingFocusArea] = useState(null)
+  const [newFocusAreaText, setNewFocusAreaText] = useState('')
+  const [showAddFocusArea, setShowAddFocusArea] = useState(false)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -64,6 +74,7 @@ export default function StudentDetailPage() {
     fetchStudentData()
     fetchLessons()
     fetchAllStudents()
+    fetchFocusAreas()
   }, [id])
 
   useEffect(() => {
@@ -157,17 +168,20 @@ export default function StudentDetailPage() {
         avgPerLesson: avgPerLesson
       })
     } catch (error) {
-      console.error('Error fetching financial data:', error)
+      logger.error('Error fetching financial data:', error)
     }
   }
 
   const handleSaveRevenue = async () => {
+    setSavingRevenue(true)
     try {
       const revenue = parseFloat(editRevenueValue) || 0
-      const { error } = await supabaseAdmin
-        .from('students')
-        .update({ total_revenue: revenue })
-        .eq('id', id)
+      const { error } = await retrySupabaseQuery(() =>
+        supabaseAdmin
+          .from('students')
+          .update({ total_revenue: revenue })
+          .eq('id', id)
+      )
 
       if (error) throw error
 
@@ -180,18 +194,23 @@ export default function StudentDetailPage() {
       }))
       setEditingRevenue(false)
     } catch (error) {
-      console.error('Error saving revenue:', error)
+      logger.error('Error saving revenue:', error)
       alert('Error saving revenue: ' + error.message)
+    } finally {
+      setSavingRevenue(false)
     }
   }
 
   const handleSaveLessonsPurchased = async () => {
+    setSavingLessonsPurchased(true)
     try {
       const lessonsPurchased = parseInt(editLessonsPurchasedValue) || 0
-      const { error } = await supabaseAdmin
-        .from('students')
-        .update({ total_lessons_purchased: lessonsPurchased })
-        .eq('id', id)
+      const { error } = await retrySupabaseQuery(() =>
+        supabaseAdmin
+          .from('students')
+          .update({ total_lessons_purchased: lessonsPurchased })
+          .eq('id', id)
+      )
 
       if (error) throw error
 
@@ -204,18 +223,23 @@ export default function StudentDetailPage() {
       }))
       setEditingLessonsPurchased(false)
     } catch (error) {
-      console.error('Error saving lessons purchased:', error)
+      logger.error('Error saving lessons purchased:', error)
       alert('Error saving lessons purchased: ' + error.message)
+    } finally {
+      setSavingLessonsPurchased(false)
     }
   }
 
   const handleSaveCredits = async () => {
+    setSavingCredits(true)
     try {
       const credits = parseInt(editCreditsValue) || 0
-      const { error } = await supabaseAdmin
-        .from('students')
-        .update({ lesson_credits: credits })
-        .eq('id', id)
+      const { error } = await retrySupabaseQuery(() =>
+        supabaseAdmin
+          .from('students')
+          .update({ lesson_credits: credits })
+          .eq('id', id)
+      )
 
       if (error) throw error
 
@@ -224,8 +248,10 @@ export default function StudentDetailPage() {
       setFinancialData(prev => ({ ...prev, lessonCredits: credits }))
       setEditingCredits(false)
     } catch (error) {
-      console.error('Error saving credits:', error)
+      logger.error('Error saving credits:', error)
       alert('Error saving credits: ' + error.message)
+    } finally {
+      setSavingCredits(false)
     }
   }
 
@@ -237,8 +263,22 @@ export default function StudentDetailPage() {
 
   const fetchStudentData = async () => {
     try {
-      console.log('=== FETCHING STUDENT DATA (COACH) ===')
-      console.log('Student ID:', id)
+      logger.debug('=== FETCHING STUDENT DATA (COACH) ===')
+      logger.debug('Student ID:', id)
+      
+      if (!id) {
+        logger.error('No student ID provided')
+        setLoading(false)
+        return
+      }
+      
+      // Check if supabaseAdmin is available
+      if (!supabaseAdmin) {
+        logger.error('Supabase admin client not available. Check environment variables.')
+        alert('Configuration error: Supabase admin client not available. Please check environment variables.')
+        setLoading(false)
+        return
+      }
       
       // Fetch student and profile separately to avoid relationship ambiguity
       const { data: studentData, error: studentError } = await supabaseAdmin
@@ -248,32 +288,50 @@ export default function StudentDetailPage() {
         .single()
 
       if (studentError) {
-        console.error('Fetch error:', studentError)
+        logger.error('Fetch error:', studentError)
+        logger.error('Error code:', studentError.code)
+        logger.error('Error message:', studentError.message)
+        logger.error('Error details:', studentError.details)
+        
+        // Handle 406 error specifically
+        if (studentError.code === 'PGRST301' || studentError.message?.includes('406') || studentError.message?.includes('Not Acceptable')) {
+          logger.error('406 Not Acceptable error - this usually means:')
+          logger.error('1. Supabase client not properly initialized')
+          logger.error('2. Missing or incorrect environment variables')
+          logger.error('3. API endpoint configuration issue')
+          alert('Error loading student data. Please check that Supabase environment variables are properly configured.')
+        }
+        
         throw studentError
       }
 
-      const { data: profileData } = await supabaseAdmin
+      const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('full_name, email, ntrp_level, phone')
         .eq('id', id)
         .single()
+      
+      if (profileError) {
+        logger.warn('Error fetching profile (non-critical):', profileError.message)
+        // Continue without profile data
+      }
 
       const data = { ...studentData, profiles: profileData }
 
-      console.log('Fetch response:', { data })
+      logger.debug('Fetch response:', { data })
       
-      console.log('Student data fetched:', data)
-      console.log('Development plan in fetched data:', data?.development_plan)
-      console.log('Development plan type:', typeof data?.development_plan)
+      logger.debug('Student data fetched:', data)
+      logger.debug('Development plan in fetched data:', data?.development_plan)
+      logger.debug('Development plan type:', typeof data?.development_plan)
       
       if (data?.development_plan) {
         try {
           const parsed = typeof data.development_plan === 'string'
-            ? JSON.parse(data.development_plan)
+            ? safeJsonParse(data.development_plan, data.development_plan)
             : data.development_plan
-          console.log('Parsed development plan:', parsed)
+          logger.debug('Parsed development plan:', parsed)
         } catch (parseError) {
-          console.error('Error parsing development plan:', parseError)
+          logger.error('Error parsing development plan:', parseError)
         }
       }
       
@@ -298,9 +356,9 @@ export default function StudentDetailPage() {
       }
       
       setLoading(false)
-      console.log('=== FETCH COMPLETE (COACH) ===')
+      logger.debug('=== FETCH COMPLETE (COACH) ===')
     } catch (error) {
-      console.error('Error fetching student:', error)
+      logger.error('Error fetching student:', error)
       setLoading(false)
     }
   }
@@ -316,7 +374,127 @@ export default function StudentDetailPage() {
       if (error) throw error
       setLessons(data || [])
     } catch (error) {
-      console.error('Error fetching lessons:', error)
+      logger.error('Error fetching lessons:', error)
+    }
+  }
+
+  const fetchFocusAreas = async () => {
+    if (!id) return
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('student_focus_areas')
+        .select('*')
+        .eq('student_id', id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setFocusAreas(data || [])
+    } catch (error) {
+      logger.error('Error fetching focus areas:', error)
+    }
+  }
+
+  const createFocusArea = async () => {
+    if (!newFocusAreaText.trim()) {
+      alert('Please enter a focus area')
+      return
+    }
+
+    if (!id) {
+      alert('Student ID is missing')
+      return
+    }
+
+    try {
+      let userId = null
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        userId = user?.id
+      } catch (authError) {
+        logger.warn('Could not get user ID:', authError)
+        // Continue without user ID - created_by can be null
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('student_focus_areas')
+        .insert({
+          student_id: id,
+          area_text: newFocusAreaText.trim(),
+          created_by: userId
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setFocusAreas(prev => [data, ...prev])
+      setNewFocusAreaText('')
+      setShowAddFocusArea(false)
+    } catch (error) {
+      logger.error('Error creating focus area:', error)
+      alert('Error creating focus area: ' + error.message)
+    }
+  }
+
+  const updateFocusArea = async (focusAreaId, newText) => {
+    if (!newText.trim()) {
+      alert('Focus area cannot be empty')
+      return
+    }
+
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('student_focus_areas')
+        .update({ area_text: newText.trim() })
+        .eq('id', focusAreaId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setFocusAreas(prev => prev.map(fa => fa.id === focusAreaId ? data : fa))
+      setEditingFocusArea(null)
+    } catch (error) {
+      logger.error('Error updating focus area:', error)
+      alert('Error updating focus area: ' + error.message)
+    }
+  }
+
+  const deleteFocusArea = async (focusAreaId) => {
+    if (!confirm('Are you sure you want to delete this focus area?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabaseAdmin
+        .from('student_focus_areas')
+        .delete()
+        .eq('id', focusAreaId)
+
+      if (error) throw error
+
+      setFocusAreas(prev => prev.filter(fa => fa.id !== focusAreaId))
+    } catch (error) {
+      logger.error('Error deleting focus area:', error)
+      alert('Error deleting focus area: ' + error.message)
+    }
+  }
+
+  const toggleFocusAreaResolved = async (focusAreaId, currentStatus) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('student_focus_areas')
+        .update({ is_resolved: !currentStatus })
+        .eq('id', focusAreaId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setFocusAreas(prev => prev.map(fa => fa.id === focusAreaId ? data : fa))
+    } catch (error) {
+      logger.error('Error toggling focus area resolved status:', error)
+      alert('Error updating focus area: ' + error.message)
     }
   }
 
@@ -343,7 +521,7 @@ export default function StudentDetailPage() {
         setSelectedLesson(null)
       }
     } catch (error) {
-      console.error('Error deleting lesson:', error)
+      logger.error('Error deleting lesson:', error)
       alert('Error deleting lesson: ' + error.message)
     }
   }
@@ -362,16 +540,16 @@ export default function StudentDetailPage() {
       setStudent(prev => ({ ...prev, private_coach_notes: privateNotes }))
       
     } catch (error) {
-      console.error('Error saving notes:', error)
+      logger.error('Error saving notes:', error)
       alert('Error saving notes: ' + error.message)
     }
   }
 
   const handleSaveDevelopmentPlan = async (planData) => {
     try {
-      console.log('=== COACH SAVE DEVELOPMENT PLAN STARTING ===')
-      console.log('Plan data being saved:', planData)
-      console.log('Student ID:', id)
+      logger.debug('=== COACH SAVE DEVELOPMENT PLAN STARTING ===')
+      logger.debug('Plan data being saved:', planData)
+      logger.debug('Student ID:', id)
       
       // Ensure development_plan is properly formatted as JSON string
       const updateData = {
@@ -381,7 +559,7 @@ export default function StudentDetailPage() {
         development_plan_notes: planData.development_plan_notes || undefined
       }
 
-      console.log('Formatted update data:', updateData)
+      logger.debug('Formatted update data:', updateData)
 
       const { data, error } = await supabaseAdmin
         .from('students')
@@ -389,15 +567,15 @@ export default function StudentDetailPage() {
         .eq('id', id)
         .select()
 
-      console.log('Save response:', { data, error })
+      logger.debug('Save response:', { data, error })
 
       if (error) {
-        console.error('Database error:', error)
+        logger.error('Database error:', error)
         alert('Failed to save: ' + error.message)
         return
       }
 
-      console.log('Save successful, returned data:', data)
+      logger.debug('Save successful, returned data:', data)
 
       // Verify the save
       const { data: verifyData, error: verifyError } = await supabaseAdmin
@@ -407,11 +585,11 @@ export default function StudentDetailPage() {
         .single()
 
       if (verifyError) {
-        console.error('Verification failed:', verifyError)
+        logger.error('Verification failed:', verifyError)
       } else {
-        console.log('Verification successful - data in DB:', verifyData)
+        logger.debug('Verification successful - data in DB:', verifyData)
         if (!verifyData?.development_plan) {
-          console.warn('WARNING: Data did not save to database!')
+          logger.warn('WARNING: Data did not save to database!')
           alert('WARNING: Data did not save properly. Please try again.')
           return
         }
@@ -423,7 +601,7 @@ export default function StudentDetailPage() {
       // Force refresh student data
       await fetchStudentData()
     } catch (error) {
-      console.error('Unexpected error:', error)
+      logger.error('Unexpected error:', error)
       alert('Error saving plan: ' + error.message)
     }
   }
@@ -442,21 +620,24 @@ export default function StudentDetailPage() {
     try {
       const fullName = `${profileFormData.first_name} ${profileFormData.last_name}`.trim()
       
-      // Update profiles table
-      const { error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          email: profileFormData.email,
-          phone: profileFormData.phone,
-          ntrp_level: profileFormData.ntrp_level
-        })
-        .eq('id', id)
+      // Update profiles table with retry logic
+      const { error: profileError } = await retrySupabaseQuery(() =>
+        supabaseAdmin
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            email: profileFormData.email,
+            phone: profileFormData.phone,
+            ntrp_level: profileFormData.ntrp_level
+          })
+          .eq('id', id)
+      )
 
       if (profileError) throw profileError
 
-      // Update students table (lesson_credits)
-      const { error: studentError } = await supabaseAdmin
+      // Update students table (lesson_credits) with retry logic
+      const { error: studentError } = await retrySupabaseQuery(() =>
+        supabaseAdmin
         .from('students')
         .update({
           lesson_credits: profileFormData.lesson_credits
@@ -469,7 +650,7 @@ export default function StudentDetailPage() {
       setEditingProfile(false)
       await fetchStudentData() // Refresh to show updated data
     } catch (error) {
-      console.error('Error saving profile:', error)
+      logger.error('Error saving profile:', error)
       alert('Error saving profile: ' + error.message)
     } finally {
       setSavingProfile(false)
@@ -489,7 +670,7 @@ export default function StudentDetailPage() {
       setStudent(prev => ({ ...prev, is_active: newStatus }))
       alert(`Student marked as ${newStatus ? 'Active' : 'Inactive'}`)
     } catch (error) {
-      console.error('Error toggling status:', error)
+      logger.error('Error toggling status:', error)
       alert('Error updating status: ' + error.message)
     }
   }
@@ -501,7 +682,7 @@ export default function StudentDetailPage() {
     try {
       const studentId = student.id
       
-      console.log('Starting deletion process for student:', studentId)
+      logger.debug('Starting deletion process for student:', studentId)
       
       // Delete user and all related records via Netlify function
       const response = await fetch('/.netlify/functions/delete-auth-user', {
@@ -514,8 +695,8 @@ export default function StudentDetailPage() {
 
       // Check if response has content before parsing JSON
       const text = await response.text()
-      console.log('Delete user response status:', response.status)
-      console.log('Delete user response text:', text)
+        logger.debug('Delete user response status:', response.status)
+        logger.debug('Delete user response text:', text)
 
       if (response.status === 404) {
         throw new Error('Netlify function not found. If testing locally, use "netlify dev" instead of "npm run dev". Or test on the deployed site.')
@@ -525,17 +706,15 @@ export default function StudentDetailPage() {
         throw new Error('Empty response from delete-auth-user function. Check Netlify function logs.')
       }
 
-      let result
-      try {
-        result = JSON.parse(text)
-      } catch (parseError) {
-        console.error('Failed to parse JSON response:', parseError)
-        console.error('Response text was:', text)
+      let result = safeJsonParse(text, null)
+      
+      if (!result) {
+        logger.error('Failed to parse JSON response. Response text was:', text)
         throw new Error(`Invalid response from server: ${text.substring(0, 100)}`)
       }
 
       if (!response.ok) {
-        console.error('Error deleting user:', result)
+        logger.error('Error deleting user:', result)
         
         // Provide more helpful error messages
         let errorMessage = result.error || result.details || 'Unknown error'
@@ -553,12 +732,12 @@ export default function StudentDetailPage() {
         throw new Error(errorMessage)
       }
 
-      console.log('User and all related records deleted successfully:', result)
-      console.log('Student deletion completed successfully')
+      logger.debug('User and all related records deleted successfully:', result)
+      logger.debug('Student deletion completed successfully')
       alert('Student profile deleted successfully')
       navigate('/coach/students')
     } catch (error) {
-      console.error('Error deleting student:', error)
+      logger.error('Error deleting student:', error)
       alert('Error deleting student: ' + error.message)
     } finally {
       setDeletingStudent(false)
@@ -597,7 +776,7 @@ export default function StudentDetailPage() {
         setReferringStudent(null)
       }
     } catch (error) {
-      console.error('Error saving lead source:', error)
+      logger.error('Error saving lead source:', error)
       alert('Error saving: ' + error.message)
     }
   }
@@ -618,7 +797,7 @@ export default function StudentDetailPage() {
 
   const developmentPlan = student.development_plan 
     ? (typeof student.development_plan === 'string' 
-        ? JSON.parse(student.development_plan) 
+        ? safeJsonParse(student.development_plan, student.development_plan) 
         : student.development_plan)
     : null
 
@@ -1070,7 +1249,7 @@ export default function StudentDetailPage() {
                       fetchStudentData()
                       alert(`Player level updated to ${newLevel}`)
                     } else {
-                      console.error('Error updating player level:', error)
+                      logger.error('Error updating player level:', error)
                       alert('Error updating player level')
                     }
                   }}
@@ -1119,6 +1298,231 @@ export default function StudentDetailPage() {
 
             {/* Practice Plan Completion Tracking */}
             <StudentPracticePlans studentId={id} />
+
+            {/* Areas to Focus On */}
+            <div className="section" style={{ marginTop: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <h3>🎯 Areas to Focus On</h3>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setShowAddFocusArea(true)
+                    setNewFocusAreaText('')
+                  }}
+                  style={{ fontSize: '14px', padding: '8px 16px' }}
+                >
+                  + Add Area
+                </button>
+              </div>
+
+              {/* Add New Focus Area Form */}
+              {showAddFocusArea && (
+                <div style={{ 
+                  padding: '16px', 
+                  backgroundColor: '#f9fafb', 
+                  borderRadius: '8px', 
+                  marginBottom: '16px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <textarea
+                    value={newFocusAreaText}
+                    onChange={(e) => setNewFocusAreaText(e.target.value)}
+                    placeholder="Enter an area for the student to focus on..."
+                    style={{
+                      width: '100%',
+                      minHeight: '80px',
+                      padding: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '14px',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      marginBottom: '12px'
+                    }}
+                    autoFocus
+                  />
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => {
+                        setShowAddFocusArea(false)
+                        setNewFocusAreaText('')
+                      }}
+                      style={{ fontSize: '14px' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={createFocusArea}
+                      style={{ fontSize: '14px' }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Active Focus Areas */}
+              {focusAreas && focusAreas.filter(fa => !fa.is_resolved).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                  {focusAreas
+                    .filter(fa => !fa.is_resolved)
+                    .map(focusArea => (
+                      <div
+                        key={focusArea.id}
+                        style={{
+                          padding: '16px',
+                          backgroundColor: '#fff5f5',
+                          borderRadius: '8px',
+                          border: '2px solid #ff6b6b',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px'
+                        }}
+                      >
+                        {editingFocusArea?.id === focusArea.id ? (
+                          <div style={{ flex: 1 }}>
+                            <textarea
+                              value={editingFocusArea.text}
+                              onChange={(e) => setEditingFocusArea({ ...editingFocusArea, text: e.target.value })}
+                              style={{
+                                width: '100%',
+                                minHeight: '60px',
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid #d1d5db',
+                                fontSize: '14px',
+                                fontFamily: 'inherit',
+                                resize: 'vertical',
+                                marginBottom: '8px'
+                              }}
+                              autoFocus
+                            />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                className="btn btn-primary"
+                                onClick={() => updateFocusArea(focusArea.id, editingFocusArea.text)}
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                className="btn btn-outline"
+                                onClick={() => setEditingFocusArea(null)}
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: '15px', lineHeight: '1.5' }}>
+                                {focusArea.area_text}
+                              </p>
+                              <span style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' }}>
+                                Added {new Date(focusArea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                              <button
+                                className="btn-icon"
+                                onClick={() => setEditingFocusArea({ id: focusArea.id, text: focusArea.area_text })}
+                                title="Edit"
+                                style={{ padding: '6px' }}
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                className="btn-icon"
+                                onClick={() => toggleFocusAreaResolved(focusArea.id, focusArea.is_resolved)}
+                                title="Mark as resolved"
+                                style={{ padding: '6px', color: '#10b981' }}
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
+                                className="btn-icon-delete"
+                                onClick={() => deleteFocusArea(focusArea.id)}
+                                title="Delete"
+                                style={{ padding: '6px' }}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                !showAddFocusArea && (
+                  <div style={{ 
+                    padding: '24px', 
+                    textAlign: 'center', 
+                    color: '#666',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '8px',
+                    border: '1px dashed #d1d5db'
+                  }}>
+                    <p style={{ margin: 0 }}>No active focus areas. Click "Add Area" to create one.</p>
+                  </div>
+                )
+              )}
+
+              {/* Resolved Focus Areas (Collapsed) */}
+              {focusAreas && focusAreas.filter(fa => fa.is_resolved).length > 0 && (
+                <details style={{ marginTop: '16px' }}>
+                  <summary style={{ 
+                    cursor: 'pointer', 
+                    color: '#666', 
+                    fontSize: '14px',
+                    padding: '8px',
+                    userSelect: 'none'
+                  }}>
+                    Resolved ({focusAreas && focusAreas.filter(fa => fa.is_resolved).length || 0})
+                  </summary>
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {focusAreas
+                      .filter(fa => fa.is_resolved)
+                      .map(focusArea => (
+                        <div
+                          key={focusArea.id}
+                          style={{
+                            padding: '12px',
+                            backgroundColor: '#f0fdf4',
+                            borderRadius: '6px',
+                            border: '1px solid #bbf7d0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            opacity: 0.8
+                          }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: '14px', textDecoration: 'line-through', color: '#666' }}>
+                              {focusArea.area_text}
+                            </p>
+                            <span style={{ fontSize: '11px', color: '#666' }}>
+                              Resolved {focusArea.resolved_at ? new Date(focusArea.resolved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                            </span>
+                          </div>
+                          <button
+                            className="btn-icon"
+                            onClick={() => toggleFocusAreaResolved(focusArea.id, focusArea.is_resolved)}
+                            title="Mark as active"
+                            style={{ padding: '6px', color: '#666' }}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </details>
+              )}
+            </div>
           </div>
         )}
 
@@ -1200,7 +1604,7 @@ export default function StudentDetailPage() {
                     {(() => {
                       try {
                         const plan = typeof student.development_plan === 'string' 
-                          ? JSON.parse(student.development_plan) 
+                          ? safeJsonParse(student.development_plan, student.development_plan) 
                           : student.development_plan
                         
                         const bigGoal = plan?.section1?.bigGoal
@@ -1330,7 +1734,7 @@ export default function StudentDetailPage() {
                   if (error) throw error
                   setStudent({ ...student, development_plan_notes: newNotes })
                 } catch (error) {
-                  console.error('Error saving notes:', error)
+                  logger.error('Error saving notes:', error)
                   alert('Error saving notes: ' + error.message)
                 }
               }}
@@ -1348,7 +1752,7 @@ export default function StudentDetailPage() {
               try {
                 const plan = student.development_plan 
                   ? (typeof student.development_plan === 'string' 
-                      ? JSON.parse(student.development_plan) 
+                      ? safeJsonParse(student.development_plan, student.development_plan) 
                       : student.development_plan)
                   : null
                 return plan ? <OverallProgressSummary developmentPlan={plan} /> : null
@@ -1491,9 +1895,11 @@ export default function StudentDetailPage() {
                       <button 
                         className="financial-edit-btn save"
                         onClick={handleSaveCredits}
+                        disabled={savingCredits}
                         title="Save"
+                        aria-label="Save lesson credits"
                       >
-                        <Check size={16} />
+                        {savingCredits ? '...' : <Check size={16} />}
                       </button>
                       <button 
                         className="financial-edit-btn cancel"
@@ -1756,7 +2162,7 @@ export default function StudentDetailPage() {
                 {selectedLesson.metadata && (() => {
                   try {
                     const metadata = typeof selectedLesson.metadata === 'string' 
-                      ? JSON.parse(selectedLesson.metadata) 
+                      ? safeJsonParse(selectedLesson.metadata, selectedLesson.metadata) 
                       : selectedLesson.metadata
                     
                     if (metadata?.source === 'google_calendar') {

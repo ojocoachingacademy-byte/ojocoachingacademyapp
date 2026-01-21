@@ -81,12 +81,8 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
   }
 
   const handleBookLessons = () => {
-    if (onBookLesson) {
-      onBookLesson()
-    } else {
-      // Fallback: navigate to lessons tab or dashboard
-      navigate('/lessons')
-    }
+    // Open booking page in new tab
+    window.open('https://ojocoachingacademy.com/booking', '_blank')
   }
 
   const handleContactCoach = () => {
@@ -360,7 +356,7 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
         if (studentData?.development_plan) {
           try {
             const plan = typeof studentData.development_plan === 'string' 
-              ? JSON.parse(studentData.development_plan) 
+              ? safeJsonParse(studentData.development_plan, studentData.development_plan)
               : studentData.development_plan
             
             if (plan?.section1?.bigGoal) {

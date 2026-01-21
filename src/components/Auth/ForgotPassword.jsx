@@ -16,11 +16,19 @@ const ForgotPassword = () => {
     setLoading(true)
 
     try {
+      // Ensure we're using the correct redirect URL
+      // Supabase requires the redirect URL to be whitelisted in the dashboard
+      const redirectUrl = `${window.location.origin}/reset-password`
+      
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: redirectUrl
       })
 
       if (resetError) {
+        // Provide more helpful error messages
+        if (resetError.message?.includes('redirect')) {
+          throw new Error('The reset link URL is not configured. Please contact support.')
+        }
         throw resetError
       }
 

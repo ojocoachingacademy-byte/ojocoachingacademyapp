@@ -593,7 +593,7 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
           <div>
             <strong>"Start a hobby / Rally with friend"</strong><br/>
             <span style={{ fontSize: '14px', color: '#666' }}>
-              🎯 Target: Milestones 1-15 | ⏱️ Timeline: 8-12 lessons | 📈 Skill Level: 4-5/10 in all areas
+              🎯 Target: Milestones 1-15 | ⏱️ Timeline: 8-12 lessons | 📈 Skill Level: 4/10 in all areas
             </span>
           </div>
           <div>
@@ -605,7 +605,7 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
           <div>
             <strong>"Play USTA league/tournament"</strong><br/>
             <span style={{ fontSize: '14px', color: '#666' }}>
-              🎯 Target: Milestones 1-28+ | ⏱️ Timeline: 25-40 lessons | 📈 Skill Level: 7-8/10 in all areas
+              🎯 Target: Milestones 1-28+ | ⏱️ Timeline: 25-40 lessons | 📈 Skill Level: 7/10 in all areas
             </span>
           </div>
         </div>

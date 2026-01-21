@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { Search, Users, MapPin, Clock, Calendar, User, Edit2, Send, X } from 'lucide-react'
+import StudentPageWrapper from '../Layout/StudentPageWrapper'
 import './HittingPartners.css'
 import '../shared/Modal.css'
 
@@ -377,16 +378,19 @@ export default function HittingPartners() {
 
   if (loading) {
     return (
-      <div className="hitting-partners-page">
-        <div className="spinner"></div>
-        <p className="text-center" style={{ color: '#666' }}>Loading...</p>
-      </div>
+      <StudentPageWrapper>
+        <div className="hitting-partners-page">
+          <div className="spinner"></div>
+          <p className="text-center" style={{ color: '#666' }}>Loading...</p>
+        </div>
+      </StudentPageWrapper>
     )
   }
 
   return (
-    <div className="hitting-partners-page">
-      {/* Header */}
+    <StudentPageWrapper>
+      <div className="hitting-partners-page">
+        {/* Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Hitting Partner Directory</h1>
@@ -574,7 +578,8 @@ export default function HittingPartners() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </StudentPageWrapper>
   )
 }
 

@@ -3,18 +3,25 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../supabaseClient'
 import { trackEvent, EVENTS } from '../../../utils/analytics'
 import { getStudentStage } from '../../../utils/studentStage'
+import { detectNewMilestone } from '../../../utils/lessonMilestones'
 import PracticePlanCard from '../PracticePlanCard'
+import PracticeStreakCard from '../PracticeStreakCard'
+import LessonMilestoneModal from '../LessonMilestoneModal'
 import RecentWins from '../RecentWins'
+import '../../shared/Modal.css'
 import './HomeTab.css'
 
 const HomeTab = ({ studentData, onBookLesson }) => {
   const navigate = useNavigate()
   const [upcomingLesson, setUpcomingLesson] = useState(null)
   const [completedLessons, setCompletedLessons] = useState([])
-  const [recentFeedback, setRecentFeedback] = useState(null)
   const [loading, setLoading] = useState(true)
   const [stage, setStage] = useState(null)
   const [activePracticePlan, setActivePracticePlan] = useState(null)
+  const [selectedLessonForPlan, setSelectedLessonForPlan] = useState(null)
+  const [manualFocusAreas, setManualFocusAreas] = useState([])
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false)
+  const [currentMilestone, setCurrentMilestone] = useState(null)
 
   useEffect(() => {
     if (studentData?.id) {
@@ -51,22 +58,53 @@ const HomeTab = ({ studentData, onBookLesson }) => {
       setCompletedLessons(completed || [])
 
       // Find active practice plan (most recent incomplete one)
-      if (completed && completed.length > 0) {
-        const practicePlanLesson = completed.find(
+      // Check both completed and upcoming lessons for practice plans
+      let practicePlanLesson = null
+      
+      // First check upcoming lesson for practice plan
+      if (upcoming && upcoming.practice_plan && !upcoming.practice_plan_completed) {
+        practicePlanLesson = upcoming
+      }
+      
+      // Then check completed lessons
+      if (!practicePlanLesson && completed && completed.length > 0) {
+        practicePlanLesson = completed.find(
           l => l.practice_plan && !l.practice_plan_completed
         ) || completed.find(l => l.practice_plan)
-        setActivePracticePlan(practicePlanLesson || null)
       }
-
-      // Get most recent feedback
-      if (completed && completed.length > 0) {
-        const withFeedback = completed.find(l => l.coach_feedback)
-        setRecentFeedback(withFeedback || null)
-      }
+      
+      setActivePracticePlan(practicePlanLesson || null)
 
       // Determine stage based on lesson count
       const studentStage = getStudentStage(studentData, upcoming, completed || [])
       setStage(studentStage)
+
+      // Check for lesson milestones after fetching student data
+      if (studentData) {
+        checkLessonMilestones(completed?.length || 0, studentData.shown_lesson_milestones || [])
+      }
+
+      // Fetch manual focus areas (only unresolved ones)
+      if (studentData?.id) {
+        try {
+          const { data: focusAreas, error: focusError } = await supabase
+            .from('student_focus_areas')
+            .select('*')
+            .eq('student_id', studentData.id)
+            .eq('is_resolved', false)
+            .order('created_at', { ascending: false })
+
+          if (!focusError && focusAreas) {
+            setManualFocusAreas(focusAreas || [])
+          } else if (focusError) {
+            console.error('Error fetching focus areas:', focusError)
+            setManualFocusAreas([])
+          }
+        } catch (error) {
+          console.error('Error fetching focus areas:', error)
+          setManualFocusAreas([])
+        }
+      }
 
     } catch (error) {
       console.error('Error fetching home data:', error)
@@ -75,23 +113,90 @@ const HomeTab = ({ studentData, onBookLesson }) => {
     }
   }
 
-  const handleViewLessonPlan = (lessonId) => {
+  const handleViewLessonPlan = async (lessonId) => {
     trackEvent(EVENTS.VIEW_LESSON_PLAN, { lesson_id: lessonId })
-    // For now, we'll show lesson details in a modal or navigate
-    // This can be enhanced later with a lesson detail view
-    console.log('View lesson plan:', lessonId)
+    
+    try {
+      // Check if we already have the lesson data (for upcoming lesson)
+      if (upcomingLesson && upcomingLesson.id === lessonId) {
+        setSelectedLessonForPlan(upcomingLesson)
+        return
+      }
+
+      // Otherwise, fetch the lesson data
+      const { data: lesson, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('id', lessonId)
+        .single()
+
+      if (error) throw error
+
+      if (lesson) {
+        setSelectedLessonForPlan(lesson)
+      }
+    } catch (error) {
+      console.error('Error fetching lesson plan:', error)
+      alert('Failed to load lesson plan. Please try again.')
+    }
   }
 
-  const handleViewFeedback = (lessonId) => {
-    trackEvent(EVENTS.VIEW_LESSON_FEEDBACK, { lesson_id: lessonId })
-    // Navigate to lessons tab or show lesson details
-    console.log('View feedback:', lessonId)
-  }
 
   const handleBookLesson = () => {
     trackEvent(EVENTS.TAB_CHANGE, { action: 'book_lesson' })
     if (onBookLesson) {
       onBookLesson()
+    }
+  }
+
+  const checkLessonMilestones = (completedCount, shownMilestones) => {
+    if (!completedCount || completedCount < 5) return
+    
+    const newMilestone = detectNewMilestone(completedCount, shownMilestones || [])
+    
+    if (newMilestone) {
+      setCurrentMilestone(newMilestone)
+      setShowMilestoneModal(true)
+    }
+  }
+
+  const handleMilestoneShown = async (milestoneNumber) => {
+    if (!studentData?.id || !milestoneNumber) return
+
+    try {
+      const { data: student, error: fetchError } = await supabase
+        .from('students')
+        .select('shown_lesson_milestones')
+        .eq('id', studentData.id)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      const currentShown = student?.shown_lesson_milestones || []
+      
+      // Don't add if already in the array
+      if (currentShown.includes(milestoneNumber)) {
+        setShowMilestoneModal(false)
+        setCurrentMilestone(null)
+        return
+      }
+
+      const updatedShown = [...currentShown, milestoneNumber]
+
+      const { error: updateError } = await supabase
+        .from('students')
+        .update({ shown_lesson_milestones: updatedShown })
+        .eq('id', studentData.id)
+
+      if (updateError) throw updateError
+
+      setShowMilestoneModal(false)
+      setCurrentMilestone(null)
+    } catch (error) {
+      console.error('Error updating shown milestones:', error)
+      // Still close modal even if update fails
+      setShowMilestoneModal(false)
+      setCurrentMilestone(null)
     }
   }
 
@@ -107,6 +212,105 @@ const HomeTab = ({ studentData, onBookLesson }) => {
   const completedCount = completedLessons.length
   const practicePlanCount = completedLessons.filter(l => l.practice_plan).length
   const completedPracticeCount = completedLessons.filter(l => l.practice_plan_completed).length
+
+  // Extract problems/areas to improve from coach feedback
+  const extractProblems = () => {
+    if (!completedLessons || completedLessons.length === 0) return []
+    
+    const problems = []
+    const feedbackKeywords = {
+      'improve': ['improve', 'better', 'work on', 'focus on', 'needs work'],
+      'problem': ['problem', 'issue', 'struggle', 'difficulty', 'challenge'],
+      'weakness': ['weak', 'weakness', 'weak area', 'needs improvement'],
+      'fix': ['fix', 'correct', 'adjust', 'change']
+    }
+    
+    // Get recent lessons with feedback (last 5)
+    const recentLessonsWithFeedback = completedLessons
+      .filter(l => l.coach_feedback)
+      .slice(0, 5)
+    
+    // Use Set for O(1) duplicate checking
+    const seenProblems = new Set()
+    
+    recentLessonsWithFeedback.forEach(lesson => {
+      if (!lesson.coach_feedback) return
+      
+      const feedback = lesson.coach_feedback.toLowerCase()
+      
+      // Look for problem indicators
+      Object.keys(feedbackKeywords).forEach(key => {
+        feedbackKeywords[key].forEach(keyword => {
+          if (feedback.includes(keyword)) {
+            // Extract sentence or phrase containing the keyword
+            const sentences = (lesson.coach_feedback || '').split(/[.!?]\s+/)
+            sentences.forEach(sentence => {
+              if (sentence && sentence.toLowerCase().includes(keyword) && sentence.length > 20) {
+                // Clean up and add if not duplicate
+                const cleanSentence = sentence.trim()
+                if (cleanSentence && !seenProblems.has(cleanSentence)) {
+                  seenProblems.add(cleanSentence)
+                  problems.push({
+                    text: cleanSentence,
+                    date: lesson.lesson_date,
+                    lessonId: lesson.id,
+                    source: 'auto-extracted'
+                  })
+                }
+              }
+            })
+          }
+        })
+      })
+    })
+    
+    // If no specific problems found, look for general improvement areas
+    if (problems.length === 0 && recentLessonsWithFeedback.length > 0) {
+      const latestFeedback = recentLessonsWithFeedback[0]?.coach_feedback
+      if (latestFeedback) {
+        // Try to extract actionable items (sentences with action verbs)
+        const sentences = (latestFeedback || '').split(/[.!?]\s+/)
+        sentences.forEach(sentence => {
+          if (sentence) {
+            const actionVerbs = ['practice', 'focus', 'work', 'develop', 'strengthen', 'improve']
+            if (actionVerbs.some(verb => sentence.toLowerCase().includes(verb)) && sentence.length > 30) {
+              const trimmedSentence = sentence.trim()
+              if (trimmedSentence && !seenProblems.has(trimmedSentence)) {
+                seenProblems.add(trimmedSentence)
+                problems.push({
+                  text: trimmedSentence,
+                  date: recentLessonsWithFeedback[0].lesson_date,
+                  lessonId: recentLessonsWithFeedback[0].id,
+                  source: 'auto-extracted'
+                })
+              }
+            }
+          }
+        })
+      }
+    }
+    
+    return problems.slice(0, 3) // Return top 3 problems
+  }
+
+  // Combine manual focus areas with auto-extracted ones
+  // Manual areas come first, then auto-extracted
+  const getAllFocusAreas = () => {
+    const manual = (manualFocusAreas || []).map(fa => ({
+      text: fa.area_text,
+      date: fa.created_at,
+      id: fa.id,
+      source: 'manual'
+    }))
+
+    const autoExtracted = extractProblems()
+
+    // Combine: manual first, then auto-extracted (limit total to 5)
+    const combined = [...manual, ...autoExtracted].slice(0, 5)
+    return combined
+  }
+
+  const problems = getAllFocusAreas()
 
   return (
     <div className="home-tab">
@@ -151,6 +355,14 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             </div>
           </div>
 
+          {/* Current Practice Plan - Show if available */}
+          {activePracticePlan && (
+            <PracticePlanCard 
+              lesson={activePracticePlan}
+              onComplete={fetchHomeData}
+            />
+          )}
+
           {/* Next Upcoming Lesson Card (if synced from calendar) */}
           {upcomingLesson && (
             <div className="next-lesson-card">
@@ -191,6 +403,14 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             </div>
           )}
         </>
+      )}
+
+      {/* Practice Streak Card - Show for all stages with practice plans */}
+      {completedLessons.length > 0 && (
+        <PracticeStreakCard 
+          studentId={studentData?.id}
+          completedLessons={completedLessons}
+        />
       )}
 
       {/* STAGE 2: Just Started (1-4 lessons) */}
@@ -244,18 +464,6 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             </div>
           )}
 
-          {/* Recent Wins */}
-          {stage?.showRecentWins && studentData?.development_plan && (
-            <div className="recent-wins-section">
-              <h3>🏆 Recent Wins</h3>
-              <RecentWins 
-                studentId={studentData.id} 
-                developmentPlan={studentData.development_plan}
-                playerLevel={studentData.player_level || 'beginner'}
-              />
-            </div>
-          )}
-
           {/* Encouragement Message */}
           {stage?.encouragementMessage && (
             <div className="encouragement-message">
@@ -268,7 +476,7 @@ const HomeTab = ({ studentData, onBookLesson }) => {
       {/* STAGE 3 & 4: Developing (5-19) and Established (20+) */}
       {(stage?.stageNumber === 3 || stage?.stageNumber === 4) && (
         <>
-          {/* Practice Plan - Prominent */}
+          {/* 1. Practice Plan - Most actionable */}
           {activePracticePlan && (
             <PracticePlanCard 
               lesson={activePracticePlan}
@@ -276,7 +484,15 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             />
           )}
 
-          {/* Next Lesson */}
+          {/* 2. Practice Streak Card - Motivation/Accountability */}
+          {completedLessons.length > 0 && (
+            <PracticeStreakCard 
+              studentId={studentData?.id}
+              completedLessons={completedLessons}
+            />
+          )}
+
+          {/* 3. Next Lesson Card - Upcoming schedule */}
           {upcomingLesson && (
             <div className="next-lesson-card">
               <div className="card-header">
@@ -316,7 +532,53 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             </div>
           )}
 
-          {/* Recent Wins */}
+          {/* 4. Areas to Focus On - What to work on */}
+          {stage?.showProgressHighlights && (
+            <div className="problem-card">
+              <div className="problem-card-header">
+                <h3>🎯 Areas to Focus On</h3>
+                <span className="problem-card-subtitle">Based on your recent lessons</span>
+              </div>
+              {problems.length > 0 ? (
+                <div className="problems-list">
+                  {problems.map((problem, index) => (
+                    <div key={problem.id || `auto-${index}`} className="problem-item">
+                      <div className="problem-icon">•</div>
+                      <div className="problem-content">
+                        <p className="problem-text">{problem.text}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <span className="problem-date">
+                            {new Date(problem.date).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </span>
+                          {problem.source === 'manual' && (
+                            <span style={{ 
+                              fontSize: '11px', 
+                              color: '#4B2C6C', 
+                              backgroundColor: '#E9E3FF',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: '500'
+                            }}>
+                              Coach Added
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-problems-message">
+                  <p>Keep up the great work! Your coach will add specific areas to focus on in your feedback.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5. Recent Wins - Progress/Celebration */}
           {stage?.showRecentWins && studentData?.development_plan && (
             <div className="recent-wins-section">
               <h3>🏆 Recent Wins</h3>
@@ -324,53 +586,9 @@ const HomeTab = ({ studentData, onBookLesson }) => {
                 studentId={studentData.id} 
                 developmentPlan={studentData.development_plan}
                 playerLevel={studentData.player_level || 'beginner'}
+                hideGoalProgress={false}
+                hideTitle={true}
               />
-            </div>
-          )}
-
-          {/* Progress Highlights - Stage 3 & 4 */}
-          {stage?.showProgressHighlights && (
-            <div className="progress-highlights">
-              <h3>📈 Your Progress</h3>
-              <div className="highlights-grid">
-                <div className="highlight-card">
-                  <span className="highlight-value">{completedCount}</span>
-                  <span className="highlight-label">Lessons Completed</span>
-                </div>
-                <div className="highlight-card">
-                  <span className="highlight-value">{completedPracticeCount}</span>
-                  <span className="highlight-label">Practice Plans Done</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Recent Feedback Preview */}
-          {recentFeedback && recentFeedback.coach_feedback && (
-            <div className="recent-feedback-card">
-              <div className="card-header">
-                <h3>📝 From Last Lesson</h3>
-                <span className="feedback-date">
-                  {new Date(recentFeedback.lesson_date).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
-                </span>
-              </div>
-              <div className="feedback-preview">
-                <p>
-                  {recentFeedback.coach_feedback.length > 150 
-                    ? recentFeedback.coach_feedback.substring(0, 150) + '...'
-                    : recentFeedback.coach_feedback
-                  }
-                </p>
-              </div>
-              <button 
-                className="btn-text read-more-btn"
-                onClick={() => handleViewFeedback(recentFeedback.id)}
-              >
-                Read Full Feedback →
-              </button>
             </div>
           )}
         </>
@@ -403,10 +621,101 @@ const HomeTab = ({ studentData, onBookLesson }) => {
           </div>
           <button 
             className="btn-primary"
-            onClick={() => navigate('/profile')}
+            onClick={() => window.open('https://ojocoachingacademy.com/booking', '_blank')}
           >
             Buy Package →
           </button>
+        </div>
+      )}
+
+      {/* Lesson Milestone Celebration Modal */}
+      {showMilestoneModal && currentMilestone && (
+        <LessonMilestoneModal
+          milestone={currentMilestone}
+          onClose={() => setShowMilestoneModal(false)}
+          onMarkShown={handleMilestoneShown}
+        />
+      )}
+
+      {/* Lesson Milestone Celebration Modal */}
+      {showMilestoneModal && currentMilestone && (
+        <LessonMilestoneModal
+          milestone={currentMilestone}
+          onClose={() => setShowMilestoneModal(false)}
+          onMarkShown={handleMilestoneShown}
+        />
+      )}
+
+      {/* Lesson Plan Modal */}
+      {selectedLessonForPlan && (
+        <div className="modal-overlay" onClick={() => setSelectedLessonForPlan(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Lesson Plan</h2>
+              <button className="modal-close" onClick={() => setSelectedLessonForPlan(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Date:</strong> {new Date(selectedLessonForPlan.lesson_date).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Time:</strong> {new Date(selectedLessonForPlan.lesson_date).toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit' 
+                })}
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Location:</strong> {selectedLessonForPlan.location || 'Colina Del Sol Park'}
+              </div>
+              {(selectedLessonForPlan.lesson_plan || selectedLessonForPlan.student_lesson_plan) && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Lesson Plan:</strong>
+                  <div style={{ 
+                    marginTop: '12px', 
+                    padding: '16px', 
+                    backgroundColor: '#f8f9fa', 
+                    borderRadius: '8px', 
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.6',
+                    fontSize: '15px'
+                  }}>
+                    {selectedLessonForPlan.student_lesson_plan || selectedLessonForPlan.lesson_plan}
+                  </div>
+                </div>
+              )}
+              {selectedLessonForPlan.practice_plan && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Practice Plan:</strong>
+                  <div style={{ 
+                    marginTop: '12px', 
+                    padding: '16px', 
+                    backgroundColor: '#e8f5e9', 
+                    borderRadius: '8px', 
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.6',
+                    fontSize: '15px'
+                  }}>
+                    {selectedLessonForPlan.practice_plan}
+                    {selectedLessonForPlan.practice_plan_time_estimate && (
+                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                        ⏱️ Estimated time: {selectedLessonForPlan.practice_plan_time_estimate} minutes
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setSelectedLessonForPlan(null)}>
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -21,6 +21,24 @@ export default function Header({ user, isCoach }) {
 
   const closeMobileMenu = () => setMobileMenuOpen(false)
 
+  // Hide header for student pages that use bottom navigation
+  const studentPagesWithBottomNav = [
+    '/dashboard',
+    '/lessons',
+    '/hitting-partners',
+    '/messages',
+    '/tennis-resources',
+    '/settings'
+  ]
+  
+  const shouldHideHeader = !isCoach && studentPagesWithBottomNav.some(page => 
+    location.pathname === page || location.pathname.startsWith(page + '/')
+  )
+
+  if (shouldHideHeader) {
+    return null
+  }
+
   return (
     <header className="app-header">
       <div className="header-container">

@@ -18,7 +18,9 @@ import ProgressTab from './tabs/ProgressTab'
 import LessonsTab from './tabs/LessonsTab'
 import ProfileTab from './tabs/ProfileTab'
 import OnboardingFlow from '../Onboarding/OnboardingFlow'
-import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
+import MoreMenu from '../Layout/MoreMenu'
+import { logger } from '../../utils/logger'
+import { retrySupabaseQuery } from '../../utils/retry'
 
 export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState('home')
@@ -31,6 +33,7 @@ export default function StudentDashboard() {
   const [learning1, setLearning1] = useState('')
   const [learning2, setLearning2] = useState('')
   const [learning3, setLearning3] = useState('')
+  const [submittingLearnings, setSubmittingLearnings] = useState(false)
   const [developmentPlan, setDevelopmentPlan] = useState([])
   const [editingPlan, setEditingPlan] = useState(false)
   const [user, setUser] = useState(null)
@@ -40,27 +43,35 @@ export default function StudentDashboard() {
   const [currentPracticePlan, setCurrentPracticePlan] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const developmentPlanRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchStudentData()
+    let isMounted = true
+    
+    fetchStudentData(isMounted)
     
     // Listen for profile modal open event from header
     const handleOpenProfileModal = () => {
-      setShowProfileModal(true)
+      if (isMounted) {
+        setShowProfileModal(true)
+      }
     }
     window.addEventListener('openProfileModal', handleOpenProfileModal)
     
     return () => {
+      isMounted = false
       window.removeEventListener('openProfileModal', handleOpenProfileModal)
     }
   }, [])
 
-  const fetchStudentData = async () => {
+  const fetchStudentData = async (isMounted = true) => {
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!isMounted) return
       
       if (!user) {
         navigate('/login')
@@ -76,6 +87,8 @@ export default function StudentDashboard() {
         .eq('id', user.id)
         .single()
 
+      if (!isMounted) return
+
       if (profileError) throw profileError
       setProfile(profileData)
 
@@ -85,6 +98,8 @@ export default function StudentDashboard() {
         .select('*')
         .eq('id', user.id)
         .single()
+
+      if (!isMounted) return
 
       if (studentError) throw studentError
       setStudent(studentData)
@@ -103,6 +118,8 @@ export default function StudentDashboard() {
         .eq('student_id', user.id)
         .order('lesson_date', { ascending: false })
 
+      if (!isMounted) return
+
       if (lessonsError) throw lessonsError
       setLessons(lessonsData || [])
 
@@ -112,10 +129,14 @@ export default function StudentDashboard() {
       // Fetch current practice plan (most recent incomplete one)
       await fetchCurrentPracticePlan(user.id)
 
-      setLoading(false)
+      if (isMounted) {
+        setLoading(false)
+      }
     } catch (error) {
-      console.error('Error fetching data:', error)
-      setLoading(false)
+      logger.error('Error fetching data:', error)
+      if (isMounted) {
+        setLoading(false)
+      }
     }
   }
 
@@ -133,7 +154,7 @@ export default function StudentDashboard() {
         .limit(5)
       
       if (error) {
-        console.error('Error fetching practice plan:', error)
+        logger.error('Error fetching practice plan:', error)
         return
       }
       
@@ -145,7 +166,7 @@ export default function StudentDashboard() {
         setCurrentPracticePlan(null)
       }
     } catch (error) {
-      console.error('Error fetching practice plan:', error)
+      logger.error('Error fetching practice plan:', error)
     }
   }
 
@@ -225,7 +246,7 @@ export default function StudentDashboard() {
         })
       }
     } catch (error) {
-      console.error('Error fetching referral data:', error)
+      logger.error('Error fetching referral data:', error)
     }
   }
 
@@ -240,14 +261,18 @@ export default function StudentDashboard() {
       return
     }
 
+    setSubmittingLearnings(true)
+
     // Combine the three learnings into one string
     const combinedLearnings = `1. ${learning1.trim()}\n2. ${learning2.trim()}\n3. ${learning3.trim()}`
 
     try {
-      const { error } = await supabase
-        .from('lessons')
-        .update({ student_learnings: combinedLearnings })
-        .eq('id', selectedLesson.id)
+      const { error } = await retrySupabaseQuery(() =>
+        supabase
+          .from('lessons')
+          .update({ student_learnings: combinedLearnings })
+          .eq('id', selectedLesson.id)
+      )
 
       if (error) throw error
 
@@ -259,16 +284,26 @@ export default function StudentDashboard() {
         .eq('id', user.id)
         .single()
 
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: 'tobiojo10@gmail.com', // Coach email - TODO: get from profiles table
-          type: 'feedback_posted',
-          title: 'Student Learnings Submitted',
-          body: `${studentProfile?.full_name || 'A student'} has submitted learnings for a lesson`,
-          link: `/coach`,
-          read: false
-        })
+      // Get coach profile to send notification
+      const { data: coachProfile } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('account_type', 'coach')
+        .limit(1)
+        .single()
+
+      if (coachProfile) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: coachProfile.email || coachProfile.id,
+            type: 'feedback_posted',
+            title: 'Student Learnings Submitted',
+            body: `${studentProfile?.full_name || 'A student'} has submitted learnings for a lesson`,
+            link: `/coach`,
+            read: false
+          })
+      }
 
       setSelectedLesson(null)
       setLearning1('')
@@ -276,8 +311,10 @@ export default function StudentDashboard() {
       setLearning3('')
       fetchStudentData() // Refresh to show updated data
     } catch (error) {
-      console.error('Error submitting learnings:', error)
+      logger.error('Error submitting learnings:', error)
       alert('Error submitting learnings: ' + error.message)
+    } finally {
+      setSubmittingLearnings(false)
     }
   }
 
@@ -315,7 +352,7 @@ export default function StudentDashboard() {
           .eq('id', lesson.id)
           .then(async ({ error }) => {
             if (error) {
-              console.error('Error updating lesson status:', error)
+              logger.error('Error updating lesson status:', error)
             } else {
               // Check if testimonial request should be created
               // The database trigger will create it, but we can also check client-side
@@ -325,7 +362,7 @@ export default function StudentDashboard() {
                   const { checkAndCreateTestimonialRequest } = await import('../../utils/checkAndCreateTestimonialRequest')
                   await checkAndCreateTestimonialRequest(student.id, pastLessons.length + 1)
                 } catch (err) {
-                  console.error('Error checking testimonial request:', err)
+                  logger.error('Error checking testimonial request:', err)
                 }
               }
               fetchStudentData() // Refresh to get updated status
@@ -457,9 +494,14 @@ export default function StudentDashboard() {
   return (
     <div className="student-dashboard-wrapper">
       <StudentTabs 
-        activeTab={activeTab} 
+        activeTab={isMoreMenuOpen ? 'more' : activeTab} 
         setActiveTab={setActiveTab}
         showCommunity={Boolean(student?.onboarding_completed)}
+        onMoreClick={() => setIsMoreMenuOpen(true)}
+      />
+      <MoreMenu 
+        isOpen={isMoreMenuOpen} 
+        onClose={() => setIsMoreMenuOpen(false)} 
       />
       
       <div className="student-dashboard-content">
@@ -843,16 +885,16 @@ export default function StudentDashboard() {
             student={student}
             onSave={async (planData) => {
               try {
-                console.log('=== STUDENT DASHBOARD SAVE STARTING ===')
-                console.log('Plan data being saved:', planData)
+                logger.debug('=== STUDENT DASHBOARD SAVE STARTING ===')
+                logger.debug('Plan data being saved:', planData)
                 
                 const { data: { user } } = await supabase.auth.getUser()
                 if (!user) {
-                  console.error('No user found')
+                  logger.error('No user found')
                   return
                 }
 
-                console.log('User ID:', user.id)
+                logger.debug('User ID:', user.id)
 
                 // Ensure development_plan is properly formatted as JSON string
                 const updateData = {
@@ -862,7 +904,7 @@ export default function StudentDashboard() {
                   development_plan_notes: planData.development_plan_notes || undefined
                 }
 
-                console.log('Formatted update data:', updateData)
+                logger.debug('Formatted update data:', updateData)
 
                 const { data, error } = await supabase
                   .from('students')
@@ -870,15 +912,15 @@ export default function StudentDashboard() {
                   .eq('id', user.id)
                   .select()
 
-                console.log('Save response:', { data, error })
+                logger.debug('Save response:', { data, error })
 
                 if (error) {
-                  console.error('Database error:', error)
+                  logger.error('Database error:', error)
                   alert('Failed to save: ' + error.message)
                   return
                 }
 
-                console.log('Save successful, returned data:', data)
+                logger.debug('Save successful, returned data:', data)
 
                 // Verify the save
                 const { data: verifyData, error: verifyError } = await supabase
@@ -888,11 +930,11 @@ export default function StudentDashboard() {
                   .single()
 
                 if (verifyError) {
-                  console.error('Verification failed:', verifyError)
+                  logger.error('Verification failed:', verifyError)
                 } else {
-                  console.log('Verification successful - data in DB:', verifyData)
+                  logger.debug('Verification successful - data in DB:', verifyData)
                   if (!verifyData?.development_plan) {
-                    console.warn('WARNING: Data did not save to database!')
+                    logger.warn('WARNING: Data did not save to database!')
                     alert('WARNING: Data did not save properly. Please try again.')
                     return
                   }
@@ -905,7 +947,7 @@ export default function StudentDashboard() {
                 await fetchStudentData()
                 
               } catch (error) {
-                console.error('Unexpected error:', error)
+                logger.error('Unexpected error:', error)
                 alert('Error saving plan: ' + error.message)
               }
             }}
@@ -915,35 +957,35 @@ export default function StudentDashboard() {
         </div>
       ) : student?.development_plan ? (() => {
         try {
-          console.log('=== DEVELOPMENT PLAN DEBUG ===')
-          console.log('Student object:', student)
-          console.log('Has development_plan?:', student?.development_plan)
-          console.log('development_plan type:', typeof student?.development_plan)
+          logger.debug('=== DEVELOPMENT PLAN DEBUG ===')
+          logger.debug('Student object:', student)
+          logger.debug('Has development_plan?:', student?.development_plan)
+          logger.debug('development_plan type:', typeof student?.development_plan)
           
           const plan = typeof student.development_plan === 'string' 
-            ? JSON.parse(student.development_plan) 
+            ? safeJsonParse(student.development_plan, student.development_plan)
             : student.development_plan
           
-          console.log('Parsed plan:', plan)
-          console.log('Plan has section1?:', !!plan?.section1)
-          console.log('Plan has section2?:', !!plan?.section2)
-          console.log('Plan has skills?:', !!plan?.skills)
-          console.log('Plan has goals?:', !!plan?.goals)
+          logger.debug('Parsed plan:', plan)
+          logger.debug('Plan has section1?:', !!plan?.section1)
+          logger.debug('Plan has section2?:', !!plan?.section2)
+          logger.debug('Plan has skills?:', !!plan?.skills)
+          logger.debug('Plan has goals?:', !!plan?.goals)
           
           // Check for new structure (section1/section2) or old structure (skills/goals)
           const hasNewStructure = plan?.section1 || plan?.section2
           const hasOldStructure = plan?.skills && plan.skills.length > 0
           
-          console.log('Has new structure:', hasNewStructure)
-          console.log('Has old structure:', hasOldStructure)
+          logger.debug('Has new structure:', hasNewStructure)
+          logger.debug('Has old structure:', hasOldStructure)
           
           if (!plan || (!hasNewStructure && !hasOldStructure)) {
-            console.log('Returning null: No valid plan structure found')
+            logger.debug('Returning null: No valid plan structure found')
             return null
           }
           
-          console.log('Rendering development plan')
-          console.log('============================')
+          logger.debug('Rendering development plan')
+          logger.debug('============================')
 
           return (
             <div className="section">
@@ -1149,9 +1191,9 @@ export default function StudentDashboard() {
               {/* Recommended Path */}
               {(() => {
                 try {
-                  const plan = typeof student.development_plan === 'string' 
-                    ? JSON.parse(student.development_plan) 
-                    : student.development_plan
+          const plan = typeof student.development_plan === 'string' 
+            ? safeJsonParse(student.development_plan, student.development_plan)
+            : student.development_plan
                   
                   const bigGoal = plan?.section1?.bigGoal
                   if (!bigGoal || bigGoal === 'custom') return null
@@ -1198,7 +1240,7 @@ export default function StudentDashboard() {
             </div>
           )
         } catch (error) {
-          console.error('Error parsing development plan:', error)
+          logger.error('Error parsing development plan:', error)
           return null
         }
       })() : (
@@ -1354,9 +1396,10 @@ export default function StudentDashboard() {
               <button 
                 className="btn btn-primary" 
                 onClick={handleSubmitLearnings}
-                disabled={!learning1.trim() || !learning2.trim() || !learning3.trim()}
+                disabled={!learning1.trim() || !learning2.trim() || !learning3.trim() || submittingLearnings}
+                aria-label="Submit lesson learnings"
               >
-                Submit Learnings
+                {submittingLearnings ? 'Submitting...' : 'Submit Learnings'}
               </button>
             </div>
           </div>

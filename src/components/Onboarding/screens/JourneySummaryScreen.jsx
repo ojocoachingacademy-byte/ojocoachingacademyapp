@@ -34,11 +34,11 @@ const JourneySummaryScreen = ({
   let skillLevelNeeded = 'N/A'
   if (targetMilestone) {
     if (targetMilestone.number <= 15) {
-      skillLevelNeeded = '4-5/10 in all areas'
+      skillLevelNeeded = '4/10 in all areas'
     } else if (targetMilestone.number <= 20) {
       skillLevelNeeded = '6/10 in all areas'
     } else {
-      skillLevelNeeded = '7-8/10 in all areas'
+      skillLevelNeeded = '7/10 in all areas'
     }
   }
 

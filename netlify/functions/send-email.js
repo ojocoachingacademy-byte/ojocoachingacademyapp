@@ -48,25 +48,56 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // TODO: Configure your email service (SendGrid, AWS SES, etc.)
-    // Example with SendGrid:
-    /*
-    const sgMail = require('@sendgrid/mail')
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+    // Send email via SendGrid
+    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
+    const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL
 
-    const msg = {
-      to: to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@ojocoachingacademy.com',
-      subject: subject,
-      text: text || html.replace(/<[^>]*>/g, ''),
-      html: html || text
+    if (!SENDGRID_API_KEY || !SENDGRID_FROM_EMAIL) {
+      console.error('SendGrid not configured')
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'SendGrid not configured' })
+      }
     }
 
-    await sgMail.send(msg)
-    */
+    const emailData = {
+      personalizations: [{
+        to: [{ email: to }],
+        subject: subject
+      }],
+      from: { email: SENDGRID_FROM_EMAIL },
+      content: [{
+        type: 'text/html',
+        value: html || text
+      }]
+    }
 
-    // For now, just log (replace with actual email service)
-    console.log('Email would be sent:', { to, subject })
+    if (text && html) {
+      emailData.content.push({
+        type: 'text/plain',
+        value: text
+      })
+    }
+
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(emailData)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('SendGrid error:', response.status, errorText)
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Failed to send email', details: errorText })
+      }
+    }
 
     return {
       statusCode: 200,

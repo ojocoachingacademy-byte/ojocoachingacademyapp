@@ -47,7 +47,7 @@ export default function EmailConfirmed() {
 
               // Create student or hitting partner record
               if (account_type === 'student') {
-                await supabase
+                const { data: studentData, error: studentError } = await supabase
                   .from('students')
                   .insert([
                     {
@@ -55,6 +55,46 @@ export default function EmailConfirmed() {
                       start_date: new Date().toISOString(),
                     },
                   ])
+                  .select()
+                  .single()
+
+                // Send immediate notification to coach when student is created
+                if (!studentError && studentData) {
+                  try {
+                    const studentName = full_name || 'New Student'
+                    const studentEmail = session.user.email || 'No email provided'
+                    const studentPhone = phone || 'Not provided'
+
+                    const emailSubject = `New Student Signup: ${studentName}`
+                    const emailBody = `
+                      <h2>New Student Just Signed Up! 🎾</h2>
+                      <p><strong>Student Name:</strong> ${studentName}</p>
+                      <p><strong>Email:</strong> ${studentEmail}</p>
+                      <p><strong>Phone:</strong> ${studentPhone}</p>
+                      <p><strong>NTRP Level:</strong> ${ntrp_level || 'Not specified'}</p>
+                      <p><strong>Signup Time:</strong> ${new Date().toLocaleString()}</p>
+                      <hr>
+                      <p><em>This student has confirmed their email and their account is ready. They may complete onboarding next.</em></p>
+                      <p><a href="https://ojocoachingacademyapp.netlify.app/coach/students/${session.user.id}">View Student Profile →</a></p>
+                    `
+
+                    await fetch('/.netlify/functions/send-email', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({
+                        to: 'tobi@ojocoachingacademy.com',
+                        subject: emailSubject,
+                        html: emailBody,
+                        text: emailBody.replace(/<[^>]*>/g, '')
+                      })
+                    })
+                  } catch (emailError) {
+                    // Don't block account creation if email fails
+                    console.error('Error sending signup notification:', emailError)
+                  }
+                }
               } else if (account_type === 'player') {
                 await supabase
                   .from('hitting_partners')

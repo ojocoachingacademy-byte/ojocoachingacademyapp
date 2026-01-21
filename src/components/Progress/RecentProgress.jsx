@@ -4,7 +4,7 @@ import { TrendingUp, Target, Award, Zap } from 'lucide-react'
 import { GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import './RecentProgress.css'
 
-export default function RecentProgress({ studentId, developmentPlan, playerLevel = 'beginner' }) {
+export default function RecentProgress({ studentId, developmentPlan, playerLevel = 'beginner', hideGoalProgress = false, hideTitle = false }) {
   const [progressData, setProgressData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -32,6 +32,7 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
         .from('student_milestones')
         .select('milestone_number, milestone_name, achieved_at')
         .eq('student_id', studentId)
+        .eq('milestone_level', playerLevel)
         .order('achieved_at', { ascending: false })
 
       const thirtyDaysAgo = new Date()
@@ -44,6 +45,10 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
 
       // Total milestones achieved
       const totalMilestonesAchieved = allMilestones?.length || 0
+
+      // Find next milestone from journey chart (first unachieved milestone)
+      const achievedMilestoneNumbers = new Set(allMilestones?.map(m => m.milestone_number) || [])
+      const nextMilestone = milestones.find(m => !achievedMilestoneNumbers.has(m.number))
 
       // Parse development plan to get goal even if no snapshots
       let planNoSnapshots = null
@@ -100,36 +105,17 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
 
       if (!snapshots || snapshots.length === 0) {
         // Initialize with empty data so cards still show
-        // Calculate next skill milestone even with no snapshots
-        let nextSkillMilestoneNoSnapshots = null
-        let smallestGapNoSnapshots = Infinity
 
-        if (planNoSnapshots?.section2) {
-          const { skillRatings = {}, targetRatings = {} } = planNoSnapshots.section2
-          
-          Object.keys(skillRatings).forEach(skillKey => {
-            const current = skillRatings[skillKey] || 0
-            const target = targetRatings[skillKey] || 0
-            const gap = target - current
-            
-            if (gap > 0 && gap < smallestGapNoSnapshots) {
-              smallestGapNoSnapshots = gap
-              nextSkillMilestoneNoSnapshots = {
-                skill: skillKey.charAt(0).toUpperCase() + skillKey.slice(1), // Capitalize
-                current: current,
-                target: target,
-                gap: gap
-              }
-            }
-          })
-        }
+        // Find next milestone even with no snapshots
+        const achievedMilestoneNumbersNoSnapshots = new Set(allMilestones?.map(m => m.milestone_number) || [])
+        const nextMilestoneNoSnapshots = milestones.find(m => !achievedMilestoneNumbersNoSnapshots.has(m.number))
 
         setProgressData({
           recentWins: [],
           recentMilestones,
           goalsHitCount: 0,
           totalGoals: 0,
-          nextSkillMilestone: nextSkillMilestoneNoSnapshots,
+          nextMilestone: nextMilestoneNoSnapshots,
           biggestImprovement: [],
           bigGoal: bigGoalNoSnapshots,
           goalProgressPercent: goalProgressPercentNoSnapshots,
@@ -202,29 +188,8 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
         })
       }
 
-      // Calculate next milestone - skill closest to target (new structure)
-      let nextSkillMilestone = null
-      let smallestGap = Infinity
-
-      if (plan?.section2) {
-        const { skillRatings = {}, targetRatings = {} } = plan.section2
-        
-        Object.keys(skillRatings).forEach(skillKey => {
-          const current = skillRatings[skillKey] || 0
-          const target = targetRatings[skillKey] || 0
-          const gap = target - current
-          
-          if (gap > 0 && gap < smallestGap) {
-            smallestGap = gap
-            nextSkillMilestone = {
-              skill: skillKey.charAt(0).toUpperCase() + skillKey.slice(1), // Capitalize
-              current: current,
-              target: target,
-              gap: gap
-            }
-          }
-        })
-      }
+      // Next milestone is already calculated above from journey chart
+      // No need for skill-based calculation anymore
 
       // Find biggest overall improvement
       const allImprovements = {}
@@ -297,7 +262,7 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
         recentMilestones,
         goalsHitCount,
         totalGoals,
-        nextSkillMilestone,
+        nextMilestone,
         biggestImprovement,
         bigGoal,
         goalProgressPercent,
@@ -331,10 +296,12 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
 
   return (
     <div className="recent-progress-container">
-      <h2 className="recent-progress-title">
-        <TrendingUp size={24} />
-        Recent Wins 🎉
-      </h2>
+      {!hideTitle && (
+        <h2 className="recent-progress-title">
+          <TrendingUp size={24} />
+          Recent Wins 🎉
+        </h2>
+      )}
       
       <div className="progress-cards-grid">
         {/* CARD 1 - Recent Wins */}
@@ -368,7 +335,7 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
         )}
 
         {/* CARD 2 - Goal Progress */}
-        {progressData.bigGoal && progressData.bigGoal !== 'custom' && (
+        {!hideGoalProgress && progressData.bigGoal && progressData.bigGoal !== 'custom' && (
           <div className={`progress-card goal-progress-card ${progressData.goalAchieved ? 'achieved' : ''}`}>
             <div className="progress-card-icon">
               <Target size={32} />
@@ -420,27 +387,18 @@ export default function RecentProgress({ studentId, developmentPlan, playerLevel
         )}
 
         {/* CARD 3 - Next Milestone */}
-        {progressData.nextSkillMilestone && (
+        {progressData.nextMilestone && (
           <div className="progress-card milestone-card">
             <div className="progress-card-icon">
               <Target size={32} />
             </div>
             <div className="progress-card-content">
               <div className="progress-card-label">Next Milestone</div>
-              <div className="milestone-skill">{progressData.nextSkillMilestone.skill}</div>
-              <div className="milestone-progress">
-                <div className="milestone-bar">
-                  <div 
-                    className="milestone-fill"
-                    style={{ 
-                      width: `${(progressData.nextSkillMilestone.current / progressData.nextSkillMilestone.target) * 100}%` 
-                    }}
-                  />
-                </div>
-                <div className="milestone-text">
-                  {progressData.nextSkillMilestone.current}/{progressData.nextSkillMilestone.target}
-                  <span className="milestone-gap"> · {progressData.nextSkillMilestone.gap} to go!</span>
-                </div>
+              <div className="milestone-skill">
+                #{progressData.nextMilestone.number} - {progressData.nextMilestone.name}
+              </div>
+              <div className="milestone-description" style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px' }}>
+                {progressData.nextMilestone.description}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { MapPin, Navigation, Clock, Phone, Globe } from 'lucide-react'
+import StudentPageWrapper from '../Layout/StudentPageWrapper'
 import './TennisResources.css'
 
 // San Diego tennis clubs/clinics data
@@ -345,7 +346,8 @@ export default function TennisResources() {
   }
 
   return (
-    <div className="page-container">
+    <StudentPageWrapper>
+      <div className="page-container">
       <div className="tennis-resources">
         <div className="resources-header">
           <h1>🎾 Tennis Resources</h1>
@@ -472,7 +474,8 @@ export default function TennisResources() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </StudentPageWrapper>
   )
 }
 

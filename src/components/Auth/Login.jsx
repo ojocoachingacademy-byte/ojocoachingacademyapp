@@ -101,11 +101,6 @@ export default function Login() {
               required
             />
           </div>
-          <div className="login-footer" style={{ marginTop: '0.5rem', textAlign: 'right' }}>
-            <a href="/forgot-password" style={{ color: '#4B2C6C', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>
-              Forgot your password?
-            </a>
-          </div>
           {error && <div className="error-message">{error}</div>}
           {showResend && (
             <div className="resend-section">
@@ -127,12 +122,12 @@ export default function Login() {
         </form>
         <div className="login-link" style={{ textAlign: 'center', marginTop: '1rem' }}>
           <p style={{ margin: '0.5rem 0', fontSize: '0.9rem', color: '#666' }}>
+            Don't have an account? <a href="/signup" style={{ color: '#4B2C6C', textDecoration: 'none', fontWeight: '600' }}>Sign up</a>
+          </p>
+          <p style={{ margin: '0.5rem 0', fontSize: '0.9rem', color: '#666' }}>
             <a href="/forgot-password" style={{ color: '#4B2C6C', textDecoration: 'none', fontWeight: '600' }}>
               Forgot your password?
             </a>
-          </p>
-          <p style={{ margin: '0.5rem 0', fontSize: '0.9rem', color: '#666' }}>
-            Don't have an account? <a href="/signup" style={{ color: '#4B2C6C', textDecoration: 'none', fontWeight: '600' }}>Sign up</a>
           </p>
         </div>
       </div>

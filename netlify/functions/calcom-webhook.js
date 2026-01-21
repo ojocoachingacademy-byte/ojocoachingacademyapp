@@ -7,12 +7,20 @@ const supabase = createClient(
 
 exports.handler = async (event) => {
   // Verify webhook is from Cal.com
+  // NOTE: Webhook signature verification is recommended for production
+  // To enable: Set CALCOM_WEBHOOK_SECRET in Netlify environment variables
+  // and implement signature verification using Cal.com's webhook signing method
   const signature = event.headers['x-cal-signature']
-  // TODO: Verify signature with Cal.com webhook secret if configured
-  // const webhookSecret = process.env.CALCOM_WEBHOOK_SECRET
-  // if (webhookSecret && !verifySignature(event.body, signature, webhookSecret)) {
-  //   return { statusCode: 401, body: 'Unauthorized' }
-  // }
+  const webhookSecret = process.env.CALCOM_WEBHOOK_SECRET
+  if (webhookSecret && signature) {
+    // TODO: Implement signature verification when Cal.com webhook secret is configured
+    // Cal.com uses HMAC-SHA256 for webhook signatures
+    // Example: const crypto = require('crypto')
+    // const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(event.body).digest('hex')
+    // if (signature !== expectedSignature) {
+    //   return { statusCode: 401, body: 'Unauthorized - Invalid signature' }
+    // }
+  }
   
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' }

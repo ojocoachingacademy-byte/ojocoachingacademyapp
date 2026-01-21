@@ -26,6 +26,7 @@ import TestimonialsManagement from './components/Testimonials/TestimonialsManage
 import TennisResources from './components/TennisResources/TennisResources'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
+import ErrorBoundary from './components/shared/ErrorBoundary'
 import { trackEvent, EVENTS } from './utils/analytics'
 
 function App() {
@@ -34,10 +35,14 @@ function App() {
   const [profile, setProfile] = useState(null)
 
   useEffect(() => {
+    let isMounted = true
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return
+      
       setSession(session)
       if (session) {
-        fetchProfile(session.user.id)
+        fetchProfile(session.user.id, isMounted)
         // Track login event
         trackEvent(EVENTS.LOGIN)
       } else {
@@ -48,41 +53,63 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return
+      
       setSession(session)
       if (session) {
-        fetchProfile(session.user.id)
+        fetchProfile(session.user.id, isMounted)
         // Track login event on auth state change
         if (_event === 'SIGNED_IN') {
           trackEvent(EVENTS.LOGIN)
         }
+      } else {
+        setLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
-  const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    
-    setProfile(data)
-    setLoading(false)
+  const fetchProfile = async (userId, isMounted) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      
+      if (!isMounted) return
+      
+      if (error) {
+        console.error('Error fetching profile:', error)
+        setLoading(false)
+        return
+      }
+      
+      setProfile(data)
+      setLoading(false)
+    } catch (error) {
+      if (!isMounted) return
+      console.error('Error fetching profile:', error)
+      setLoading(false)
+    }
   }
 
   if (loading) {
     return <LoadingSpinner size="large" message="Loading..." />
   }
 
-  // For now, hardcode coach access - we'll make this better later
-  const isCoach = session?.user?.email === 'tobiojo10@gmail.com'
+  // Check if user is a coach based on profile account_type
+  const isCoach = profile?.account_type === 'coach'
 
   return (
-    <Router>
-      {session && <Header user={session.user} isCoach={isCoach} />}
-      <Routes>
+    <ErrorBoundary>
+      <Router>
+        {session && <Header user={session.user} isCoach={isCoach} />}
+        <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
         <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
@@ -157,8 +184,9 @@ function App() {
               element={session && !isCoach ? <StudentSettings /> : <Navigate to="/login" />} 
             />
             <Route path="/" element={<Navigate to="/login" />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   )
 }
 

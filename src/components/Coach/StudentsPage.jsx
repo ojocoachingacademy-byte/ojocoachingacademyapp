@@ -14,6 +14,7 @@ export default function StudentsPage() {
   const [levelFilter, setLevelFilter] = useState('all')
   const [sortBy, setSortBy] = useState('name')
   const [statusFilter, setStatusFilter] = useState('active') // 'all', 'active', 'inactive'
+  const [dateFilter, setDateFilter] = useState('all') // 'all', '7days', '30days', '90days', 'thisYear', 'thisMonth'
   const [editingCredits, setEditingCredits] = useState(null) // student id being edited
   const [editCreditsValue, setEditCreditsValue] = useState(0)
   const [showAddStudent, setShowAddStudent] = useState(false)
@@ -80,6 +81,40 @@ export default function StudentsPage() {
         return false
       }
 
+      // Date filter (based on start_date)
+      if (dateFilter !== 'all' && student.start_date) {
+        const studentDate = new Date(student.start_date)
+        const now = new Date()
+        let cutoffDate = null
+
+        switch (dateFilter) {
+          case '7days':
+            cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30days':
+            cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+          case '90days':
+            cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+            break
+          case 'thisMonth':
+            cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1)
+            break
+          case 'thisYear':
+            cutoffDate = new Date(now.getFullYear(), 0, 1)
+            break
+          default:
+            cutoffDate = null
+        }
+
+        if (cutoffDate && studentDate < cutoffDate) {
+          return false
+        }
+      } else if (dateFilter !== 'all' && !student.start_date) {
+        // If filtering by date but student has no start_date, exclude them
+        return false
+      }
+
       return true
     })
 
@@ -92,6 +127,11 @@ export default function StudentsPage() {
           return parseFloat(b.profiles?.ntrp_level || 0) - parseFloat(a.profiles?.ntrp_level || 0)
         case 'credits':
           return (b.lesson_credits || 0) - (a.lesson_credits || 0)
+        case 'dateCreated':
+          // Sort by start_date (newest first)
+          const dateA = a.start_date ? new Date(a.start_date).getTime() : 0
+          const dateB = b.start_date ? new Date(b.start_date).getTime() : 0
+          return dateB - dateA
         case 'lastLesson':
           // Would need to fetch last lesson date - simplified for now
           return 0
@@ -206,6 +246,19 @@ export default function StudentsPage() {
         </select>
         <select
           className="input"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          style={{ maxWidth: '200px' }}
+        >
+          <option value="all">All Dates</option>
+          <option value="7days">Last 7 Days</option>
+          <option value="30days">Last 30 Days</option>
+          <option value="90days">Last 90 Days</option>
+          <option value="thisMonth">This Month</option>
+          <option value="thisYear">This Year</option>
+        </select>
+        <select
+          className="input"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
           style={{ maxWidth: '200px' }}
@@ -213,6 +266,7 @@ export default function StudentsPage() {
           <option value="name">Sort by Name</option>
           <option value="level">Sort by Level</option>
           <option value="credits">Sort by Credits</option>
+          <option value="dateCreated">Sort by Date Created</option>
         </select>
       </div>
 

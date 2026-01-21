@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { MessageSquare, Search, Plus } from 'lucide-react'
+import StudentPageWrapper from '../Layout/StudentPageWrapper'
 import './MessageCenter.css'
 import MessageThread from './MessageThread'
 import NewConversationModal from './NewConversationModal'
@@ -280,16 +281,19 @@ export default function MessageCenter() {
 
   if (loading) {
     return (
-      <div className="message-center" style={{ padding: '40px', textAlign: 'center' }}>
-        <div className="spinner"></div>
-        <p className="text-center" style={{ color: '#666', marginTop: '16px' }}>Loading conversations...</p>
-      </div>
+      <StudentPageWrapper>
+        <div className="message-center" style={{ padding: '40px', textAlign: 'center' }}>
+          <div className="spinner"></div>
+          <p className="text-center" style={{ color: '#666', marginTop: '16px' }}>Loading conversations...</p>
+        </div>
+      </StudentPageWrapper>
     )
   }
 
 
   return (
-    <div className="message-center">
+    <StudentPageWrapper>
+      <div className="message-center">
       <div className="message-center-header">
         <h1 className="page-title">Messages</h1>
         <button 
@@ -375,6 +379,7 @@ export default function MessageCenter() {
         isOpen={showNewConversation}
         onClose={() => setShowNewConversation(false)}
       />
-    </div>
+      </div>
+    </StudentPageWrapper>
   )
 }

@@ -1,0 +1,16 @@
+.student-page-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.student-page-content {
+  flex: 1;
+  padding-bottom: 80px; /* Space for bottom nav on mobile */
+}
+
+@media (min-width: 768px) {
+  .student-page-content {
+    padding-bottom: 100px;
+  }
+}
