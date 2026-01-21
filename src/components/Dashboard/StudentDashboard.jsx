@@ -19,8 +19,10 @@ import LessonsTab from './tabs/LessonsTab'
 import ProfileTab from './tabs/ProfileTab'
 import OnboardingFlow from '../Onboarding/OnboardingFlow'
 import MoreMenu from '../Layout/MoreMenu'
+import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
+import { safeJsonParse } from '../../utils/safeJsonParse'
 
 export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState('home')

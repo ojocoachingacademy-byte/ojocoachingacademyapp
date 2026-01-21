@@ -638,11 +638,12 @@ export default function StudentDetailPage() {
       // Update students table (lesson_credits) with retry logic
       const { error: studentError } = await retrySupabaseQuery(() =>
         supabaseAdmin
-        .from('students')
-        .update({
-          lesson_credits: profileFormData.lesson_credits
-        })
-        .eq('id', id)
+          .from('students')
+          .update({
+            lesson_credits: profileFormData.lesson_credits
+          })
+          .eq('id', id)
+      )
 
       if (studentError) throw studentError
 
