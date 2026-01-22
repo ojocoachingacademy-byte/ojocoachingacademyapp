@@ -79,7 +79,7 @@ function App() {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
       
       if (!isMounted) return
       
@@ -89,11 +89,13 @@ function App() {
         return
       }
       
-      setProfile(data)
+      // If no profile exists, set to null (user might be in auth but not have profile yet)
+      setProfile(data || null)
       setLoading(false)
     } catch (error) {
       if (!isMounted) return
       console.error('Error fetching profile:', error)
+      setProfile(null)
       setLoading(false)
     }
   }

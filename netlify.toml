@@ -11,10 +11,10 @@
   schedule = "*/30 * * * *"
 
 [functions."send-wednesday-checkins"]
-  schedule = "0 12 * * 3"
+  schedule = "0 20 * * 3"  # 12pm PST (8pm UTC) - adjust timezone as needed
 
 [functions."send-lesson-recap"]
-  schedule = "0 18 * * 0"
+  schedule = "0 2 * * 1"  # 6pm PST Sunday (2am UTC Monday) - adjust timezone as needed
 
 [functions."process-scheduled-notifications"]
   schedule = "*/10 * * * *"

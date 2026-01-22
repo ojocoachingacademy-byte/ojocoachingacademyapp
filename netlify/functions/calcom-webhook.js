@@ -76,13 +76,20 @@ exports.handler = async (event) => {
         })
       }])
       .select()
-      .single()
+      .maybeSingle()
 
     if (lessonError) {
       console.error('Error creating lesson:', lessonError)
       return { 
         statusCode: 500, 
         body: JSON.stringify({ error: 'Failed to create lesson: ' + lessonError.message }) 
+      }
+    }
+
+    if (!lesson || !lesson.id) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Failed to create lesson: No lesson returned' })
       }
     }
 
@@ -93,12 +100,12 @@ exports.handler = async (event) => {
       .from('students')
       .select('lesson_credits')
       .eq('id', studentId)
-      .single()
+      .maybeSingle()
 
-    if (studentError) {
+    if (studentError || !student) {
       console.error('Error fetching student:', studentError)
       // Don't fail the webhook if we can't deduct credit - lesson is already created
-    } else if (student && student.lesson_credits > 0) {
+    } else if (student.lesson_credits > 0) {
       const { error: updateError } = await supabase
         .from('students')
         .update({ lesson_credits: student.lesson_credits - 1 })

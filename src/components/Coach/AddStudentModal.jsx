@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import './AddStudentModal.css'
 
-export default function AddStudentModal({ onClose, onSuccess }) {
+export default function AddStudentModal({ onClose, onSuccess, onReferralCelebration }) {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -137,15 +137,10 @@ export default function AddStudentModal({ onClose, onSuccess }) {
         if (studentError) throw studentError
       }
 
-      // Award referral credit if this is a referral
-      if (formData.leadSource === 'Referral' && formData.referredByStudentId) {
-        try {
-          const { awardReferralCredit } = await import('../../utils/processReferralReward')
-          await awardReferralCredit(formData.referredByStudentId, authData.user.id)
-        } catch (rewardError) {
-          console.error('Error awarding referral credit:', rewardError)
-          // Don't fail the student creation if reward fails
-        }
+      // Trigger referral celebration modal if this is a referral
+      if (formData.leadSource === 'Referral' && formData.referredByStudentId && onReferralCelebration) {
+        // Don't automatically award credit - let the modal handle it
+        onReferralCelebration(formData.referredByStudentId, formData.fullName)
       }
 
       // If they paid, create transaction

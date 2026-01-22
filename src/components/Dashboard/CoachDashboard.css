@@ -246,3 +246,83 @@
   border-color: #4B2C6C;
   color: #4B2C6C;
 }
+
+/* =============================================
+   SUNDAY CALENDAR VIEW STYLES
+   ============================================= */
+
+/* Sunday Calendar View Styles */
+.lesson-card.upcoming-lesson:hover {
+  box-shadow: 0 8px 16px rgba(75, 44, 108, 0.15);
+  transform: translateY(-2px);
+}
+
+.status-dropdown {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-dropdown:hover {
+  border-color: var(--color-primary);
+}
+
+/* Feedback Section Styles */
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--color-dark);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .lesson-card > div:first-child {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  
+  .lesson-card > div:first-child > div:first-child {
+    flex-direction: column;
+    gap: 8px !important;
+  }
+  
+  /* Student info: keep name and badges on same row on mobile too */
+  .student-info-row {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+  
+  .student-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  /* Keep navigation buttons on same row on mobile */
+  .calendar-navigation-buttons {
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+  }
+  
+  .calendar-navigation-buttons button {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    white-space: nowrap;
+  }
+}
+
+/* Desktop: Student badges next to name */
+@media (min-width: 769px) {
+  .student-info-row {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+}

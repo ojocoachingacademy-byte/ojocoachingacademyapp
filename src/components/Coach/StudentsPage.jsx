@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Search, Award, Calendar, User, Edit2, Check, X, UserPlus } from 'lucide-react'
 import AddStudentModal from './AddStudentModal'
+import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 import './StudentsPage.css'
 
 export default function StudentsPage() {
@@ -18,10 +19,39 @@ export default function StudentsPage() {
   const [editingCredits, setEditingCredits] = useState(null) // student id being edited
   const [editCreditsValue, setEditCreditsValue] = useState(0)
   const [showAddStudent, setShowAddStudent] = useState(false)
+  const [showReferralCelebration, setShowReferralCelebration] = useState(false)
+  const [referralCelebrationData, setReferralCelebrationData] = useState({
+    referrerName: '',
+    referredName: '',
+    referrerId: ''
+  })
 
   useEffect(() => {
     fetchStudents()
   }, [])
+
+  const triggerReferralCelebration = async (referrerId, referredName) => {
+    try {
+      // Get referrer's profile
+      const { data: referrerProfile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', referrerId)
+        .single()
+
+      if (error) throw error
+
+      setReferralCelebrationData({
+        referrerName: referrerProfile.full_name || 'A student',
+        referredName: referredName,
+        referrerId: referrerId
+      })
+      setShowReferralCelebration(true)
+    } catch (error) {
+      console.error('Error loading referrer data:', error)
+      alert('Could not load referrer information')
+    }
+  }
 
   const fetchStudents = async () => {
     try {
@@ -367,6 +397,20 @@ export default function StudentsPage() {
           onSuccess={() => {
             fetchStudents()
             setShowAddStudent(false)
+          }}
+          onReferralCelebration={triggerReferralCelebration}
+        />
+      )}
+
+      {/* Referral Celebration Modal */}
+      {showReferralCelebration && (
+        <ReferralCelebrationModal
+          referrerName={referralCelebrationData.referrerName}
+          referredName={referralCelebrationData.referredName}
+          referrerId={referralCelebrationData.referrerId}
+          onClose={() => {
+            setShowReferralCelebration(false)
+            fetchStudents() // Refresh to show updated credits
           }}
         />
       )}

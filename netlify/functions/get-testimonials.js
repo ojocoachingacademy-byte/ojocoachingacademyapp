@@ -48,20 +48,10 @@ exports.handler = async (event, context) => {
     const featuredOnly = featured === 'true'
     const limitNum = limit ? parseInt(limit) : null
 
-    // Build query
+    // Build query - fetch testimonials first, then get student profiles separately
     let query = supabase
       .from('testimonials')
-      .select(`
-        id,
-        testimonial_text,
-        rating,
-        video_url,
-        featured,
-        submitted_at,
-        students!inner(
-          profiles!inner(full_name)
-        )
-      `)
+      .select('id, testimonial_text, rating, video_url, featured, submitted_at, student_id')
       .eq('status', 'published')
       .order('featured', { ascending: false })
       .order('submitted_at', { ascending: false })
@@ -74,7 +64,7 @@ exports.handler = async (event, context) => {
       query = query.limit(limitNum)
     }
 
-    const { data, error } = await query
+    const { data: testimonials, error } = await query
 
     if (error) {
       console.error('Error fetching testimonials:', error)
@@ -85,10 +75,45 @@ exports.handler = async (event, context) => {
       }
     }
 
+    if (!testimonials || testimonials.length === 0) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          testimonials: [],
+          count: 0
+        })
+      }
+    }
+
+    // Get unique student IDs
+    const studentIds = [...new Set(testimonials.map(t => t.student_id).filter(Boolean))]
+    
+    // Fetch student profiles using explicit foreign key
+    let studentMap = new Map()
+    if (studentIds.length > 0) {
+      const { data: students, error: studentsError } = await supabase
+        .from('students')
+        .select(`
+          id,
+          profiles!students_id_fkey(full_name)
+        `)
+        .in('id', studentIds)
+      
+      if (!studentsError && students) {
+        students.forEach(student => {
+          if (student.profiles) {
+            studentMap.set(student.id, student.profiles.full_name)
+          }
+        })
+      }
+    }
+
     // Transform data for website
-    const formatted = (data || []).map(t => ({
+    const formatted = testimonials.map(t => ({
       id: t.id,
-      name: t.students?.profiles?.full_name || 'Anonymous',
+      name: studentMap.get(t.student_id) || 'Anonymous',
       text: t.testimonial_text,
       rating: t.rating,
       videoUrl: t.video_url,

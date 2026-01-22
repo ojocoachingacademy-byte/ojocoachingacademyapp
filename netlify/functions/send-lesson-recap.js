@@ -9,7 +9,7 @@ const { createClient } = require('@supabase/supabase-js')
 
 exports.handler = async (event, context) => {
   // This function can be called:
-  // 1. On a schedule (Sunday 6pm) - sends recaps for lessons completed that day
+  // 1. On a schedule (Sunday 6pm PST = 2am UTC Monday) - sends recaps for lessons completed that day
   // 2. Manually triggered after coach submits feedback
   
   console.log('=== LESSON RECAP EMAILS STARTED ===')
@@ -47,30 +47,15 @@ exports.handler = async (event, context) => {
     todayEnd.setHours(23, 59, 59, 999)
 
     // Fetch completed lessons from today that have coach feedback
-    const { data: completedLessons, error: lessonsError } = await supabase
+    // First get lessons without joins to avoid relationship ambiguity
+    const { data: lessons, error: lessonsError } = await supabase
       .from('lessons')
-      .select(`
-        id,
-        lesson_date,
-        lesson_plan,
-        student_lesson_plan,
-        coach_feedback,
-        practice_plan,
-        practice_plan_time_estimate,
-        student_id,
-        students!inner(
-          id,
-          profiles!inner(
-            full_name,
-            email
-          )
-        )
-      `)
+      .select('id, lesson_date, lesson_plan, student_lesson_plan, coach_feedback, practice_plan, practice_plan_time_estimate, student_id')
       .eq('status', 'completed')
       .not('coach_feedback', 'is', null)
       .gte('lesson_date', todayStart.toISOString())
       .lte('lesson_date', todayEnd.toISOString())
-
+    
     if (lessonsError) {
       console.error('Error fetching lessons:', lessonsError)
       return {
@@ -79,9 +64,7 @@ exports.handler = async (event, context) => {
       }
     }
 
-    console.log(`Found ${completedLessons?.length || 0} completed lessons with feedback for today`)
-
-    if (!completedLessons || completedLessons.length === 0) {
+    if (!lessons || lessons.length === 0) {
       return {
         statusCode: 200,
         body: JSON.stringify({ 
@@ -92,6 +75,58 @@ exports.handler = async (event, context) => {
         })
       }
     }
+
+    // Get unique student IDs
+    const studentIds = [...new Set(lessons.map(l => l.student_id))]
+    
+    // Fetch students with profiles using explicit foreign key
+    const { data: students, error: studentsError } = await supabase
+      .from('students')
+      .select(`
+        id,
+        profiles!students_id_fkey(
+          full_name,
+          email
+        )
+      `)
+      .in('id', studentIds)
+      .not('profiles', 'is', null)
+    
+    if (studentsError) {
+      console.error('Error fetching students:', studentsError)
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Failed to fetch students', details: studentsError.message })
+      }
+    }
+
+    // Create a map of student_id to student data
+    const studentMap = new Map()
+    students.forEach(student => {
+      if (student.profiles) {
+        studentMap.set(student.id, student)
+      }
+    })
+
+    // Combine lessons with student data
+    const completedLessons = lessons
+      .map(lesson => {
+        const student = studentMap.get(lesson.student_id)
+        if (!student || !student.profiles) {
+          return null
+        }
+        return {
+          ...lesson,
+          students: {
+            id: student.id,
+            profiles: student.profiles
+          }
+        }
+      })
+      .filter(Boolean) // Remove lessons without valid student profiles
+
+    console.log(`Found ${completedLessons.length} completed lessons with valid student profiles`)
+
 
     const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
     const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL

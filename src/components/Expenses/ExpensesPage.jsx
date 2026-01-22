@@ -18,7 +18,10 @@ export default function ExpensesPage() {
     amount: '',
     expense_date: new Date().toISOString().split('T')[0],
     category: '',
-    notes: ''
+    notes: '',
+    is_recurring: false,
+    recurrence_frequency: 'monthly',
+    recurrence_end_date: ''
   })
 
   const categories = [
@@ -60,32 +63,51 @@ export default function ExpensesPage() {
     }
   }
 
+  const calculateNextRecurrenceDate = (startDate, frequency) => {
+    const date = new Date(startDate)
+    switch (frequency) {
+      case 'weekly':
+        date.setDate(date.getDate() + 7)
+        break
+      case 'monthly':
+        date.setMonth(date.getMonth() + 1)
+        break
+      case 'yearly':
+        date.setFullYear(date.getFullYear() + 1)
+        break
+      default:
+        return null
+    }
+    return date.toISOString().split('T')[0]
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      const expenseData = {
+        name: formData.name,
+        amount: parseFloat(formData.amount),
+        expense_date: formData.expense_date,
+        category: formData.category,
+        notes: formData.notes,
+        is_recurring: formData.is_recurring,
+        recurrence_frequency: formData.is_recurring ? formData.recurrence_frequency : null,
+        recurrence_start_date: formData.is_recurring ? formData.expense_date : null,
+        recurrence_end_date: formData.is_recurring && formData.recurrence_end_date ? formData.recurrence_end_date : null,
+        next_recurrence_date: formData.is_recurring ? calculateNextRecurrenceDate(formData.expense_date, formData.recurrence_frequency) : null
+      }
+
       if (editingExpense) {
         const { error } = await supabase
           .from('expenses')
-          .update({
-            name: formData.name,
-            amount: parseFloat(formData.amount),
-            expense_date: formData.expense_date,
-            category: formData.category,
-            notes: formData.notes
-          })
+          .update(expenseData)
           .eq('id', editingExpense.id)
 
         if (error) throw error
       } else {
         const { error } = await supabase
           .from('expenses')
-          .insert({
-            name: formData.name,
-            amount: parseFloat(formData.amount),
-            expense_date: formData.expense_date,
-            category: formData.category,
-            notes: formData.notes
-          })
+          .insert(expenseData)
 
         if (error) throw error
       }
@@ -124,7 +146,10 @@ export default function ExpensesPage() {
       amount: expense.amount,
       expense_date: expense.expense_date,
       category: expense.category || '',
-      notes: expense.notes || ''
+      notes: expense.notes || '',
+      is_recurring: expense.is_recurring || false,
+      recurrence_frequency: expense.recurrence_frequency || 'monthly',
+      recurrence_end_date: expense.recurrence_end_date || ''
     })
     setShowAddModal(true)
   }
@@ -135,7 +160,10 @@ export default function ExpensesPage() {
       amount: '',
       expense_date: new Date().toISOString().split('T')[0],
       category: '',
-      notes: ''
+      notes: '',
+      is_recurring: false,
+      recurrence_frequency: 'monthly',
+      recurrence_end_date: ''
     })
   }
 
@@ -375,6 +403,7 @@ export default function ExpensesPage() {
                   Category <SortIndicator columnKey="category" />
                 </th>
                 <th>Notes</th>
+                <th>Recurring</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -390,6 +419,13 @@ export default function ExpensesPage() {
                     )}
                   </td>
                   <td className="expense-notes">{expense.notes || '-'}</td>
+                  <td>
+                    {expense.is_recurring && (
+                      <span className="recurring-badge" title={`Recurring ${expense.recurrence_frequency}`}>
+                        🔄 {expense.recurrence_frequency}
+                      </span>
+                    )}
+                  </td>
                   <td className="expense-actions">
                     <button className="btn-icon" onClick={() => handleEdit(expense)} title="Edit">
                       <Edit2 size={16} />
@@ -498,6 +534,50 @@ export default function ExpensesPage() {
                   rows={3}
                 />
               </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.is_recurring}
+                    onChange={(e) => setFormData({...formData, is_recurring: e.target.checked})}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span>Make this a recurring expense</span>
+                </label>
+              </div>
+
+              {formData.is_recurring && (
+                <>
+                  <div className="form-group">
+                    <label>Recurrence Frequency *</label>
+                    <select
+                      className="input"
+                      value={formData.recurrence_frequency}
+                      onChange={(e) => setFormData({...formData, recurrence_frequency: e.target.value})}
+                      required={formData.is_recurring}
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>End Date (Optional)</label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={formData.recurrence_end_date}
+                      onChange={(e) => setFormData({...formData, recurrence_end_date: e.target.value})}
+                      placeholder="Leave empty for no end date"
+                    />
+                    <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                      Leave empty if this expense should continue indefinitely
+                    </small>
+                  </div>
+                </>
+              )}
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowAddModal(false)}>

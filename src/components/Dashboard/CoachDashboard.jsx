@@ -9,6 +9,7 @@ import './CoachDashboard.css'
 import '../shared/Modal.css'
 import LessonTemplates from '../Templates/LessonTemplates'
 import LogPaymentModal from '../Coach/LogPaymentModal'
+import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -48,6 +49,89 @@ const getAvatarColor = (name) => {
   return colors[index]
 }
 
+// Helper to get the next/previous Sunday from a given date
+const getNextSunday = (date) => {
+  const result = new Date(date)
+  const day = result.getDay()
+  const diff = day === 0 ? 7 : 7 - day // If Sunday, get next Sunday; else get this coming Sunday
+  result.setDate(result.getDate() + diff)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+const getPreviousSunday = (date) => {
+  const result = new Date(date)
+  const day = result.getDay()
+  const diff = day === 0 ? 7 : day // If Sunday, get previous Sunday; else go back to last Sunday
+  result.setDate(result.getDate() - diff)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+const getThisSunday = (date) => {
+  const result = new Date(date)
+  const day = result.getDay()
+  if (day === 0) {
+    // It's Sunday - return today
+    result.setHours(0, 0, 0, 0)
+    return result
+  }
+  // Get this coming Sunday
+  const diff = 7 - day
+  result.setDate(result.getDate() + diff)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+const isSameDay = (date1, date2) => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate()
+}
+
+// Get student stage based on lesson count
+const getStudentStage = (lessonCount) => {
+  if (lessonCount === 0) return { label: '🆕 Pre-Lesson', color: '#9C27B0' }
+  if (lessonCount <= 4) return { label: '🆕 New', color: '#2196F3' }
+  if (lessonCount <= 19) return { label: '📈 Developing', color: '#FF9800' }
+  return { label: '⭐ Established', color: '#4CAF50' }
+}
+
+// Calculate revenue for a lesson based on student's package
+const getLessonRevenue = (student) => {
+  // Default to $80 if no package info
+  if (!student?.student_packages?.[0]) return 80
+  
+  const pkg = student.student_packages[0]
+  return pkg.price_per_lesson || 80
+}
+
+// Get Sunday week number in month (1st Sunday, 2nd Sunday, etc.)
+const getSundayWeekNumber = (date) => {
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
+  const firstSunday = new Date(firstDay)
+  
+  // Find first Sunday of the month
+  while (firstSunday.getDay() !== 0) {
+    firstSunday.setDate(firstSunday.getDate() + 1)
+  }
+  
+  // Calculate which Sunday this is
+  const diffDays = Math.floor((date - firstSunday) / (1000 * 60 * 60 * 24))
+  const weekNum = Math.floor(diffDays / 7) + 1
+  
+  return weekNum
+}
+
+// Format date as "Jan 25th"
+const formatDateShort = (date) => {
+  const month = date.toLocaleDateString('en-US', { month: 'short' })
+  const day = date.getDate()
+  const suffix = ['th', 'st', 'nd', 'rd'][((day % 100) - 20) % 10] || 
+                 ['th', 'st', 'nd', 'rd'][day % 100] || 'th'
+  return `${month} ${day}${suffix}`
+}
+
 export default function CoachDashboard() {
   const [students, setStudents] = useState([])
   const [lessons, setLessons] = useState([])
@@ -80,6 +164,18 @@ export default function CoachDashboard() {
   const [showAllStudents, setShowAllStudents] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showLogPayment, setShowLogPayment] = useState(false)
+  const [currentSunday, setCurrentSunday] = useState(getThisSunday(new Date()))
+  const [expandedLessonId, setExpandedLessonId] = useState(null)
+  const [expandedFeedbackId, setExpandedFeedbackId] = useState(null)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [markingAllComplete, setMarkingAllComplete] = useState(false)
+  const [showReferralCelebration, setShowReferralCelebration] = useState(false)
+  const [referralCelebrationData, setReferralCelebrationData] = useState({
+    referrerName: '',
+    referredName: '',
+    referrerId: ''
+  })
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -110,7 +206,7 @@ export default function CoachDashboard() {
       // First try with is_active filter
       let { data, error } = await supabaseAdmin
         .from('students')
-        .select('*')
+        .select('*, lesson_count')
         .eq('is_active', true)
       
       if (error) {
@@ -118,7 +214,7 @@ export default function CoachDashboard() {
         console.log('Fallback: fetching all students')
         const fallback = await supabaseAdmin
           .from('students')
-          .select('*')
+          .select('*, lesson_count')
         data = fallback.data
         error = fallback.error
       }
@@ -156,7 +252,21 @@ export default function CoachDashboard() {
       if (activeStudentIds.length > 0) {
         const { data, error: lessonsError } = await supabaseAdmin
           .from('lessons')
-          .select('*')
+          .select(`
+            *,
+            students!student_id(
+              *,
+              lesson_count,
+              profiles!students_id_fkey(id, full_name, email, ntrp_level, phone),
+              student_packages!current_package_id(
+                id,
+                package_size,
+                lessons_used,
+                lessons_remaining,
+                price_per_lesson
+              )
+            )
+          `)
           .in('student_id', activeStudentIds)
           .order('lesson_date', { ascending: true })
 
@@ -167,9 +277,13 @@ export default function CoachDashboard() {
         lessonsData = data || []
       }
 
-      // Enrich lessons with student/profile info
+      // Enrich lessons with student/profile info (fallback for students not in active list)
       const enrichedLessons = (lessonsData || []).map(lesson => {
         const student = studentsWithProfiles.find(s => s.id === lesson.student_id)
+        // Use data from join if available, otherwise fallback
+        if (lesson.students) {
+          return lesson
+        }
         return {
           ...lesson,
           students: student ? { profiles: student.profiles } : null
@@ -253,6 +367,119 @@ export default function CoachDashboard() {
     } catch (error) {
       console.error('Error creating lesson:', error)
       alert('Error creating lesson: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  const handlePreviousWeek = () => {
+    setCurrentSunday(getPreviousSunday(currentSunday))
+  }
+
+  const handleNextWeek = () => {
+    setCurrentSunday(getNextSunday(currentSunday))
+  }
+
+  const handleMarkAllSundayComplete = async () => {
+    if (!confirm('Mark all Sunday lessons as completed? This will update all scheduled lessons for this date.')) {
+      return
+    }
+    
+    setMarkingAllComplete(true)
+    try {
+      const sundayLessons = lessons.filter(l => {
+        const lessonDate = new Date(l.lesson_date)
+        return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+      })
+      
+      const lessonIds = sundayLessons.map(l => l.id)
+      
+      if (lessonIds.length === 0) {
+        alert('No scheduled lessons to mark complete')
+        return
+      }
+      
+      // Update all lessons to completed
+      const { error } = await supabaseAdmin
+        .from('lessons')
+        .update({ status: 'completed' })
+        .in('id', lessonIds)
+      
+      if (error) throw error
+      
+      // Create lesson transactions for each
+      const lessonDate = currentSunday.toISOString().split('T')[0]
+      
+      for (const lesson of sundayLessons) {
+        // Check if transaction already exists
+        const { data: existingTx } = await supabaseAdmin
+          .from('lesson_transactions')
+          .select('id')
+          .eq('student_id', lesson.student_id)
+          .eq('transaction_date', lessonDate)
+          .eq('transaction_type', 'lesson_taken')
+          .maybeSingle()
+        
+        if (!existingTx) {
+          await supabaseAdmin
+            .from('lesson_transactions')
+            .insert({
+              student_id: lesson.student_id,
+              transaction_date: lessonDate,
+              transaction_type: 'lesson_taken',
+              amount_paid: 0,
+              package_size: 0,
+              notes: 'Lesson completed (batch)'
+            })
+        }
+      }
+      
+      alert(`✅ Marked ${lessonIds.length} lessons as completed!`)
+      fetchCoachData() // Refresh
+    } catch (error) {
+      console.error('Error marking lessons complete:', error)
+      alert('Error: ' + error.message)
+    } finally {
+      setMarkingAllComplete(false)
+    }
+  }
+
+  const handleToggleLessonExpansion = (lessonId) => {
+    setExpandedLessonId(expandedLessonId === lessonId ? null : lessonId)
+  }
+
+  const handleToggleFeedbackExpansion = (lessonId) => {
+    if (expandedFeedbackId === lessonId) {
+      setExpandedFeedbackId(null)
+      setFeedbackText('')
+    } else {
+      setExpandedFeedbackId(lessonId)
+      const lesson = lessons.find(l => l.id === lessonId)
+      setFeedbackText(lesson?.coach_feedback || '')
+    }
+  }
+
+  const handleSaveInlineFeedback = async (lessonId) => {
+    try {
+      const { error } = await supabaseAdmin
+        .from('lessons')
+        .update({ coach_feedback: feedbackText })
+        .eq('id', lessonId)
+
+      if (error) throw error
+
+      // Update local state
+      setLessons(lessons.map(l => 
+        l.id === lessonId ? { ...l, coach_feedback: feedbackText } : l
+      ))
+      
+      // Collapse the feedback form
+      setExpandedFeedbackId(null)
+      setFeedbackText('')
+      
+      alert('Feedback saved successfully!')
+      fetchCoachData() // Refresh to get updated data
+    } catch (error) {
+      console.error('Error saving feedback:', error)
+      alert('Error saving feedback: ' + error.message)
     }
   }
 
@@ -907,7 +1134,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
   const upcomingLessons = lessons.filter(l => l.status === 'scheduled' && new Date(l.lesson_date) > new Date())
   const completedLessons = lessons.filter(l => l.status === 'completed').slice(0, 10).reverse()
-  const pendingFeedback = lessons.filter(l => l.student_learnings && !l.coach_feedback)
+  const pendingFeedback = lessons.filter(l => l.status === 'completed' && !l.coach_feedback)
 
   return (
     <div className="page-container">
@@ -928,27 +1155,58 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       )}
 
       {/* Quick Actions */}
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ 
+        marginBottom: '24px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        gap: '16px',
+        flexWrap: 'wrap'
+      }}>
+        {/* Left side - Search */}
+        <div style={{ flex: '1', minWidth: '300px', maxWidth: '500px' }}>
+          <input
+            type="text"
+            placeholder="🔍 Search students by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input"
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              fontSize: '15px',
+              border: '2px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)'
+            }}
+          />
+        </div>
+        
+        {/* Right side - Action Buttons */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <button 
           className="btn btn-primary"
           onClick={() => setShowLogPayment(true)}
           style={{ 
-            fontSize: '18px', 
-            padding: '14px 28px',
+              fontSize: '15px',
+              padding: '10px 20px',
             background: 'linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%)',
             border: 'none'
           }}
         >
           💳 Log Payment
         </button>
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowCreateLesson(!showCreateLesson)}
-          style={{ fontSize: '18px', padding: '14px 28px' }}
-        >
-          <Plus size={20} />
-          {showCreateLesson ? 'Cancel' : 'Create Lesson'}
-        </button>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowCreateLesson(!showCreateLesson)}
+            style={{ 
+              fontSize: '15px', 
+              padding: '10px 20px'
+            }}
+          >
+            <Plus size={18} />
+            Create Lesson
+          </button>
+        </div>
       </div>
 
       {/* Create Lesson Form */}
@@ -1015,311 +1273,701 @@ Do NOT use markdown formatting - just plain text with line breaks.`
         </div>
       )}
 
-      {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card card-gradient-purple">
-          <div className="stat-card-content">
-            <div className="stat-icon">👥</div>
-            <div className="stat-label">Total Students</div>
-            <div className="stat-value">{students.length}</div>
+      {/* Compact Stats Bar */}
+      <div style={{
+        display: 'flex',
+        gap: '16px',
+        padding: '16px',
+        backgroundColor: 'white',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: 'var(--shadow-sm)',
+        marginBottom: '24px',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px',
+          padding: '8px 16px',
+          backgroundColor: '#f9f9f9',
+          borderRadius: 'var(--radius-sm)',
+          flex: '1',
+          minWidth: '150px'
+        }}>
+          <Users size={20} style={{ color: 'var(--color-primary)' }} />
+          <div>
+            <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Total Students</div>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--color-dark)' }}>
+              {students.length}
           </div>
         </div>
-        <div className="stat-card card-gradient-teal">
-          <div className="stat-card-content">
-            <div className="stat-icon">📅</div>
-            <div className="stat-label">Upcoming Lessons</div>
-            <div className="stat-value">{upcomingLessons.length}</div>
+          </div>
+        
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px',
+          padding: '8px 16px',
+          backgroundColor: '#f9f9f9',
+          borderRadius: 'var(--radius-sm)',
+          flex: '1',
+          minWidth: '150px'
+        }}>
+          <Calendar size={20} style={{ color: 'var(--color-secondary)' }} />
+          <div>
+            <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Upcoming Lessons</div>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--color-dark)' }}>
+              {upcomingLessons.length}
+        </div>
           </div>
         </div>
-        <div className="stat-card card-gradient-gold">
-          <div className="stat-card-content">
-            <div className="stat-icon">⏳</div>
-            <div className="stat-label">Pending Feedback</div>
-            <div className="stat-value">{pendingFeedback.length}</div>
+        
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px',
+          padding: '8px 16px',
+          backgroundColor: pendingFeedback.length > 0 ? '#FFF3E0' : '#f9f9f9',
+          borderRadius: 'var(--radius-sm)',
+          flex: '1',
+          minWidth: '150px',
+          border: pendingFeedback.length > 0 ? '2px solid #FF9800' : 'none'
+        }}>
+          <Target size={20} style={{ color: pendingFeedback.length > 0 ? '#FF9800' : '#999' }} />
+          <div>
+            <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Needs Feedback</div>
+            <div style={{ 
+              fontSize: '20px', 
+              fontWeight: 'bold', 
+              color: pendingFeedback.length > 0 ? '#FF9800' : 'var(--color-dark)'
+            }}>
+              {pendingFeedback.length}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Students List */}
-      <div className="section">
-        <h2 className="section-title">Your Students ({students.length})</h2>
-        {students.length === 0 ? (
-          <div className="empty-state">No students found. Check console for details.</div>
-        ) : (
-          <>
-            <div className="grid grid-2">
-              {(showAllStudents ? students : students.slice(0, 4)).map((student, index) => {
-                const profile = student.profiles
-                const name = profile?.full_name || 'No Name'
-                const initials = getInitials(name)
-                const avatarBg = getAvatarColor(name)
+
+      {/* Needs Feedback Section */}
+      {pendingFeedback.length > 0 && (
+        <div className="section" style={{ marginTop: '32px' }}>
+          <h2 className="section-title" style={{ color: '#FF9800' }}>
+            🚨 Needs Feedback ({pendingFeedback.length})
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {pendingFeedback.map(lesson => {
+              const isExpanded = expandedFeedbackId === lesson.id
+              const studentName = lesson.students?.profiles?.full_name || 'Unknown Student'
+              const lessonDate = new Date(lesson.lesson_date).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+              })
+
                 return (
-                  <div key={student.id} className={`student-card stagger-item`} style={{ animationDelay: `${index * 0.05}s` }}>
-                    <div className="student-header">
-                      <div className="student-main">
-                        <div className="student-avatar" style={{ background: avatarBg }}>
-                          {initials}
+                <div
+                  key={lesson.id}
+                  style={{
+                    border: '2px solid #FF9800',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  {/* Collapsed View */}
+                  <div
+                    onClick={() => handleToggleFeedbackExpansion(lesson.id)}
+                    style={{
+                      padding: '20px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      backgroundColor: '#FFF3E0'
+                    }}
+                  >
+                    <div>
+                      <h3 style={{ margin: 0, marginBottom: '4px' }}>
+                        ⚠️ {studentName}
+                      </h3>
+                      <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>
+                        {lessonDate}
+                      </p>
                         </div>
-                        <div className="student-info">
-                          <h3>{name}</h3>
-                          <div className="student-details">
-                            <div className="student-detail-item">
-                              <Award size={16} />
-                              <span className="ntrp-badge">{profile?.ntrp_level || 'N/A'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        className="btn btn-sm"
+                        style={{ 
+                          backgroundColor: '#FF9800', 
+                          color: 'white',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        Give Feedback
+                      </button>
+                      <span style={{ fontSize: '18px', color: '#666' }}>
+                        {isExpanded ? '▲' : '▼'}
+                      </span>
                             </div>
-                            <div className="student-detail-item">
-                              <span className="credits-display">💰 {student.lesson_credits || 0} Credits</span>
                             </div>
+
+                  {/* Expanded View - Feedback Form */}
+                  {isExpanded && (
+                    <div
+                      style={{
+                        padding: '24px',
+                        backgroundColor: '#f9f9f9',
+                        borderTop: '2px solid #FF9800'
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Student Learnings */}
+                      {lesson.student_learnings && (
+                        <div style={{ marginBottom: '24px' }}>
+                          <h4 style={{ 
+                            marginBottom: '12px', 
+                            color: 'var(--color-primary)' 
+                          }}>
+                            Student's 3 Learnings:
+                          </h4>
+                          <div style={{
+                            padding: '16px',
+                            backgroundColor: 'white',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--color-border)'
+                          }}>
+                            {(() => {
+                              try {
+                                const learnings = JSON.parse(lesson.student_learnings)
+                                return learnings.map((learning, idx) => (
+                                  <div 
+                                    key={idx}
+                                    style={{ 
+                                      marginBottom: idx < 2 ? '8px' : 0,
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: '8px'
+                                    }}
+                                  >
+                                    <span style={{ color: 'var(--color-secondary)', fontWeight: 'bold' }}>
+                                      •
+                                    </span>
+                                    <span>{learning}</span>
                           </div>
-                          <div className="student-details" style={{ marginTop: '8px' }}>
-                            {profile?.email && (
-                              <div className="student-detail-item">
-                                <Mail size={14} />
-                                <span>{profile.email}</span>
+                                ))
+                              } catch (e) {
+                                return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px' }}>{lesson.student_learnings}</div>
+                              }
+                            })()}
+                              </div>
                               </div>
                             )}
-                            {profile?.phone && (
-                              <div className="student-detail-item">
-                                <Phone size={14} />
-                                <span>{profile.phone}</span>
-                              </div>
-                            )}
+
+                      {/* Coach Feedback Textarea */}
+                      <div style={{ marginBottom: '20px' }}>
+                        <label 
+                          className="label" 
+                          style={{ marginBottom: '8px', display: 'block' }}
+                        >
+                          Coach Feedback:
+                        </label>
+                        <textarea
+                          className="input"
+                          value={feedbackText}
+                          onChange={(e) => setFeedbackText(e.target.value)}
+                          placeholder="Enter your feedback on this lesson..."
+                          style={{
+                            minHeight: '120px',
+                            fontFamily: 'var(--font-family)',
+                            lineHeight: '1.6',
+                            resize: 'vertical'
+                          }}
+                        />
                           </div>
-                        </div>
+
+                      {/* Practice Plan Generation */}
+                      <div style={{ marginBottom: '20px' }}>
+                        <button 
+                          className="btn btn-outline"
+                          onClick={() => handleFeedbackLessonClick(lesson)}
+                        >
+                          📝 Generate Practice Plan
+                        </button>
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: '#666', 
+                          marginTop: '8px',
+                          fontStyle: 'italic'
+                        }}>
+                          Opens full feedback modal with AI practice plan generator
+                        </p>
                       </div>
-                      <div className="student-actions">
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '12px' }}>
                         <button 
-                          className="btn btn-sm btn-pill"
-                          onClick={() => navigate(`/coach/students/${student.id}`)}
-                          style={{ background: 'linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%)', color: 'white', marginRight: '8px' }}
+                          className="btn btn-primary"
+                          onClick={() => handleSaveInlineFeedback(lesson.id)}
+                          disabled={!feedbackText.trim()}
                         >
-                          <Target size={16} />
-                          View Profile
+                          💾 Save Feedback
                         </button>
                         <button 
-                          className="btn btn-sm btn-pill"
-                          onClick={() => handleUpdateCredits(student.id, student.lesson_credits || 0, 1)}
-                          style={{ background: 'linear-gradient(135deg, #2D7F6F 0%, #3D9F8F 100%)', color: 'white' }}
+                          className="btn btn-outline"
+                          onClick={() => {
+                            setExpandedFeedbackId(null)
+                            setFeedbackText('')
+                          }}
                         >
-                          <Plus size={16} />
-                          +1
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-pill"
-                          onClick={() => handleUpdateCredits(student.id, student.lesson_credits || 0, -1)}
-                          disabled={(student.lesson_credits || 0) === 0}
-                          style={{ background: 'linear-gradient(135deg, #F44336 0%, #E91E63 100%)', color: 'white' }}
-                        >
-                          <Minus size={16} />
-                          -1
+                          Cancel
                         </button>
                       </div>
                     </div>
+                  )}
                   </div>
                 )
               })}
             </div>
-            {students.length > 4 && (
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setShowAllStudents(!showAllStudents)}
-                  style={{
-                    padding: '10px 24px',
-                    borderRadius: '8px',
-                    border: '1px solid #4B2C6C',
-                    background: 'white',
-                    color: '#4B2C6C',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {showAllStudents ? (
-                    <>
-                      <Minus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-                      Show Less
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-                      Show More ({students.length - 4} more)
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Pending Feedback Section */}
-      {pendingFeedback.length > 0 && (
-        <div style={{ marginBottom: '30px' }}>
-          <h2>Pending Feedback ({pendingFeedback.length})</h2>
-          {pendingFeedback.map(lesson => (
-            <div 
-              key={lesson.id}
-              onClick={() => handleFeedbackLessonClick(lesson)}
-              style={{ 
-                padding: '15px', 
-                border: '2px solid #ffc107', 
-                borderRadius: '8px', 
-                marginBottom: '10px',
-                cursor: 'pointer',
-                backgroundColor: '#fff3cd'
-              }}
-            >
-              <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
-              <p>{new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-              <p style={{ color: '#856404', fontSize: '14px', marginTop: '10px' }}>
-                ⚠️ Student submitted learnings - Click to provide feedback
-              </p>
-            </div>
-          ))}
         </div>
       )}
 
-      {/* Upcoming Lessons */}
+      {/* Sunday Calendar View */}
       <div className="section">
-        <h2 className="section-title">Upcoming Lessons ({upcomingLessons.length})</h2>
-        {upcomingLessons.length === 0 ? (
-          <div className="empty-state">No upcoming lessons.</div>
-        ) : (
-          <>
-            {(showAllUpcoming ? upcomingLessons : upcomingLessons.slice(0, 3)).map((lesson, index) => (
-              <div 
-                key={lesson.id} 
-                className="lesson-card upcoming-lesson"
-                onClick={() => handleLessonPlanClick(lesson)}
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <div className="lesson-header">
-                  <div className="lesson-info">
-                    <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
-                    <div className="lesson-details">
-                      <div className="detail-row">
-                        <Calendar size={16} />
-                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '24px',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <h2 className="section-title" style={{ margin: 0 }}>
+              Sunday
+            </h2>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              fontSize: '16px',
+              color: '#666'
+            }}>
+              <span style={{ fontWeight: '600', color: 'var(--color-primary)' }}>
+                {formatDateShort(currentSunday)}
+              </span>
+              <span style={{ color: '#999' }}>•</span>
+              <span>
+                Week {getSundayWeekNumber(currentSunday)}
+              </span>
+              <span style={{ color: '#999' }}>•</span>
+              <span style={{ 
+                fontWeight: '700', 
+                color: 'var(--color-secondary)',
+                fontSize: '18px'
+              }}>
+                ${(() => {
+                  const sundayLessons = lessons.filter(l => {
+                    const lessonDate = new Date(l.lesson_date)
+                    return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+                  })
+                  
+                  let totalRevenue = 0
+                  sundayLessons.forEach(lesson => {
+                    const revenue = getLessonRevenue(lesson.students)
+                    totalRevenue += revenue
+                  })
+                  
+                  return Math.round(totalRevenue)
+                })()}
+              </span>
+            </div>
+          </div>
+          <div className="calendar-navigation-buttons" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'nowrap' }}>
+            {/* Mark All Complete Button - only show if there are scheduled lessons */}
+            {(() => {
+              const sundayLessons = lessons.filter(l => {
+                const lessonDate = new Date(l.lesson_date)
+                return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+              })
+              
+              if (sundayLessons.length > 0) {
+                return (
+                <button
+                    className="btn btn-sm"
+                    onClick={handleMarkAllSundayComplete}
+                    disabled={markingAllComplete}
+                  style={{
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                    fontWeight: '600',
+                      cursor: markingAllComplete ? 'wait' : 'pointer',
+                      opacity: markingAllComplete ? 0.6 : 1
+                    }}
+                  >
+                    {markingAllComplete ? '⏳ Marking...' : `✓ Mark All Complete (${sundayLessons.length})`}
+                  </button>
+                )
+              }
+              return null
+            })()}
+            
+            {/* Previous and Next buttons */}
+            <button 
+              className="btn btn-outline btn-sm"
+              onClick={handlePreviousWeek}
+              style={{ padding: '8px 16px' }}
+            >
+              ← Previous
+            </button>
+            <button 
+              className="btn btn-outline btn-sm"
+              onClick={handleNextWeek}
+              style={{ padding: '8px 16px' }}
+            >
+              Next →
+                </button>
+              </div>
+      </div>
+
+        {(() => {
+          const sundayLessons = lessons.filter(l => {
+            const lessonDate = new Date(l.lesson_date)
+            return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+          }).sort((a, b) => new Date(a.lesson_date) - new Date(b.lesson_date))
+
+          if (sundayLessons.length === 0) {
+            return (
+              <div className="empty-state" style={{ 
+                padding: '48px', 
+                textAlign: 'center',
+                backgroundColor: '#f9f9f9',
+                borderRadius: 'var(--radius-md)'
+              }}>
+                <p style={{ fontSize: '18px', color: '#666', marginBottom: '12px' }}>
+                  No lessons scheduled for this Sunday
+                </p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => setShowCreateLesson(true)}
+                  style={{ marginTop: '16px' }}
+                >
+                  <Plus size={18} />
+                  Schedule a Lesson
+                </button>
+              </div>
+            )
+          }
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {sundayLessons.map((lesson) => {
+                const isExpanded = expandedLessonId === lesson.id
+                const studentName = lesson.students?.profiles?.full_name || 'Unknown Student'
+                const lessonTime = new Date(lesson.lesson_date).toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })
+
+                return (
+            <div 
+              key={lesson.id}
+              style={{ 
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      overflow: 'hidden',
+                      transition: 'all 0.3s ease',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    {/* Collapsed View - COMPACT */}
+                    <div 
+                      onClick={() => handleToggleLessonExpansion(lesson.id)}
+                      style={{
+                        padding: '12px 16px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: 'white',
+                cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isExpanded) e.currentTarget.style.backgroundColor = '#f9f9f9'
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isExpanded) e.currentTarget.style.backgroundColor = 'white'
+                      }}
+                    >
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '16px',
+                        flex: 1 
+                      }}>
+                        {/* Time */}
+                        <div style={{ 
+                          fontSize: '15px',
+                          fontWeight: '700', 
+                          color: 'var(--color-primary)',
+                          minWidth: '70px',
+                          fontFamily: 'monospace'
+                        }}>
+                          {lessonTime}
+            </div>
+                        
+                        {/* Vertical separator */}
+                        <div style={{
+                          width: '1px',
+                          height: '24px',
+                          backgroundColor: '#e0e0e0'
+                        }} />
+                        
+                        {/* Student Name with Stage Tag and Credits */}
+                        <div style={{ 
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flex: 1,
+                          flexWrap: 'wrap'
+                        }} className="student-info-row">
+                          <div style={{ 
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            color: 'var(--color-dark)'
+                          }}>
+                            {studentName}
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            flexWrap: 'wrap'
+                          }} className="student-badges">
+                            {(() => {
+                              // Get lesson count from student data
+                              const lessonCount = lesson.students?.lesson_count || 0
+                              const stage = getStudentStage(lessonCount)
+                              const credits = lesson.students?.lesson_credits || 0
+                              return (
+                                <>
+                                  <span style={{
+                                    fontSize: lessonCount === 0 ? '10px' : '11px',
+                                    padding: lessonCount === 0 ? '2px 6px' : '2px 8px',
+                                    borderRadius: '12px',
+                                    backgroundColor: stage.color,
+                                    color: 'white',
+                                    fontWeight: '600',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {stage.label}
+                                  </span>
+                                  <span style={{
+                                    fontSize: '11px',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    backgroundColor: credits <= 2 ? '#FF9800' : '#f0f0f0',
+                                    color: credits <= 2 ? 'white' : '#666',
+                                    fontWeight: '600',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {credits} credit{credits !== 1 ? 's' : ''}
+                                  </span>
+                                </>
+                              )
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Package Progress */}
+                        {lesson.students?.student_packages?.[0] && (
+                          <div style={{
+                            fontSize: '12px',
+                            color: '#666',
+                            padding: '4px 8px',
+                            backgroundColor: '#f0f0f0',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            📊 {lesson.students.student_packages[0].lessons_used}/{lesson.students.student_packages[0].package_size} lessons
+        </div>
+      )}
                       </div>
-                      <div className="detail-row">
-                        <Clock size={16} />
-                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                      <div className="detail-row">
-                        <Target size={16} />
-                        {lesson.location}
+                      
+                      {/* Right side - Status and Arrow */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '10px',
+                        marginLeft: '16px'
+                      }}>
+                        {lesson.lesson_plan ? (
+                          <span style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#E8F5E9',
+                            color: '#2D7F6F',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            📝 <span>Ready</span>
+                          </span>
+                        ) : (
+                          <span style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#FFF3E0',
+                            color: '#FF9800',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            No Plan
+                          </span>
+                        )}
+                        <span style={{ 
+                          fontSize: '14px',
+                          color: '#999',
+                          transition: 'transform 0.2s'
+                        }}>
+                          {isExpanded ? '▲' : '▼'}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                  <div className="lesson-actions" onClick={(e) => e.stopPropagation()}>
+
+                    {/* Expanded View */}
+                    {isExpanded && (
+                      <div 
+                        style={{
+                          padding: '24px',
+                          backgroundColor: '#f9f9f9',
+                          borderTop: '2px solid var(--color-border)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Lesson Details */}
+                        <div style={{ marginBottom: '20px' }}>
+                          <h4 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>
+                            Lesson Details
+                          </h4>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                              <strong>Student:</strong> {studentName}
+                      </div>
+                            <div>
+                              <strong>Time:</strong> {lessonTime}
+                      </div>
+                            <div>
+                              <strong>Status:</strong>
                     <select 
                       value={lesson.status}
                       onChange={(e) => handleUpdateLessonStatus(lesson.id, e.target.value)}
                       className="status-dropdown"
-                      onClick={(e) => e.stopPropagation()}
+                                style={{ marginLeft: '8px', padding: '4px 8px' }}
                     >
                       <option value="scheduled">Scheduled</option>
                       <option value="completed">Completed</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
-                    {lesson.lesson_plan ? (
-                      <span className="badge badge-success">✓ Plan Ready</span>
-                    ) : (
-                      <button 
-                        className="btn-generate-plan"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedLesson(lesson)
-                          setLessonPlan('')
-                          setIsEditingPlan(false)
-                        }}
-                      >
-                        Generate with AI
-                      </button>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
-            {upcomingLessons.length > 3 && (
-              <button 
-                className="show-more-btn"
-                onClick={() => setShowAllUpcoming(!showAllUpcoming)}
-              >
-                {showAllUpcoming ? '▲ Show Less' : `▼ Show ${upcomingLessons.length - 3} More`}
-              </button>
-            )}
-          </>
-        )}
-      </div>
 
-      {/* Recent Completed Lessons */}
-      {completedLessons.length > 0 && (
-        <div className="section">
-          <h2 className="section-title">Recent Completed Lessons ({completedLessons.length})</h2>
-          <div className="lessons-list">
-            {(showAllCompleted ? completedLessons : completedLessons.slice(0, 3)).map(lesson => (
-              <div 
-                key={lesson.id} 
-                className="lesson-card completed-lesson"
-                onClick={() => handleLessonClick(lesson)}
-              >
-                <div className="lesson-header">
-                  <div className="lesson-info">
-                    <h3>{lesson.students?.profiles?.full_name || 'Unknown Student'}</h3>
-                    <div className="lesson-details">
-                      <div className="detail-row">
-                        <Calendar size={16} />
-                        {new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                          {/* Current Package Info */}
+                          {lesson.students?.student_packages?.[0] && (
+                            <div style={{
+                              marginTop: '16px',
+                              padding: '12px',
+                              backgroundColor: '#f9f9f9',
+                              borderRadius: '8px',
+                              border: '1px solid #e0e0e0'
+                            }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: 'var(--color-primary)' }}>
+                                Current Package
+              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '13px' }}>
+                                <div>
+                                  <div style={{ color: '#666' }}>Package Size</div>
+                                  <div style={{ fontWeight: '600' }}>{lesson.students.student_packages[0].package_size} lessons</div>
+      </div>
+                                <div>
+                                  <div style={{ color: '#666' }}>Used</div>
+                                  <div style={{ fontWeight: '600' }}>{lesson.students.student_packages[0].lessons_used}</div>
                       </div>
-                      <div className="detail-row">
-                        <Clock size={16} />
-                        {new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                <div>
+                                  <div style={{ color: '#666' }}>Remaining</div>
+                                  <div style={{ fontWeight: '600', color: lesson.students.student_packages[0].lessons_remaining <= 2 ? '#FF9800' : 'inherit' }}>
+                                    {lesson.students.student_packages[0].lessons_remaining}
+                                    {lesson.students.student_packages[0].lessons_remaining <= 2 && ' ⚠️'}
                       </div>
-                      <div className="detail-row">
-                        <Target size={16} />
-                        {lesson.location}
                       </div>
                     </div>
+                              <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                                ${lesson.students.student_packages[0].price_per_lesson?.toFixed(2) || '0.00'}/lesson
                   </div>
-                  <div className="lesson-actions completed-actions">
-                    <span className="badge badge-completed">Completed</span>
-                    <div className="learnings-feedback-row">
-                      {lesson.student_learnings ? (
-                        <span className="feedback-given">✓ Learnings</span>
-                      ) : (
-                        <span className="no-learnings">No learnings</span>
-                      )}
-                      {lesson.coach_feedback ? (
-                        <span className="feedback-given">✓ Feedback</span>
-                      ) : (
-                        <button 
-                          className="btn-add-feedback"
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            await handleFeedbackLessonClick(lesson)
-                          }}
-                        >
-                          Add feedback
-                        </button>
+                            </div>
                       )}
                     </div>
+
+                        {/* Lesson Plan Preview */}
+                        {lesson.lesson_plan && (
+                          <div style={{ marginBottom: '20px' }}>
+                            <h4 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>
+                              Lesson Plan
+                            </h4>
+                            <div style={{
+                              padding: '16px',
+                              backgroundColor: 'white',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid var(--color-border)',
+                              maxHeight: '200px',
+                              overflowY: 'auto',
+                              whiteSpace: 'pre-wrap',
+                              fontSize: '14px',
+                              lineHeight: '1.6'
+                            }}>
+                              {lesson.lesson_plan}
                   </div>
                 </div>
-              </div>
-            ))}
-            {completedLessons.length > 3 && (
+                        )}
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <button 
-                className="show-more-btn"
-                onClick={() => setShowAllCompleted(!showAllCompleted)}
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleLessonPlanClick(lesson)}
               >
-                {showAllCompleted ? '▲ Show Less' : `▼ Show ${completedLessons.length - 3} More`}
+                            {lesson.lesson_plan ? '✏️ Edit Plan' : '📝 Create Plan'}
               </button>
-            )}
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => navigate(`/coach/students/${lesson.student_id}`)}
+                          >
+                            👤 View Student Profile
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => handleLessonClick(lesson)}
+                          >
+                            📋 Full Details
+                          </button>
           </div>
         </div>
       )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+      </div>
+
 
       {/* Lesson Plan Modal */}
       {selectedLesson && (
@@ -1562,17 +2210,6 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                         style={{ width: '100%' }}
                       />
                     </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>Location:</label>
-                      <input
-                        type="text"
-                        value={editLessonLocation}
-                        onChange={(e) => setEditLessonLocation(e.target.value)}
-                        className="input"
-                        placeholder="e.g., Colina Del Sol Park"
-                        style={{ width: '100%' }}
-                      />
-                    </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         className="btn btn-primary btn-sm"
@@ -1602,11 +2239,8 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                     <div style={{ marginBottom: '12px' }}>
                       <strong>Date:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </div>
-                    <div style={{ marginBottom: '12px' }}>
-                      <strong>Time:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
                     <div style={{ marginBottom: '16px' }}>
-                      <strong>Location:</strong> {selectedLessonDetail.location || '-'}
+                      <strong>Time:</strong> {new Date(selectedLessonDetail.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </>
                 )}
@@ -1697,7 +2331,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                           onClick={async () => {
                             setSelectedFeedbackLesson(selectedLessonDetail)
                             setCoachFeedback(selectedLessonDetail.coach_feedback || '')
-                            await loadHomework(selectedLessonDetail.id)
+                            await loadPracticePlan(selectedLessonDetail.id)
                             handleCloseLessonDetail()
                           }}
                         >
@@ -1913,6 +2547,19 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           onSuccess={() => {
             fetchCoachData()
             setShowLogPayment(false)
+          }}
+        />
+      )}
+
+      {/* Referral Celebration Modal */}
+      {showReferralCelebration && (
+        <ReferralCelebrationModal
+          referrerName={referralCelebrationData.referrerName}
+          referredName={referralCelebrationData.referredName}
+          referrerId={referralCelebrationData.referrerId}
+          onClose={() => {
+            setShowReferralCelebration(false)
+            fetchCoachData() // Refresh to show updated credits
           }}
         />
       )}

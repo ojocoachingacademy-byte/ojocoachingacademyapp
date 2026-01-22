@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
@@ -15,8 +15,8 @@ function getNextSunday() {
 }
 
 exports.handler = async (event, context) => {
-  // This function runs on a schedule: Wednesday at 12pm
-  // Cron: 0 12 * * 3 (12pm every Wednesday)
+  // This function runs on a schedule: Wednesday at 12pm PST
+  // Cron: 0 20 * * 3 (12pm PST = 8pm UTC Wednesday)
   
   console.log('=== WEDNESDAY CHECK-IN EMAILS STARTED ===')
   console.log('Time:', new Date().toISOString())
@@ -29,23 +29,10 @@ exports.handler = async (event, context) => {
     
     console.log('Looking for lessons on:', nextSunday.toISOString())
     
-    const { data: upcomingLessons, error: lessonsError } = await supabase
+    // Fetch lessons first
+    const { data: lessons, error: lessonsError } = await supabase
       .from('lessons')
-      .select(`
-        id,
-        lesson_date,
-        practice_plan,
-        practice_plan_time_estimate,
-        practice_plan_completed,
-        student_id,
-        students!inner(
-          id,
-          profiles!inner(
-            full_name,
-            email
-          )
-        )
-      `)
+      .select('id, lesson_date, practice_plan, practice_plan_time_estimate, practice_plan_completed, student_id')
       .gte('lesson_date', nextSunday.toISOString())
       .lte('lesson_date', nextSundayEnd.toISOString())
       .eq('status', 'scheduled')
@@ -55,12 +42,67 @@ exports.handler = async (event, context) => {
       throw lessonsError
     }
 
-    console.log(`Found ${upcomingLessons?.length || 0} upcoming Sunday lessons`)
+    console.log(`Found ${lessons?.length || 0} upcoming Sunday lessons`)
 
-    if (!upcomingLessons || upcomingLessons.length === 0) {
+    if (!lessons || lessons.length === 0) {
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'No upcoming Sunday lessons found' })
+      }
+    }
+
+    // Get unique student IDs
+    const studentIds = [...new Set(lessons.map(l => l.student_id))]
+    
+    // Fetch students with profiles using explicit foreign key
+    const { data: students, error: studentsError } = await supabase
+      .from('students')
+      .select(`
+        id,
+        profiles!students_id_fkey(
+          full_name,
+          email
+        )
+      `)
+      .in('id', studentIds)
+      .not('profiles', 'is', null)
+    
+    if (studentsError) {
+      console.error('Error fetching students:', studentsError)
+      throw studentsError
+    }
+
+    // Create a map of student_id to student data
+    const studentMap = new Map()
+    students.forEach(student => {
+      if (student.profiles) {
+        studentMap.set(student.id, student)
+      }
+    })
+
+    // Combine lessons with student data
+    const upcomingLessons = lessons
+      .map(lesson => {
+        const student = studentMap.get(lesson.student_id)
+        if (!student || !student.profiles) {
+          return null
+        }
+        return {
+          ...lesson,
+          students: {
+            id: student.id,
+            profiles: student.profiles
+          }
+        }
+      })
+      .filter(Boolean) // Remove lessons without valid student profiles
+
+    console.log(`Found ${upcomingLessons.length} lessons with valid student profiles`)
+
+    if (upcomingLessons.length === 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'No lessons with valid student profiles found' })
       }
     }
 

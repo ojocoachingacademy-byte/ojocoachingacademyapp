@@ -8,6 +8,7 @@ import StudentPracticePlans from './StudentPracticePlans'
 import NewConversationModal from '../Messaging/NewConversationModal'
 import ProgressChart, { OverallProgressSummary } from '../Progress/ProgressChart'
 import AddPackageModal from '../Payments/AddPackageModal'
+import PackageHistory from '../Payments/PackageHistory'
 import MergeHistoricalModal from '../History/MergeHistoricalModal'
 import MergeProfilesModal from './MergeProfilesModal'
 import SelectProfileModal from './SelectProfileModal'
@@ -17,6 +18,7 @@ import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants
 import { safeJsonParse } from '../../utils/safeJsonParse'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
+import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -59,6 +61,23 @@ export default function StudentDetailPage() {
   const [editingFocusArea, setEditingFocusArea] = useState(null)
   const [newFocusAreaText, setNewFocusAreaText] = useState('')
   const [showAddFocusArea, setShowAddFocusArea] = useState(false)
+  const [showReferralCelebration, setShowReferralCelebration] = useState(false)
+  const [referralCelebrationData, setReferralCelebrationData] = useState({
+    referrerName: '',
+    referredName: '',
+    referrerId: ''
+  })
+  const [editingLesson, setEditingLesson] = useState(false)
+  const [lessonEditForm, setLessonEditForm] = useState({
+    lesson_date: '',
+    lesson_time: '',
+    location: '',
+    status: '',
+    lesson_plan: '',
+    coach_feedback: '',
+    student_learnings: ''
+  })
+  const [savingLesson, setSavingLesson] = useState(false)
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -773,12 +792,40 @@ export default function StudentDetailPage() {
           .eq('id', leadSourceForm.referredBy)
           .single()
         setReferringStudent(data)
+        
+        // Trigger referral celebration modal
+        const studentProfile = student?.profiles || {}
+        const referredName = studentProfile.full_name || 'A student'
+        triggerReferralCelebration(leadSourceForm.referredBy, referredName)
       } else {
         setReferringStudent(null)
       }
     } catch (error) {
       logger.error('Error saving lead source:', error)
       alert('Error saving: ' + error.message)
+    }
+  }
+
+  const triggerReferralCelebration = async (referrerId, referredName) => {
+    try {
+      // Get referrer's profile
+      const { data: referrerProfile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', referrerId)
+        .single()
+
+      if (error) throw error
+
+      setReferralCelebrationData({
+        referrerName: referrerProfile.full_name || 'A student',
+        referredName: referredName,
+        referrerId: referrerId
+      })
+      setShowReferralCelebration(true)
+    } catch (error) {
+      console.error('Error loading referrer data:', error)
+      alert('Could not load referrer information')
     }
   }
 
@@ -1272,7 +1319,12 @@ export default function StudentDetailPage() {
                 <h3>Upcoming Lessons</h3>
                 <div className="lessons-list">
                   {upcomingLessons.map(lesson => (
-                    <div key={lesson.id} className="lesson-item">
+                    <div 
+                      key={lesson.id} 
+                      className="lesson-item"
+                      onClick={() => setSelectedLesson(lesson)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div>
                         <strong>{new Date(lesson.lesson_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
                         <div style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>
@@ -1284,7 +1336,10 @@ export default function StudentDetailPage() {
                           <FileText size={18} style={{ color: 'var(--color-success)' }} />
                         )}
                         <button
-                          onClick={(e) => handleDeleteLesson(lesson.id, e)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteLesson(lesson.id, e)
+                          }}
                           className="btn-icon-delete"
                           title="Delete lesson"
                         >
@@ -2015,6 +2070,11 @@ export default function StudentDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Package History */}
+                <div style={{ marginTop: '32px' }}>
+                  <PackageHistory studentId={id} />
+                </div>
               </>
             )}
           </div>
@@ -2077,41 +2137,203 @@ export default function StudentDetailPage() {
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <div className="modal-overlay" onClick={() => setSelectedLesson(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Lesson Details</h2>
-              <button className="modal-close" onClick={() => setSelectedLesson(null)}>×</button>
+        <div className="modal-overlay" onClick={() => {
+          setSelectedLesson(null)
+          setEditingLesson(false)
+        }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title">{editingLesson ? 'Edit Lesson' : 'Lesson Details'}</h2>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {!editingLesson && (
+                  <button 
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      const lessonDate = new Date(selectedLesson.lesson_date)
+                      setLessonEditForm({
+                        lesson_date: lessonDate.toISOString().split('T')[0],
+                        lesson_time: lessonDate.toTimeString().slice(0, 5),
+                        location: selectedLesson.location || '',
+                        status: selectedLesson.status || 'scheduled',
+                        lesson_plan: selectedLesson.lesson_plan || '',
+                        coach_feedback: selectedLesson.coach_feedback || '',
+                        student_learnings: typeof selectedLesson.student_learnings === 'string' 
+                          ? selectedLesson.student_learnings 
+                          : (selectedLesson.student_learnings ? JSON.stringify(selectedLesson.student_learnings, null, 2) : '')
+                      })
+                      setEditingLesson(true)
+                    }}
+                    style={{ padding: '6px 12px', fontSize: '14px' }}
+                  >
+                    <Edit2 size={16} style={{ marginRight: '4px' }} />
+                    Edit
+                  </button>
+                )}
+                <button className="modal-close" onClick={() => {
+                  setSelectedLesson(null)
+                  setEditingLesson(false)
+                }}>×</button>
+              </div>
             </div>
             <div className="modal-body">
-              <div className="lesson-detail-section">
-                <div className="detail-item">
-                  <strong>Student:</strong>
-                  <span>{student?.profiles?.full_name || 'Unknown'}</span>
-                </div>
-                <div className="detail-item">
-                  <strong>Date & Time:</strong>
-                  <span>
-                    {new Date(selectedLesson.lesson_date).toLocaleString('en-US', {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <strong>Location:</strong>
-                  <span>{selectedLesson.location || 'Not specified'}</span>
-                </div>
-                <div className="detail-item">
-                  <strong>Status:</strong>
-                  <span className={`status-badge status-${selectedLesson.status}`}>
-                    {selectedLesson.status}
-                  </span>
-                </div>
+              {editingLesson ? (
+                <form onSubmit={async (e) => {
+                  e.preventDefault()
+                  await handleSaveLesson()
+                }}>
+                  <div className="lesson-detail-section">
+                    <div className="detail-item">
+                      <strong>Student:</strong>
+                      <span>{student?.profiles?.full_name || 'Unknown'}</span>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                      <div className="form-group">
+                        <label>Date <span className="required">*</span></label>
+                        <input
+                          type="date"
+                          value={lessonEditForm.lesson_date}
+                          onChange={(e) => setLessonEditForm({...lessonEditForm, lesson_date: e.target.value})}
+                          className="input"
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Time <span className="required">*</span></label>
+                        <input
+                          type="time"
+                          value={lessonEditForm.lesson_time}
+                          onChange={(e) => setLessonEditForm({...lessonEditForm, lesson_time: e.target.value})}
+                          className="input"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label>Location</label>
+                      <input
+                        type="text"
+                        value={lessonEditForm.location}
+                        onChange={(e) => setLessonEditForm({...lessonEditForm, location: e.target.value})}
+                        className="input"
+                        placeholder="Enter location"
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label>Status <span className="required">*</span></label>
+                      <select
+                        value={lessonEditForm.status}
+                        onChange={(e) => setLessonEditForm({...lessonEditForm, status: e.target.value})}
+                        className="input"
+                        required
+                      >
+                        <option value="scheduled">Scheduled</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label>Lesson Plan</label>
+                      <textarea
+                        value={lessonEditForm.lesson_plan}
+                        onChange={(e) => setLessonEditForm({...lessonEditForm, lesson_plan: e.target.value})}
+                        className="input"
+                        rows={6}
+                        placeholder="Enter lesson plan..."
+                        style={{ fontFamily: 'inherit', resize: 'vertical' }}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label>Coach Feedback</label>
+                      <textarea
+                        value={lessonEditForm.coach_feedback}
+                        onChange={(e) => setLessonEditForm({...lessonEditForm, coach_feedback: e.target.value})}
+                        className="input"
+                        rows={6}
+                        placeholder="Enter coach feedback..."
+                        style={{ fontFamily: 'inherit', resize: 'vertical' }}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label>Student Learnings</label>
+                      <textarea
+                        value={lessonEditForm.student_learnings}
+                        onChange={(e) => setLessonEditForm({...lessonEditForm, student_learnings: e.target.value})}
+                        className="input"
+                        rows={4}
+                        placeholder="Enter student learnings (JSON format or plain text)..."
+                        style={{ fontFamily: 'monospace', fontSize: '13px', resize: 'vertical' }}
+                      />
+                      <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        Can be JSON array or plain text
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e0e0e0' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => {
+                          setEditingLesson(false)
+                          setLessonEditForm({
+                            lesson_date: '',
+                            lesson_time: '',
+                            location: '',
+                            status: '',
+                            lesson_plan: '',
+                            coach_feedback: '',
+                            student_learnings: ''
+                          })
+                        }}
+                        disabled={savingLesson}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={savingLesson}
+                      >
+                        {savingLesson ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <>
+                <div className="lesson-detail-section">
+                  <div className="detail-item">
+                    <strong>Student:</strong>
+                    <span>{student?.profiles?.full_name || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <strong>Date & Time:</strong>
+                    <span>
+                      {new Date(selectedLesson.lesson_date).toLocaleString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <strong>Location:</strong>
+                    <span>{selectedLesson.location || 'Not specified'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <strong>Status:</strong>
+                    <span className={`status-badge status-${selectedLesson.status}`}>
+                      {selectedLesson.status}
+                    </span>
+                  </div>
                 
                 {selectedLesson.lesson_plan && (
                   <div className="detail-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -2140,7 +2362,23 @@ export default function StudentDetailPage() {
                       whiteSpace: 'pre-wrap',
                       width: '100%'
                     }}>
-                      {selectedLesson.student_learnings}
+                      {(() => {
+                        try {
+                          const learnings = typeof selectedLesson.student_learnings === 'string' 
+                            ? JSON.parse(selectedLesson.student_learnings)
+                            : selectedLesson.student_learnings
+                          if (Array.isArray(learnings)) {
+                            return learnings.map((learning, idx) => (
+                              <div key={idx} style={{ marginBottom: idx < learnings.length - 1 ? '8px' : 0 }}>
+                                • {learning}
+                              </div>
+                            ))
+                          }
+                          return selectedLesson.student_learnings
+                        } catch {
+                          return selectedLesson.student_learnings
+                        }
+                      })()}
                     </div>
                   </div>
                 )}
@@ -2202,7 +2440,9 @@ export default function StudentDetailPage() {
                   }
                   return null
                 })()}
-              </div>
+                </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2354,6 +2594,19 @@ export default function StudentDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Referral Celebration Modal */}
+      {showReferralCelebration && (
+        <ReferralCelebrationModal
+          referrerName={referralCelebrationData.referrerName}
+          referredName={referralCelebrationData.referredName}
+          referrerId={referralCelebrationData.referrerId}
+          onClose={() => {
+            setShowReferralCelebration(false)
+            fetchStudentData() // Refresh to show updated credits
+          }}
+        />
       )}
     </div>
   )

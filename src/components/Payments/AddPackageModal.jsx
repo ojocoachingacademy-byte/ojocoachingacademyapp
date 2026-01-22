@@ -1,50 +1,123 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import './AddPackageModal.css'
 
-// Pricing structures
-const existingStudentPackages = [
-  { lessons: 1, price: 70 },
-  { lessons: 5, price: 325 },
-  { lessons: 10, price: 600 },
-  { lessons: 20, price: 1000 }
-]
-
-const newStudentPackages = [
-  { lessons: 1, price: 100 },
-  { lessons: 5, price: 450 },
-  { lessons: 20, price: 1400 }
-]
-
 export default function AddPackageModal({ student, onClose, onSuccess }) {
-  const [studentType, setStudentType] = useState('existing')
+  const [packagePrices, setPackagePrices] = useState([])
+  const [pricingTier, setPricingTier] = useState(null)
   const [packageSize, setPackageSize] = useState(5)
-  const [amount, setAmount] = useState(325)
+  const [numPeople, setNumPeople] = useState(1) // 1 = individual, 2 = semi-private
+  const [amount, setAmount] = useState(0)
   const [useCustomPricing, setUseCustomPricing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('Venmo')
   const [notes, setNotes] = useState('')
   const [processing, setProcessing] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const packageOptions = studentType === 'existing' ? existingStudentPackages : newStudentPackages
+  // Fetch pricing based on student's pricing tier
+  useEffect(() => {
+    fetchPricing()
+  }, [student])
 
-  const handleStudentTypeChange = (type) => {
-    setStudentType(type)
-    const packages = type === 'existing' ? existingStudentPackages : newStudentPackages
-    // Find the current package size in new pricing, or default to first option
-    let pkg = packages.find(p => p.lessons === packageSize)
-    if (!pkg) {
-      pkg = packages[0]
-      setPackageSize(pkg.lessons)
-    }
-    if (!useCustomPricing) {
-      setAmount(pkg.price)
+  const fetchPricing = async () => {
+    try {
+      setLoading(true)
+      
+      // Get student's pricing tier
+      const { data: studentData, error: studentError } = await supabaseAdmin
+        .from('students')
+        .select('pricing_tier_id')
+        .eq('id', student.id)
+        .single()
+
+      if (studentError) throw studentError
+
+      const tierId = studentData?.pricing_tier_id
+
+      if (!tierId) {
+        // Default to legacy if no tier assigned
+        const { data: legacyTier } = await supabaseAdmin
+          .from('package_tiers')
+          .select('id, tier_name, display_name')
+          .eq('tier_name', 'legacy')
+          .single()
+        
+        if (legacyTier) {
+          setPricingTier(legacyTier)
+          await fetchPackagePrices(legacyTier.id)
+        }
+        return
+      }
+
+      // Get tier info
+      const { data: tierData, error: tierError } = await supabaseAdmin
+        .from('package_tiers')
+        .select('id, tier_name, display_name')
+        .eq('id', tierId)
+        .single()
+
+      if (tierError) throw tierError
+      setPricingTier(tierData)
+
+      // Fetch package prices for this tier
+      await fetchPackagePrices(tierId)
+    } catch (error) {
+      console.error('Error fetching pricing:', error)
+      alert('Error loading pricing. Using default pricing.')
+      // Fallback to hardcoded legacy pricing
+      setPackagePrices([
+        { package_size: 1, num_people: 1, price: 70 },
+        { package_size: 5, num_people: 1, price: 325 },
+        { package_size: 10, num_people: 1, price: 600 },
+        { package_size: 20, num_people: 1, price: 1000 }
+      ])
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handlePackageChange = (lessons) => {
-    setPackageSize(lessons)
+  const fetchPackagePrices = async (tierId) => {
+    const { data, error } = await supabaseAdmin
+      .from('package_prices')
+      .select('package_size, num_people, price')
+      .eq('tier_id', tierId)
+      .order('num_people', { ascending: true })
+      .order('package_size', { ascending: true })
+
+    if (error) throw error
+    setPackagePrices(data || [])
+    
+    // Set default package and amount
+    if (data && data.length > 0) {
+      const defaultPkg = data.find(p => p.package_size === 5 && p.num_people === 1) || data[0]
+      setPackageSize(defaultPkg.package_size)
+      setNumPeople(defaultPkg.num_people)
+      setAmount(defaultPkg.price)
+    }
+  }
+
+  // Filter packages by number of people
+  const packageOptions = packagePrices.filter(p => p.num_people === numPeople)
+
+  const handleNumPeopleChange = (num) => {
+    setNumPeople(num)
+    // Find matching package size in new category, or default to first
+    const newOptions = packagePrices.filter(p => p.num_people === num)
+    const matchingPkg = newOptions.find(p => p.package_size === packageSize)
+    if (matchingPkg && !useCustomPricing) {
+      setAmount(matchingPkg.price)
+    } else if (newOptions.length > 0 && !useCustomPricing) {
+      const firstPkg = newOptions[0]
+      setPackageSize(firstPkg.package_size)
+      setAmount(firstPkg.price)
+    }
+  }
+
+  const handlePackageChange = (size) => {
+    setPackageSize(size)
     if (!useCustomPricing) {
-      const pkg = packageOptions.find(p => p.lessons === lessons)
+      const pkg = packageOptions.find(p => p.package_size === size)
       if (pkg) setAmount(pkg.price)
     }
   }
@@ -52,32 +125,57 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
   const handleAddPackage = async () => {
     setProcessing(true)
     try {
-      // 1. Add credits to student
+      const pricePaid = parseFloat(amount)
+      const pricePerLesson = pricePaid / packageSize
+      const purchasedDate = new Date().toISOString().split('T')[0]
+
+      // 1. Create student_packages record
+      const { data: newPackage, error: packageError } = await supabaseAdmin
+        .from('student_packages')
+        .insert({
+          student_id: student.id,
+          package_size: packageSize,
+          price_paid: pricePaid,
+          price_per_lesson: pricePerLesson,
+          lessons_purchased: packageSize,
+          lessons_used: 0,
+          purchased_date: purchasedDate,
+          is_active: true,
+          is_semi_private: numPeople === 2,
+          notes: notes || `${packageSize}-lesson package (${pricingTier?.display_name || 'standard'} pricing)`
+        })
+        .select()
+        .single()
+
+      if (packageError) throw packageError
+
+      // 2. Update student record
       const newCredits = (student.lesson_credits || 0) + packageSize
-      const newTotalRevenue = (student.total_revenue || 0) + parseFloat(amount)
+      const newTotalRevenue = (student.total_revenue || 0) + pricePaid
       const newTotalPurchased = (student.total_lessons_purchased || 0) + packageSize
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('students')
         .update({ 
           lesson_credits: newCredits,
           total_revenue: newTotalRevenue,
-          total_lessons_purchased: newTotalPurchased
+          total_lessons_purchased: newTotalPurchased,
+          current_package_id: newPackage.id // Set as current package
         })
         .eq('id', student.id)
 
       if (updateError) throw updateError
 
-      // 2. Try to record transaction (table may not exist yet)
+      // 3. Record transaction (if table exists)
       try {
-        await supabase
+        await supabaseAdmin
           .from('payment_transactions')
           .insert({
             student_id: student.id,
-            amount: parseFloat(amount),
+            amount: pricePaid,
             lesson_credits: packageSize,
             payment_method: paymentMethod,
-            notes: notes || `${packageSize}-lesson package (${studentType} student rate)`
+            notes: notes || `${packageSize}-lesson package`
           })
       } catch (txError) {
         console.log('Transaction logging skipped (table may not exist):', txError)
@@ -111,45 +209,71 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
             <p className="current-credits">Current Credits: <strong>{currentCredits}</strong></p>
           </div>
 
-          {/* Student Type Toggle */}
+          {/* Pricing Tier Display */}
+          {pricingTier && (
+            <div className="package-form-group">
+              <label>Pricing Tier</label>
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: '#f0f0f0', 
+                borderRadius: '8px',
+                fontWeight: '600',
+                color: 'var(--color-primary)'
+              }}>
+                {pricingTier.display_name}
+              </div>
+            </div>
+          )}
+
+          {/* Individual vs Semi-Private Toggle */}
           <div className="package-form-group">
-            <label>Student Type</label>
+            <label>Lesson Type</label>
             <div className="student-type-toggle">
               <button
                 type="button"
-                onClick={() => handleStudentTypeChange('existing')}
-                className={`toggle-btn ${studentType === 'existing' ? 'active' : ''}`}
+                onClick={() => handleNumPeopleChange(1)}
+                className={`toggle-btn ${numPeople === 1 ? 'active' : ''}`}
               >
-                Existing Student
+                Individual
               </button>
               <button
                 type="button"
-                onClick={() => handleStudentTypeChange('new')}
-                className={`toggle-btn ${studentType === 'new' ? 'active' : ''}`}
+                onClick={() => handleNumPeopleChange(2)}
+                className={`toggle-btn ${numPeople === 2 ? 'active' : ''}`}
               >
-                New Student
+                Semi-Private (2 people)
               </button>
             </div>
           </div>
 
           {/* Package Selection */}
-          <div className="package-form-group">
-            <label>Select Package</label>
-            <div className="package-buttons">
-              {packageOptions.map(pkg => (
-                <button
-                  key={pkg.lessons}
-                  type="button"
-                  onClick={() => handlePackageChange(pkg.lessons)}
-                  className={`package-option-btn ${packageSize === pkg.lessons ? 'selected' : ''}`}
-                >
-                  <div className="package-lessons">{pkg.lessons} {pkg.lessons === 1 ? 'Lesson' : 'Lessons'}</div>
-                  <div className="package-price">${pkg.price}</div>
-                  <div className="package-per-lesson">${(pkg.price / pkg.lessons).toFixed(2)}/lesson</div>
-                </button>
-              ))}
+          {loading ? (
+            <div className="package-form-group">
+              <p>Loading pricing...</p>
             </div>
-          </div>
+          ) : packageOptions.length === 0 ? (
+            <div className="package-form-group">
+              <p style={{ color: '#999' }}>No packages available for this tier and lesson type.</p>
+            </div>
+          ) : (
+            <div className="package-form-group">
+              <label>Select Package</label>
+              <div className="package-buttons">
+                {packageOptions.map(pkg => (
+                  <button
+                    key={`${pkg.package_size}-${pkg.num_people}`}
+                    type="button"
+                    onClick={() => handlePackageChange(pkg.package_size)}
+                    className={`package-option-btn ${packageSize === pkg.package_size ? 'selected' : ''}`}
+                  >
+                    <div className="package-lessons">{pkg.package_size} {pkg.package_size === 1 ? 'Lesson' : 'Lessons'}</div>
+                    <div className="package-price">${pkg.price.toFixed(2)}</div>
+                    <div className="package-per-lesson">${(pkg.price / pkg.package_size).toFixed(2)}/lesson</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Custom Pricing Toggle */}
           <div className="package-form-group">
@@ -181,7 +305,7 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
             </div>
             {!useCustomPricing ? (
               <p className="package-price-note">
-                Using {studentType === 'existing' ? 'existing' : 'new'} student pricing
+                Using {pricingTier?.display_name || 'standard'} pricing
               </p>
             ) : (
               <p className="package-price-note custom">
@@ -224,9 +348,15 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
           <div className="package-summary-box">
             <h4>✓ Summary</h4>
             <div className="summary-row">
-              <span>Student Type:</span>
-              <span>{studentType === 'existing' ? 'Existing' : 'New'}</span>
+              <span>Lesson Type:</span>
+              <span>{numPeople === 1 ? 'Individual' : 'Semi-Private (2 people)'}</span>
             </div>
+            {pricingTier && (
+              <div className="summary-row">
+                <span>Pricing Tier:</span>
+                <span>{pricingTier.display_name}</span>
+              </div>
+            )}
             <div className="summary-row">
               <span>Package:</span>
               <span>{packageSize} {packageSize === 1 ? 'lesson' : 'lessons'}</span>
