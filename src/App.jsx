@@ -24,6 +24,7 @@ import ReferralDashboard from './components/Referrals/ReferralDashboard'
 import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
 import TestimonialsManagement from './components/Testimonials/TestimonialsManagement'
 import TennisResources from './components/TennisResources/TennisResources'
+import EmailsManagement from './components/Coach/EmailsManagement'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 import ErrorBoundary from './components/shared/ErrorBoundary'
@@ -164,6 +165,10 @@ function App() {
         <Route 
           path="/coach/testimonials" 
           element={session && isCoach ? <TestimonialsManagement /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/coach/emails" 
+          element={session && isCoach ? <EmailsManagement /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/hitting-partners" 

@@ -137,6 +137,40 @@ exports.handler = async (event) => {
       // Don't fail webhook if notification fails
     }
 
+    // Create notification for coach
+    try {
+      // Get student profile for name
+      const { data: studentProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', studentId)
+        .maybeSingle()
+
+      // Get coach user ID
+      const { data: coachProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('account_type', 'coach')
+        .limit(1)
+        .maybeSingle()
+
+      if (coachProfile) {
+        await supabase
+          .from('notifications')
+          .insert([{
+            user_id: coachProfile.id,
+            type: 'lesson_booked',
+            title: 'New Lesson Booked',
+            body: `${studentProfile?.full_name || 'A student'} has booked a lesson for ${new Date(startTime).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+            link: `/coach/lessons`
+          }])
+        console.log('Notification created for coach')
+      }
+    } catch (coachNotifError) {
+      console.error('Error creating coach notification:', coachNotifError)
+      // Don't fail webhook if notification fails
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({ 

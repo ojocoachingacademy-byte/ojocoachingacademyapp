@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Award, Calendar, User, Edit2, Check, X, UserPlus } from 'lucide-react'
 import AddStudentModal from './AddStudentModal'
 import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
+import CoachLayout from '../Layout/CoachLayout'
 import './StudentsPage.css'
 
 export default function StudentsPage() {
@@ -217,13 +218,18 @@ export default function StudentsPage() {
   }
 
   if (loading) {
-    return <div className="page-container">Loading...</div>
+    return (
+      <CoachLayout>
+        <div className="page-container">Loading...</div>
+      </CoachLayout>
+    )
   }
 
   const filteredStudents = getFilteredAndSortedStudents()
 
   return (
-    <div className="page-container">
+    <CoachLayout>
+      <div className="page-container">
       <div className="page-header">
         <div>
           <h1>Students</h1>
@@ -389,6 +395,7 @@ export default function StudentsPage() {
           ))}
         </div>
       )}
+      </div>
 
       {/* Add Student Modal */}
       {showAddStudent && (
@@ -414,7 +421,7 @@ export default function StudentsPage() {
           }}
         />
       )}
-    </div>
+    </CoachLayout>
   )
 }
 

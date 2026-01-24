@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
 import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2 } from 'lucide-react'
+import Anthropic from '@anthropic-ai/sdk'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import StudentPracticePlans from './StudentPracticePlans'
 import NewConversationModal from '../Messaging/NewConversationModal'
@@ -14,11 +15,14 @@ import MergeProfilesModal from './MergeProfilesModal'
 import SelectProfileModal from './SelectProfileModal'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import CreateLessonModal from '../Calendar/CreateLessonModal'
-import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
+import { MILESTONES, GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import { safeJsonParse } from '../../utils/safeJsonParse'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
 import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
+import CoachLayout from '../Layout/CoachLayout'
+import { useToast, ToastContainer } from '../shared/Toast'
+import ConfirmationModal from '../shared/ConfirmationModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -67,6 +71,9 @@ export default function StudentDetailPage() {
     referredName: '',
     referrerId: ''
   })
+  const { toasts, showToast, removeToast } = useToast()
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmModalConfig, setConfirmModalConfig] = useState(null)
   const [editingLesson, setEditingLesson] = useState(false)
   const [lessonEditForm, setLessonEditForm] = useState({
     lesson_date: '',
@@ -78,6 +85,9 @@ export default function StudentDetailPage() {
     student_learnings: ''
   })
   const [savingLesson, setSavingLesson] = useState(false)
+  const [generatingPlan, setGeneratingPlan] = useState(false)
+  const [refiningPlan, setRefiningPlan] = useState(false)
+  const [refinementFeedback, setRefinementFeedback] = useState('')
   
   // Profile editing state
   const [profileFormData, setProfileFormData] = useState({
@@ -214,7 +224,7 @@ export default function StudentDetailPage() {
       setEditingRevenue(false)
     } catch (error) {
       logger.error('Error saving revenue:', error)
-      alert('Error saving revenue: ' + error.message)
+      showToast('Error saving revenue: ' + error.message, 'error')
     } finally {
       setSavingRevenue(false)
     }
@@ -243,7 +253,7 @@ export default function StudentDetailPage() {
       setEditingLessonsPurchased(false)
     } catch (error) {
       logger.error('Error saving lessons purchased:', error)
-      alert('Error saving lessons purchased: ' + error.message)
+      showToast('Error saving lessons purchased: ' + error.message, 'error')
     } finally {
       setSavingLessonsPurchased(false)
     }
@@ -268,7 +278,7 @@ export default function StudentDetailPage() {
       setEditingCredits(false)
     } catch (error) {
       logger.error('Error saving credits:', error)
-      alert('Error saving credits: ' + error.message)
+      showToast('Error saving credits: ' + error.message, 'error')
     } finally {
       setSavingCredits(false)
     }
@@ -294,7 +304,7 @@ export default function StudentDetailPage() {
       // Check if supabaseAdmin is available
       if (!supabaseAdmin) {
         logger.error('Supabase admin client not available. Check environment variables.')
-        alert('Configuration error: Supabase admin client not available. Please check environment variables.')
+        showToast('Configuration error: Supabase admin client not available. Please check environment variables.', 'error')
         setLoading(false)
         return
       }
@@ -318,7 +328,7 @@ export default function StudentDetailPage() {
           logger.error('1. Supabase client not properly initialized')
           logger.error('2. Missing or incorrect environment variables')
           logger.error('3. API endpoint configuration issue')
-          alert('Error loading student data. Please check that Supabase environment variables are properly configured.')
+          showToast('Error loading student data. Please check that Supabase environment variables are properly configured.', 'error')
         }
         
         throw studentError
@@ -415,12 +425,12 @@ export default function StudentDetailPage() {
 
   const createFocusArea = async () => {
     if (!newFocusAreaText.trim()) {
-      alert('Please enter a focus area')
+      showToast('Please enter a focus area', 'warning')
       return
     }
 
     if (!id) {
-      alert('Student ID is missing')
+      showToast('Student ID is missing', 'error')
       return
     }
 
@@ -451,13 +461,13 @@ export default function StudentDetailPage() {
       setShowAddFocusArea(false)
     } catch (error) {
       logger.error('Error creating focus area:', error)
-      alert('Error creating focus area: ' + error.message)
+      showToast('Error creating focus area: ' + error.message, 'error')
     }
   }
 
   const updateFocusArea = async (focusAreaId, newText) => {
     if (!newText.trim()) {
-      alert('Focus area cannot be empty')
+      showToast('Focus area cannot be empty', 'warning')
       return
     }
 
@@ -475,28 +485,35 @@ export default function StudentDetailPage() {
       setEditingFocusArea(null)
     } catch (error) {
       logger.error('Error updating focus area:', error)
-      alert('Error updating focus area: ' + error.message)
+      showToast('Error updating focus area: ' + error.message, 'error')
     }
   }
 
   const deleteFocusArea = async (focusAreaId) => {
-    if (!confirm('Are you sure you want to delete this focus area?')) {
-      return
-    }
+    setConfirmModalConfig({
+      title: 'Delete Focus Area',
+      message: 'Are you sure you want to delete this focus area?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabaseAdmin
+            .from('student_focus_areas')
+            .delete()
+            .eq('id', focusAreaId)
 
-    try {
-      const { error } = await supabaseAdmin
-        .from('student_focus_areas')
-        .delete()
-        .eq('id', focusAreaId)
+          if (error) throw error
 
-      if (error) throw error
-
-      setFocusAreas(prev => prev.filter(fa => fa.id !== focusAreaId))
-    } catch (error) {
-      logger.error('Error deleting focus area:', error)
-      alert('Error deleting focus area: ' + error.message)
-    }
+          setFocusAreas(prev => prev.filter(fa => fa.id !== focusAreaId))
+          showToast('Focus area deleted successfully', 'success')
+        } catch (error) {
+          logger.error('Error deleting focus area:', error)
+          showToast('Error deleting focus area: ' + error.message, 'error')
+        }
+      }
+    })
+    setShowConfirmModal(true)
   }
 
   const toggleFocusAreaResolved = async (focusAreaId, currentStatus) => {
@@ -513,36 +530,45 @@ export default function StudentDetailPage() {
       setFocusAreas(prev => prev.map(fa => fa.id === focusAreaId ? data : fa))
     } catch (error) {
       logger.error('Error toggling focus area resolved status:', error)
-      alert('Error updating focus area: ' + error.message)
+      showToast('Error updating focus area: ' + error.message, 'error')
     }
   }
 
   const handleDeleteLesson = async (lessonId, e) => {
     e.stopPropagation() // Prevent opening lesson detail modal
     
-    if (!confirm('Are you sure you want to delete this lesson? This action cannot be undone.')) {
-      return
-    }
+    setConfirmModalConfig({
+      title: 'Delete Lesson',
+      message: 'Are you sure you want to delete this lesson? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabaseAdmin
+            .from('lessons')
+            .delete()
+            .eq('id', lessonId)
 
-    try {
-      const { error } = await supabaseAdmin
-        .from('lessons')
-        .delete()
-        .eq('id', lessonId)
+          if (error) throw error
 
-      if (error) throw error
-
-      // Remove lesson from local state
-      setLessons(prev => prev.filter(lesson => lesson.id !== lessonId))
-      
-      // If this lesson was selected, clear it
-      if (selectedLesson?.id === lessonId) {
-        setSelectedLesson(null)
+          // Remove lesson from local state
+          setLessons(prev => prev.filter(lesson => lesson.id !== lessonId))
+          
+          // If this lesson was selected, clear it
+          if (selectedLesson?.id === lessonId) {
+            setSelectedLesson(null)
+          }
+          
+          fetchStudentData() // Refresh data
+          showToast('Lesson deleted successfully', 'success')
+        } catch (error) {
+          logger.error('Error deleting lesson:', error)
+          showToast('Error deleting lesson: ' + error.message, 'error')
+        }
       }
-    } catch (error) {
-      logger.error('Error deleting lesson:', error)
-      alert('Error deleting lesson: ' + error.message)
-    }
+    })
+    setShowConfirmModal(true)
   }
 
   const savePrivateNotes = async () => {
@@ -560,7 +586,316 @@ export default function StudentDetailPage() {
       
     } catch (error) {
       logger.error('Error saving notes:', error)
-      alert('Error saving notes: ' + error.message)
+      showToast('Error saving notes: ' + error.message, 'error')
+    }
+  }
+
+  // Helper to strip markdown formatting
+  const stripMarkdown = (text) => {
+    if (!text) return ''
+    return text
+      // Remove markdown headers (# ## ###)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bold/italic (**text** or *text*)
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      // Remove links [text](url)
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      // Remove checkboxes [ ] or [x]
+      .replace(/\[[\sx]\]\s*/g, '')
+      // Remove code blocks ```
+      .replace(/```[\s\S]*?```/g, '')
+      // Remove inline code `code`
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up extra whitespace
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+
+  const handleSaveLesson = async () => {
+    if (!selectedLesson) return
+
+    setSavingLesson(true)
+    try {
+      // Combine date and time into a single datetime
+      const lessonDateTime = new Date(`${lessonEditForm.lesson_date}T${lessonEditForm.lesson_time}`)
+      
+      // Parse student_learnings if it's a JSON string
+      let parsedLearnings = lessonEditForm.student_learnings
+      if (lessonEditForm.student_learnings) {
+        try {
+          // Try to parse as JSON
+          const parsed = JSON.parse(lessonEditForm.student_learnings)
+          parsedLearnings = parsed
+        } catch (e) {
+          // If it's not valid JSON, keep as string
+          parsedLearnings = lessonEditForm.student_learnings
+        }
+      }
+
+      const { error } = await supabaseAdmin
+        .from('lessons')
+        .update({
+          lesson_date: lessonDateTime.toISOString(),
+          location: lessonEditForm.location,
+          status: lessonEditForm.status,
+          lesson_plan: lessonEditForm.lesson_plan,
+          coach_feedback: lessonEditForm.coach_feedback,
+          student_learnings: parsedLearnings
+        })
+        .eq('id', selectedLesson.id)
+
+      if (error) throw error
+
+      // Update local state
+      setLessons(prev => prev.map(lesson => 
+        lesson.id === selectedLesson.id 
+          ? { ...lesson, ...lessonEditForm, lesson_date: lessonDateTime.toISOString() }
+          : lesson
+      ))
+
+      setEditingLesson(false)
+      setSelectedLesson(null)
+      setLessonEditForm({
+        lesson_date: '',
+        lesson_time: '',
+        location: '',
+        status: '',
+        lesson_plan: '',
+        coach_feedback: '',
+        student_learnings: ''
+      })
+    } catch (error) {
+      logger.error('Error saving lesson:', error)
+      showToast('Error saving lesson: ' + error.message, 'error')
+    } finally {
+      setSavingLesson(false)
+    }
+  }
+
+  const handleGenerateLessonPlan = async () => {
+    if (!selectedLesson || !id) return
+
+    setGeneratingPlan(true)
+    try {
+      // Fetch student and profile separately to avoid ambiguous relationship error
+      const { data: student, error: studentError } = await supabaseAdmin
+        .from('students')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (studentError) throw studentError
+      if (!student) throw new Error('Student not found')
+
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (profileError) {
+        console.warn('Profile fetch error (non-critical):', profileError)
+      }
+
+      // Combine student and profile data
+      const studentData = {
+        ...student,
+        profiles: profile
+      }
+
+      const studentName = profile?.full_name || 'Student'
+      const playerLevel = studentData.player_level || 'beginner'
+      
+      // Parse development plan
+      let developmentPlan = null
+      if (studentData.development_plan) {
+        try {
+          developmentPlan = typeof studentData.development_plan === 'string'
+            ? JSON.parse(studentData.development_plan)
+            : studentData.development_plan
+        } catch (e) {
+          logger.warn('Error parsing development plan:', e)
+        }
+      }
+
+      // Get milestones using helper function
+      const milestones = getMilestonesByLevel(playerLevel)
+      
+      // Get achieved milestones
+      const { data: achievedMilestonesData, error: achievedMilestonesError } = await supabaseAdmin
+        .from('student_milestones')
+        .select('milestone_number, milestone_name, achieved_at')
+        .eq('student_id', id)
+        .eq('milestone_level', playerLevel)
+
+      if (achievedMilestonesError) throw achievedMilestonesError
+      
+      const achievedMilestones = achievedMilestonesData || []
+      const achievedMilestoneNumbers = achievedMilestones.map(m => m.milestone_number)
+
+      // Find next milestone
+      let nextMilestone = null
+      let targetMilestoneForGoal = 30
+      
+      if (developmentPlan?.section1?.bigGoal) {
+        const goal = GOAL_OPTIONS.find(g => g.value === developmentPlan.section1.bigGoal)
+        if (goal) {
+          targetMilestoneForGoal = goal.targetMilestone
+        }
+      }
+
+      for (const milestone of milestones) {
+        if (!achievedMilestoneNumbers.includes(milestone.number)) {
+          nextMilestone = {
+            number: milestone.number,
+            name: milestone.name,
+            description: milestone.description,
+            targetForGoal: targetMilestoneForGoal
+          }
+          break
+        }
+      }
+
+      if (!nextMilestone && milestones.length > 0) {
+        const lastMilestone = milestones[milestones.length - 1]
+        nextMilestone = {
+          number: lastMilestone.number,
+          name: lastMilestone.name,
+          description: lastMilestone.description,
+          targetForGoal: targetMilestoneForGoal
+        }
+      }
+
+      // Get last lesson's learnings
+      const { data: lastLessonData } = await supabaseAdmin
+        .from('lessons')
+        .select('student_learnings')
+        .eq('student_id', id)
+        .eq('status', 'completed')
+        .order('lesson_date', { ascending: false })
+        .limit(1)
+        .single()
+
+      const lastLessonLearnings = lastLessonData?.student_learnings || null
+
+      // Get recent lesson plans
+      const { data: recentLessonsData } = await supabaseAdmin
+        .from('lessons')
+        .select('lesson_plan')
+        .eq('student_id', id)
+        .eq('status', 'completed')
+        .not('lesson_plan', 'is', null)
+        .order('lesson_date', { ascending: false })
+        .limit(2)
+
+      const pastLessonPlans = (recentLessonsData || [])
+        .map(l => l.lesson_plan)
+        .filter(Boolean)
+
+      // Call Netlify function
+      // Automatically use test mode when running locally (localhost)
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const functionUrl = isLocalhost 
+        ? '/.netlify/functions/generate-lesson-plan?test=true'
+        : '/.netlify/functions/generate-lesson-plan'
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: studentName,
+          playerLevel: playerLevel,
+          developmentPlan: developmentPlan,
+          currentMilestones: achievedMilestoneNumbers,
+          nextMilestone: nextMilestone,
+          lastLessonLearnings: lastLessonLearnings,
+          pastLessonPlans: pastLessonPlans
+        })
+      })
+
+      if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            if (typeof errorData.error === 'string') {
+              errorMessage = errorData.error
+            } else if (errorData.error.message) {
+              errorMessage = errorData.error.message
+            } else {
+              errorMessage = JSON.stringify(errorData.error)
+            }
+          }
+        } catch (e) {
+          const text = await response.text().catch(() => '')
+          if (text) errorMessage = text
+        }
+        
+        if (response.status === 403 || response.status === 500) {
+          errorMessage += '\n\nMake sure you are running with "netlify dev" (not "npm run dev") if testing locally, or test on the deployed site.'
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      const { studentPlan: generatedStudentPlan, coachPlan: generatedCoachPlan } = await response.json()
+
+      // Update the lesson plan in the form
+      const generatedPlan = stripMarkdown(generatedCoachPlan || generatedStudentPlan)
+      setLessonEditForm(prev => ({ ...prev, lesson_plan: generatedPlan }))
+    } catch (error) {
+      console.error('Error generating lesson plan:', error)
+      showToast('Error generating lesson plan: ' + error.message + '. Make sure the Netlify function is properly configured.', 'error')
+    } finally {
+      setGeneratingPlan(false)
+    }
+  }
+
+  const handleRefinePlan = async () => {
+    if (!selectedLesson || !refinementFeedback.trim()) {
+      showToast('Please provide refinement feedback', 'warning')
+      return
+    }
+
+    setRefiningPlan(true)
+    try {
+      // Direct Anthropic API call for refining lesson plan
+      const anthropic = new Anthropic({
+        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
+        dangerouslyAllowBrowser: true
+      })
+
+      const prompt = `You are an expert tennis coach. Refine this lesson plan based on the feedback provided.
+
+CURRENT LESSON PLAN:
+${lessonEditForm.lesson_plan}
+
+COACH'S FEEDBACK/REQUESTED CHANGES:
+${refinementFeedback}
+
+Please provide an updated lesson plan that incorporates the feedback. Keep the same format but adjust content as requested.
+Do NOT use markdown formatting - just plain text with line breaks.`
+
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+
+      const refinedPlan = message.content[0].text
+
+      // Update the lesson plan in the form
+      setLessonEditForm(prev => ({ ...prev, lesson_plan: stripMarkdown(refinedPlan) }))
+      setRefinementFeedback('')
+    } catch (error) {
+      console.error('Error refining lesson plan:', error)
+      showToast('Error refining lesson plan: ' + error.message + '. Make sure VITE_ANTHROPIC_API_KEY is set in your .env file.', 'error')
+    } finally {
+      setRefiningPlan(false)
     }
   }
 
@@ -590,7 +925,7 @@ export default function StudentDetailPage() {
 
       if (error) {
         logger.error('Database error:', error)
-        alert('Failed to save: ' + error.message)
+        showToast('Failed to save: ' + error.message, 'error')
         return
       }
 
@@ -609,19 +944,19 @@ export default function StudentDetailPage() {
         logger.debug('Verification successful - data in DB:', verifyData)
         if (!verifyData?.development_plan) {
           logger.warn('WARNING: Data did not save to database!')
-          alert('WARNING: Data did not save properly. Please try again.')
+          showToast('WARNING: Data did not save properly. Please try again.', 'warning')
           return
         }
       }
 
-      alert('Development plan saved successfully!')
+      showToast('Development plan saved successfully!', 'success')
       setEditingPlan(false)
       
       // Force refresh student data
       await fetchStudentData()
     } catch (error) {
       logger.error('Unexpected error:', error)
-      alert('Error saving plan: ' + error.message)
+      showToast('Error saving plan: ' + error.message, 'error')
     }
   }
 
@@ -666,12 +1001,12 @@ export default function StudentDetailPage() {
 
       if (studentError) throw studentError
 
-      alert('Student information updated successfully!')
+      showToast('Student information updated successfully!', 'success')
       setEditingProfile(false)
       await fetchStudentData() // Refresh to show updated data
     } catch (error) {
       logger.error('Error saving profile:', error)
-      alert('Error saving profile: ' + error.message)
+      showToast('Error saving profile: ' + error.message, 'error')
     } finally {
       setSavingProfile(false)
     }
@@ -688,10 +1023,10 @@ export default function StudentDetailPage() {
       if (error) throw error
       
       setStudent(prev => ({ ...prev, is_active: newStatus }))
-      alert(`Student marked as ${newStatus ? 'Active' : 'Inactive'}`)
+      showToast(`Student marked as ${newStatus ? 'Active' : 'Inactive'}`, 'success')
     } catch (error) {
       logger.error('Error toggling status:', error)
-      alert('Error updating status: ' + error.message)
+      showToast('Error updating status: ' + error.message, 'error')
     }
   }
 
@@ -754,11 +1089,11 @@ export default function StudentDetailPage() {
 
       logger.debug('User and all related records deleted successfully:', result)
       logger.debug('Student deletion completed successfully')
-      alert('Student profile deleted successfully')
+      showToast('Student profile deleted successfully', 'success')
       navigate('/coach/students')
     } catch (error) {
       logger.error('Error deleting student:', error)
-      alert('Error deleting student: ' + error.message)
+      showToast('Error deleting student: ' + error.message, 'error')
     } finally {
       setDeletingStudent(false)
       setShowDeleteConfirm(false)
@@ -802,7 +1137,7 @@ export default function StudentDetailPage() {
       }
     } catch (error) {
       logger.error('Error saving lead source:', error)
-      alert('Error saving: ' + error.message)
+      showToast('Error saving: ' + error.message, 'error')
     }
   }
 
@@ -825,7 +1160,7 @@ export default function StudentDetailPage() {
       setShowReferralCelebration(true)
     } catch (error) {
       console.error('Error loading referrer data:', error)
-      alert('Could not load referrer information')
+      showToast('Could not load referrer information', 'warning')
     }
   }
 
@@ -836,11 +1171,19 @@ export default function StudentDetailPage() {
   ]
 
   if (loading) {
-    return <div className="page-container">Loading...</div>
+    return (
+      <CoachLayout>
+        <div className="page-container">Loading...</div>
+      </CoachLayout>
+    )
   }
 
   if (!student) {
-    return <div className="page-container">Student not found</div>
+    return (
+      <CoachLayout>
+        <div className="page-container">Student not found</div>
+      </CoachLayout>
+    )
   }
 
   const developmentPlan = student.development_plan 
@@ -853,7 +1196,8 @@ export default function StudentDetailPage() {
   const pastLessons = lessons.filter(l => l.status === 'completed' || new Date(l.lesson_date) < new Date())
 
   return (
-    <div className="page-container">
+    <CoachLayout>
+      <div className="page-container">
       {/* Header */}
       <div className="student-detail-header">
         <button className="btn btn-outline btn-sm" onClick={() => navigate('/coach/students')}>
@@ -1295,10 +1639,10 @@ export default function StudentDetailPage() {
                     if (!error) {
                       // Refresh student data
                       fetchStudentData()
-                      alert(`Player level updated to ${newLevel}`)
+                      showToast(`Player level updated to ${newLevel}`, 'success')
                     } else {
                       logger.error('Error updating player level:', error)
-                      alert('Error updating player level')
+                      showToast('Error updating player level', 'error')
                     }
                   }}
                   style={{ fontSize: '14px' }}
@@ -1313,6 +1657,47 @@ export default function StudentDetailPage() {
                 }
               </p>
             </div>
+
+            {/* Target Milestone Display - Same as Student View */}
+            {(() => {
+              try {
+                const plan = typeof student.development_plan === 'string' 
+                  ? safeJsonParse(student.development_plan, student.development_plan)
+                  : student.development_plan
+                
+                const bigGoal = plan?.section1?.bigGoal
+                if (!bigGoal || bigGoal === 'custom') return null
+                
+                const goal = GOAL_OPTIONS.find(g => g.value === bigGoal)
+                if (!goal) return null
+                
+                const targetMilestone = MILESTONES.find(m => m.number === goal.targetMilestone)
+                
+                let targetSkill = 5
+                if (goal.targetMilestone <= 15) targetSkill = 5
+                else if (goal.targetMilestone <= 20) targetSkill = 6
+                else targetSkill = 7
+                
+                return (
+                  <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                    <strong style={{ fontSize: '16px' }}>📋 Recommended Path:</strong>
+                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                        🎯 <strong>Target Milestone:</strong> #{goal.targetMilestone} - {targetMilestone?.name}
+                        <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                          "{targetMilestone?.description}"
+                        </div>
+                      </div>
+                      <div style={{ padding: '12px', background: 'white', borderRadius: '6px' }}>
+                        📈 <strong>Skill Level Needed:</strong> {targetSkill}/10 in all areas
+                      </div>
+                    </div>
+                  </div>
+                )
+              } catch (e) {
+                return null
+              }
+            })()}
 
             {upcomingLessons.length > 0 && (
               <div className="section">
@@ -1791,7 +2176,7 @@ export default function StudentDetailPage() {
                   setStudent({ ...student, development_plan_notes: newNotes })
                 } catch (error) {
                   logger.error('Error saving notes:', error)
-                  alert('Error saving notes: ' + error.message)
+                  showToast('Error saving notes: ' + error.message, 'error')
                 }
               }}
             />
@@ -2155,12 +2540,13 @@ export default function StudentDetailPage() {
                         lesson_time: lessonDate.toTimeString().slice(0, 5),
                         location: selectedLesson.location || '',
                         status: selectedLesson.status || 'scheduled',
-                        lesson_plan: selectedLesson.lesson_plan || '',
+                        lesson_plan: selectedLesson.lesson_plan ? stripMarkdown(selectedLesson.lesson_plan) : '',
                         coach_feedback: selectedLesson.coach_feedback || '',
                         student_learnings: typeof selectedLesson.student_learnings === 'string' 
                           ? selectedLesson.student_learnings 
                           : (selectedLesson.student_learnings ? JSON.stringify(selectedLesson.student_learnings, null, 2) : '')
                       })
+                      setRefinementFeedback('')
                       setEditingLesson(true)
                     }}
                     style={{ padding: '6px 12px', fontSize: '14px' }}
@@ -2242,9 +2628,58 @@ export default function StudentDetailPage() {
                         onChange={(e) => setLessonEditForm({...lessonEditForm, lesson_plan: e.target.value})}
                         className="input"
                         rows={6}
-                        placeholder="Enter lesson plan..."
+                        placeholder="Enter lesson plan manually or generate with AI..."
                         style={{ fontFamily: 'inherit', resize: 'vertical' }}
                       />
+                      
+                      {/* Generate with AI Button */}
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={handleGenerateLessonPlan}
+                          disabled={generatingPlan}
+                          style={{ flex: 1 }}
+                        >
+                          {generatingPlan ? '⏳ Generating...' : '✨ Generate with AI'}
+                        </button>
+                      </div>
+
+                      {/* Refine with AI Section */}
+                      {lessonEditForm.lesson_plan && (
+                        <div style={{ 
+                          marginTop: '20px', 
+                          padding: '16px', 
+                          backgroundColor: '#f5f5f5', 
+                          borderRadius: '8px',
+                          border: '1px solid #e0e0e0'
+                        }}>
+                          <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#2D7F6F' }}>
+                            ✨ Refine with AI
+                          </h3>
+                          <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#666' }}>
+                            Provide feedback to improve the lesson plan. For example: "Make it more advanced", "Add more volley drills", "Focus on mental game"
+                          </p>
+                          <div style={{ marginBottom: '12px' }}>
+                            <input
+                              className="input"
+                              type="text"
+                              value={refinementFeedback}
+                              onChange={(e) => setRefinementFeedback(e.target.value)}
+                              placeholder="e.g., Make it more advanced, Add more volley drills, Focus on mental game"
+                              style={{ marginBottom: '12px' }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={handleRefinePlan}
+                              disabled={refiningPlan || !refinementFeedback.trim()}
+                            >
+                              {refiningPlan ? '⏳ Refining...' : '🔄 Regenerate'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
@@ -2608,7 +3043,8 @@ export default function StudentDetailPage() {
           }}
         />
       )}
-    </div>
+      </div>
+    </CoachLayout>
   )
 }
 

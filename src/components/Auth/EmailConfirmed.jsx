@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import { createCoachNotification } from '../../utils/notifications'
 import './EmailConfirmed.css'
 
 export default function EmailConfirmed() {
@@ -89,6 +90,14 @@ export default function EmailConfirmed() {
                         html: emailBody,
                         text: emailBody.replace(/<[^>]*>/g, '')
                       })
+                    })
+
+                    // Create in-app notification for coach
+                    await createCoachNotification({
+                      type: 'student_signup',
+                      title: 'New Student Signed Up',
+                      body: `${studentName} has signed up and confirmed their email`,
+                      link: `/coach/students/${session.user.id}`
                     })
                   } catch (emailError) {
                     // Don't block account creation if email fails

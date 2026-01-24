@@ -843,4 +843,169 @@
   }
 }
 
+/* Lesson Plan Ready Screen */
+.lesson-plan-ready-screen {
+  text-align: left;
+  max-width: 700px;
+  padding: 2rem;
+}
+
+.lesson-plan-ready-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.lesson-plan-ready-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  animation: scaleIn 0.5s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.lesson-plan-ready-title {
+  font-size: 2rem;
+  color: #4B2C6C;
+  font-weight: 700;
+  text-align: center;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.lesson-plan-ready-subtitle {
+  font-size: 1.1rem;
+  color: #666;
+  text-align: center;
+  margin: 0.5rem 0 0 0;
+  line-height: 1.6;
+}
+
+.lesson-plan-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(75, 44, 108, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #E0E0E0;
+}
+
+.lesson-plan-section-title {
+  font-size: 1.3rem;
+  color: #4B2C6C;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.lesson-plan-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lesson-plan-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  color: #333;
+  padding: 0.5rem 0;
+}
+
+.lesson-plan-checklist li svg {
+  flex-shrink: 0;
+}
+
+.lesson-plan-directions {
+  color: #555;
+  line-height: 1.7;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.lesson-plan-content {
+  background: linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%);
+  border: 2px solid #2D7F6F;
+}
+
+.lesson-plan-date {
+  color: #2D7F6F;
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #E0E0E0;
+}
+
+.lesson-plan-text {
+  color: #333;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  font-size: 1rem;
+  margin: 0;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #E0E0E0;
+}
+
+.lesson-plan-continue-btn {
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 400px;
+  align-self: center;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+}
+
+/* Mobile Responsive for Lesson Plan Ready Screen */
+@media (max-width: 768px) {
+  .lesson-plan-ready-screen {
+    padding: 1.5rem 1rem;
+  }
+
+  .lesson-plan-ready-title {
+    font-size: 1.6rem;
+  }
+
+  .lesson-plan-ready-subtitle {
+    font-size: 1rem;
+  }
+
+  .lesson-plan-section {
+    padding: 1.25rem;
+  }
+
+  .lesson-plan-section-title {
+    font-size: 1.1rem;
+  }
+
+  .lesson-plan-checklist li {
+    font-size: 0.95rem;
+  }
+
+  .lesson-plan-directions {
+    font-size: 0.95rem;
+  }
+
+  .lesson-plan-text {
+    font-size: 0.95rem;
+    padding: 0.875rem;
+  }
+}
+
 

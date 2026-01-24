@@ -3,6 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save } from 'lucide-react'
+import CoachLayout from '../Layout/CoachLayout'
 import './LessonsPage.css'
 
 export default function LessonsPage() {
@@ -258,14 +259,19 @@ export default function LessonsPage() {
   }
 
   if (loading) {
-    return <div className="page-container">Loading...</div>
+    return (
+      <CoachLayout>
+        <div className="page-container">Loading...</div>
+      </CoachLayout>
+    )
   }
 
   const filteredLessons = getFilteredLessons()
 
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <CoachLayout>
+      <div className="page-container">
+        <div className="page-header">
         <h1>Lessons</h1>
         <button className="btn btn-primary" onClick={exportToCSV}>
           Export to CSV
@@ -640,14 +646,22 @@ export default function LessonsPage() {
                           e.stopPropagation()
                           try {
                             // Check if this is the first lesson plan for this student
+                            // Exclude the current lesson from the check
                             const { data: studentLessons } = await supabaseAdmin
                               .from('lessons')
                               .select('id, lesson_plan')
                               .eq('student_id', selectedLesson.student_id)
+                              .neq('id', selectedLesson.id) // Exclude current lesson
                               .not('lesson_plan', 'is', null)
                               .neq('lesson_plan', '')
 
                             const isFirstLessonPlan = !studentLessons || studentLessons.length === 0
+                            
+                            console.log(`Checking first lesson plan for student ${selectedLesson.student_id}:`, {
+                              existingLessonsWithPlans: studentLessons?.length || 0,
+                              isFirstLessonPlan: isFirstLessonPlan,
+                              currentLessonId: selectedLesson.id
+                            })
 
                             // Update lesson plan
                             const { error } = await supabaseAdmin
@@ -665,15 +679,22 @@ export default function LessonsPage() {
                             // Send notification if this is the first lesson plan
                             if (isFirstLessonPlan && lessonPlanText.trim()) {
                               try {
+                                console.log('Sending first lesson plan notification...')
                                 // Get student profile info
-                                const { data: profile } = await supabaseAdmin
+                                const { data: profile, error: profileError } = await supabaseAdmin
                                   .from('profiles')
                                   .select('full_name, email')
                                   .eq('id', selectedLesson.student_id)
                                   .single()
 
-                                if (profile) {
-                                  await fetch('/.netlify/functions/notify-lesson-plan-ready', {
+                                if (profileError) {
+                                  console.error('Error fetching profile:', profileError)
+                                  throw profileError
+                                }
+
+                                if (profile && profile.email) {
+                                  console.log(`Sending notification to ${profile.full_name} (${profile.email})`)
+                                  const response = await fetch('/.netlify/functions/notify-lesson-plan-ready', {
                                     method: 'POST',
                                     headers: {
                                       'Content-Type': 'application/json'
@@ -687,11 +708,26 @@ export default function LessonsPage() {
                                       lessonPlan: lessonPlanText
                                     })
                                   })
+
+                                  const responseData = await response.json()
+                                  
+                                  if (response.ok) {
+                                    console.log('Lesson plan notification sent successfully:', responseData)
+                                    alert(`Lesson plan saved! Notification email sent to ${profile.full_name}.`)
+                                  } else {
+                                    console.error('Failed to send notification:', response.status, responseData)
+                                    alert(`Lesson plan saved, but notification email failed: ${responseData.error || 'Unknown error'}`)
+                                  }
+                                } else {
+                                  console.warn('No profile or email found for student:', selectedLesson.student_id)
                                 }
                               } catch (notifError) {
                                 // Don't block lesson plan save if notification fails
                                 console.error('Error sending lesson plan notification:', notifError)
+                                alert(`Lesson plan saved, but notification email failed: ${notifError.message}`)
                               }
+                            } else {
+                              console.log('Not sending notification - not first lesson plan or empty plan text')
                             }
                           } catch (error) {
                             console.error('Error updating lesson plan:', error)
@@ -818,7 +854,8 @@ export default function LessonsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </CoachLayout>
   )
 }
 

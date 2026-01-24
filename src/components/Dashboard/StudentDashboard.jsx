@@ -18,11 +18,14 @@ import ProgressTab from './tabs/ProgressTab'
 import LessonsTab from './tabs/LessonsTab'
 import ProfileTab from './tabs/ProfileTab'
 import OnboardingFlow from '../Onboarding/OnboardingFlow'
+import LessonPlanReadyScreen from '../Onboarding/screens/LessonPlanReadyScreen'
 import MoreMenu from '../Layout/MoreMenu'
 import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
 import { safeJsonParse } from '../../utils/safeJsonParse'
+import { useToast, ToastContainer } from '../shared/Toast'
+import ConfirmationModal from '../shared/ConfirmationModal'
 
 export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState('home')
@@ -44,8 +47,13 @@ export default function StudentDashboard() {
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [currentPracticePlan, setCurrentPracticePlan] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showLessonPlanWelcome, setShowLessonPlanWelcome] = useState(false)
+  const [firstLessonWithPlan, setFirstLessonWithPlan] = useState(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
+  const { toasts, showToast, removeToast } = useToast()
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmModalConfig, setConfirmModalConfig] = useState(null)
   const developmentPlanRef = useRef(null)
   const navigate = useNavigate()
 
@@ -124,6 +132,29 @@ export default function StudentDashboard() {
 
       if (lessonsError) throw lessonsError
       setLessons(lessonsData || [])
+
+      // Check if we should show the lesson plan welcome screen
+      // Only show if: onboarding completed, has a lesson with a plan, and hasn't been dismissed
+      if (studentData.onboarding_completed && lessonsData && lessonsData.length > 0) {
+        // Find the first upcoming lesson with a lesson plan
+        const now = new Date()
+        const upcomingLessonWithPlan = lessonsData.find(lesson => {
+          const lessonDate = new Date(lesson.lesson_date)
+          const hasPlan = lesson.lesson_plan || lesson.student_lesson_plan
+          return lessonDate > now && hasPlan
+        })
+        
+        if (upcomingLessonWithPlan) {
+          // Check if user has already dismissed this welcome screen
+          const dismissedKey = `lessonPlanWelcomeDismissed_${upcomingLessonWithPlan.id}`
+          const hasDismissed = localStorage.getItem(dismissedKey)
+          
+          if (!hasDismissed) {
+            setFirstLessonWithPlan(upcomingLessonWithPlan)
+            setShowLessonPlanWelcome(true)
+          }
+        }
+      }
 
       // Development plan is stored in student.development_plan (JSON)
       // It will be loaded from studentData
@@ -259,7 +290,7 @@ export default function StudentDashboard() {
 
   const handleSubmitLearnings = async () => {
     if (!selectedLesson || !learning1.trim() || !learning2.trim() || !learning3.trim()) {
-      alert('Please enter all 3 learnings')
+      showToast('Please enter all 3 learnings', 'warning')
       return
     }
 
@@ -286,35 +317,24 @@ export default function StudentDashboard() {
         .eq('id', user.id)
         .single()
 
-      // Get coach profile to send notification
-      const { data: coachProfile } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('account_type', 'coach')
-        .limit(1)
-        .single()
-
-      if (coachProfile) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: coachProfile.email || coachProfile.id,
-            type: 'feedback_posted',
-            title: 'Student Learnings Submitted',
-            body: `${studentProfile?.full_name || 'A student'} has submitted learnings for a lesson`,
-            link: `/coach`,
-            read: false
-          })
-      }
+      // Import and use notification utility
+      const { createCoachNotification } = await import('../../utils/notifications')
+      await createCoachNotification({
+        type: 'student_learnings',
+        title: 'Student Learnings Submitted',
+        body: `${studentProfile?.full_name || 'A student'} has submitted learnings for a lesson`,
+        link: `/coach/lessons`
+      })
 
       setSelectedLesson(null)
       setLearning1('')
       setLearning2('')
       setLearning3('')
       fetchStudentData() // Refresh to show updated data
+      showToast('Learnings submitted successfully!', 'success')
     } catch (error) {
       logger.error('Error submitting learnings:', error)
-      alert('Error submitting learnings: ' + error.message)
+      showToast('Error submitting learnings: ' + error.message, 'error')
     } finally {
       setSubmittingLearnings(false)
     }
@@ -458,6 +478,16 @@ export default function StudentDashboard() {
     fetchStudentData()
   }
 
+  const handleLessonPlanWelcomeContinue = () => {
+    if (firstLessonWithPlan) {
+      // Mark as dismissed so it doesn't show again
+      const dismissedKey = `lessonPlanWelcomeDismissed_${firstLessonWithPlan.id}`
+      localStorage.setItem(dismissedKey, 'true')
+    }
+    setShowLessonPlanWelcome(false)
+    setFirstLessonWithPlan(null)
+  }
+
   if (loading) {
     return (
       <div className="student-dashboard-wrapper">
@@ -476,6 +506,28 @@ export default function StudentDashboard() {
         studentData={studentData}
         onComplete={handleOnboardingComplete}
       />
+    )
+  }
+
+  // Show lesson plan welcome screen if needed
+  if (showLessonPlanWelcome && firstLessonWithPlan) {
+    return (
+      <div className="student-dashboard-wrapper">
+        <div style={{ 
+          minHeight: '100vh', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          padding: '2rem',
+          background: 'linear-gradient(to bottom, #fafafa 0%, #f0f0f0 100%)'
+        }}>
+          <LessonPlanReadyScreen 
+            lesson={firstLessonWithPlan}
+            onContinue={handleLessonPlanWelcomeContinue}
+            studentName={student?.profiles?.full_name || profile?.full_name}
+          />
+        </div>
+      </div>
     )
   }
   
@@ -546,7 +598,7 @@ export default function StudentDashboard() {
       <div className="dashboard-header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <h1 className="welcome-message">Welcome, {profile?.full_name}! 🎾</h1>
+            <h1 className="welcome-message">Welcome {(profile?.full_name || studentData?.profiles?.full_name || 'there')}, let's get started! 🎾</h1>
             {/* Header Stats - Small cards on same row as welcome */}
             <div className="header-stats-row">
               <div className="stat-card-small card-gradient-purple">
@@ -898,6 +950,15 @@ export default function StudentDashboard() {
 
                 logger.debug('User ID:', user.id)
 
+                // Check if this is the first time saving a development plan
+                const { data: existingStudent } = await supabase
+                  .from('students')
+                  .select('development_plan')
+                  .eq('id', user.id)
+                  .single()
+
+                const isFirstPlan = !existingStudent?.development_plan || existingStudent.development_plan === null || existingStudent.development_plan === ''
+
                 // Ensure development_plan is properly formatted as JSON string
                 const updateData = {
                   development_plan: typeof planData.development_plan === 'string' 
@@ -918,7 +979,7 @@ export default function StudentDashboard() {
 
                 if (error) {
                   logger.error('Database error:', error)
-                  alert('Failed to save: ' + error.message)
+                  showToast('Failed to save: ' + error.message, 'error')
                   return
                 }
 
@@ -937,20 +998,37 @@ export default function StudentDashboard() {
                   logger.debug('Verification successful - data in DB:', verifyData)
                   if (!verifyData?.development_plan) {
                     logger.warn('WARNING: Data did not save to database!')
-                    alert('WARNING: Data did not save properly. Please try again.')
+                    showToast('WARNING: Data did not save properly. Please try again.', 'warning')
                     return
                   }
                 }
 
-                alert('Development plan saved successfully!')
+                showToast('Development plan saved successfully!', 'success')
                 setEditingPlan(false)
+                
+                // Create notification for coach if this is the first plan
+                if (isFirstPlan) {
+                  const { data: studentProfile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single()
+
+                  const { createCoachNotification } = await import('../../utils/notifications')
+                  await createCoachNotification({
+                    type: 'development_plan_completed',
+                    title: 'Development Plan Completed',
+                    body: `${studentProfile?.full_name || 'A student'} has completed their development plan`,
+                    link: `/coach/students/${user.id}`
+                  })
+                }
                 
                 // Force refresh student data
                 await fetchStudentData()
                 
               } catch (error) {
                 logger.error('Unexpected error:', error)
-                alert('Error saving plan: ' + error.message)
+                showToast('Error saving plan: ' + error.message, 'error')
               }
             }}
             onCancel={() => setEditingPlan(false)}
@@ -1399,6 +1477,10 @@ export default function StudentDashboard() {
                 className="btn btn-primary" 
                 onClick={handleSubmitLearnings}
                 disabled={!learning1.trim() || !learning2.trim() || !learning3.trim() || submittingLearnings}
+                style={{ 
+                  opacity: submittingLearnings ? 0.6 : 1,
+                  cursor: submittingLearnings ? 'wait' : 'pointer'
+                }}
                 aria-label="Submit lesson learnings"
               >
                 {submittingLearnings ? 'Submitting...' : 'Submit Learnings'}
@@ -1419,6 +1501,33 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+      
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && confirmModalConfig && (
+        <ConfirmationModal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            setShowConfirmModal(false)
+            setConfirmModalConfig(null)
+          }}
+          onConfirm={() => {
+            if (confirmModalConfig.onConfirm) {
+              confirmModalConfig.onConfirm()
+            }
+            setShowConfirmModal(false)
+            setConfirmModalConfig(null)
+          }}
+          title={confirmModalConfig.title}
+          message={confirmModalConfig.message}
+          confirmText={confirmModalConfig.confirmText}
+          cancelText={confirmModalConfig.cancelText}
+          type={confirmModalConfig.type}
+          isLoading={confirmModalConfig.isLoading}
+        />
+      )}
     </div>
   )
 }

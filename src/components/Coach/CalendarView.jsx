@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, User, ExternalLink } from 'lucide-react'
+import CoachLayout from '../Layout/CoachLayout'
 import './CalendarView.css'
 
 export default function CalendarView() {
@@ -108,10 +109,22 @@ export default function CalendarView() {
   const getLessonsForDate = (date) => {
     if (!date) return []
     
-    const dateStr = date.toISOString().split('T')[0]
+    // Get local date components for the calendar day
+    const targetYear = date.getFullYear()
+    const targetMonth = date.getMonth()
+    const targetDay = date.getDate()
+    
     return lessons.filter(lesson => {
-      const lessonDate = new Date(lesson.lesson_date).toISOString().split('T')[0]
-      return lessonDate === dateStr
+      // Parse lesson date and get local date components
+      const lessonDate = new Date(lesson.lesson_date)
+      const lessonYear = lessonDate.getFullYear()
+      const lessonMonth = lessonDate.getMonth()
+      const lessonDay = lessonDate.getDate()
+      
+      // Compare local date components (not UTC)
+      return lessonYear === targetYear && 
+             lessonMonth === targetMonth && 
+             lessonDay === targetDay
     })
   }
 
@@ -184,10 +197,12 @@ export default function CalendarView() {
 
   if (loading) {
     return (
-      <div className="calendar-view">
-        <div className="spinner"></div>
-        <p className="text-center" style={{ color: '#666', marginTop: '16px' }}>Loading calendar...</p>
-      </div>
+      <CoachLayout>
+        <div className="calendar-view">
+          <div className="spinner"></div>
+          <p className="text-center" style={{ color: '#666', marginTop: '16px' }}>Loading calendar...</p>
+        </div>
+      </CoachLayout>
     )
   }
 
@@ -195,7 +210,8 @@ export default function CalendarView() {
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
-    <div className="calendar-view">
+    <CoachLayout>
+      <div className="calendar-view">
       <div className="calendar-header">
         <div className="calendar-controls">
           <button className="btn btn-outline" onClick={() => navigateMonth(-1)}>
@@ -241,8 +257,12 @@ export default function CalendarView() {
           <div className="calendar-days">
             {days.map((date, index) => {
               const dayLessons = getLessonsForDate(date)
+              // Compare local date components for today check
+              const today = new Date()
               const isToday = date && 
-                date.toDateString() === new Date().toDateString()
+                date.getFullYear() === today.getFullYear() &&
+                date.getMonth() === today.getMonth() &&
+                date.getDate() === today.getDate()
               const isCurrentMonth = date && 
                 date.getMonth() === currentDate.getMonth()
 
@@ -309,7 +329,11 @@ export default function CalendarView() {
               const weekDate = new Date(weekStart)
               weekDate.setDate(weekStart.getDate() + index)
               const dayLessons = getLessonsForDate(weekDate)
-              const isToday = weekDate.toDateString() === new Date().toDateString()
+              // Compare local date components for today check
+              const today = new Date()
+              const isToday = weekDate.getFullYear() === today.getFullYear() &&
+                             weekDate.getMonth() === today.getMonth() &&
+                             weekDate.getDate() === today.getDate()
 
               return (
                 <div key={day} className={`week-day-column ${isToday ? 'today' : ''}`}>
@@ -377,9 +401,17 @@ export default function CalendarView() {
               const hourLessons = lessons.filter(lesson => {
                 const lessonDate = new Date(lesson.lesson_date)
                 const lessonHour = lessonDate.getHours()
-                const lessonDay = lessonDate.toDateString()
-                const currentDay = currentDate.toDateString()
-                return lessonHour === hour && lessonDay === currentDay
+                // Compare local date components to avoid timezone issues
+                const lessonYear = lessonDate.getFullYear()
+                const lessonMonth = lessonDate.getMonth()
+                const lessonDay = lessonDate.getDate()
+                const currentYear = currentDate.getFullYear()
+                const currentMonth = currentDate.getMonth()
+                const currentDay = currentDate.getDate()
+                return lessonHour === hour && 
+                       lessonYear === currentYear &&
+                       lessonMonth === currentMonth &&
+                       lessonDay === currentDay
               })
 
               return (
@@ -561,7 +593,8 @@ export default function CalendarView() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </CoachLayout>
   )
 }
 

@@ -395,25 +395,161 @@
 
 @media (max-width: 768px) {
   .calendar-view {
-    padding: var(--spacing-md);
+    padding: 16px;
   }
 
   .calendar-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 16px;
+  }
+
+  .calendar-title {
+    font-size: 20px;
+    min-width: auto;
+  }
+
+  .calendar-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-controls button {
+    min-height: 44px;
+    padding: 10px 16px;
+    font-size: 16px;
+  }
+
+  .view-mode-toggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .view-btn {
+    flex: 1;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  /* Month View */
+  .calendar-grid {
+    margin: 0 -16px;
+    width: calc(100% + 32px);
+    border-radius: 0;
+  }
+
+  .calendar-weekdays {
+    display: none; /* Hide weekday headers on mobile */
+  }
+
+  .calendar-days {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    background: transparent;
   }
 
   .calendar-day {
-    min-height: 80px;
+    min-height: auto;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
   }
 
+  .day-number {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  .lesson-event {
+    font-size: 12px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+  }
+
+  /* Week View */
   .week-header {
     grid-template-columns: 1fr;
     min-height: auto;
+    gap: 12px;
   }
 
   .week-day-column {
-    min-height: 200px;
+    min-height: auto;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    margin-bottom: 12px;
+  }
+
+  .week-day-header {
+    padding: 12px;
+  }
+
+  .week-day-name {
+    font-size: 12px;
+  }
+
+  .week-day-number {
+    font-size: 20px;
+  }
+
+  .week-day-lessons {
+    padding: 12px;
+    max-height: 300px;
+  }
+
+  .week-lesson-event {
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  /* Day View */
+  .day-header {
+    padding: 16px;
+  }
+
+  .day-header h2 {
+    font-size: 20px;
+  }
+
+  .day-timeline {
+    max-height: 500px;
+  }
+
+  .timeline-hour {
+    grid-template-columns: 60px 1fr;
+    min-height: 50px;
+  }
+
+  .hour-label {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .hour-slot {
+    padding: 8px;
+  }
+
+  .day-lesson-event {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+
+  /* Lesson Detail Modal */
+  .modal-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 20px auto;
+    max-height: 90vh;
+    padding: 16px;
+  }
+
+  .lesson-detail-section {
+    gap: 16px;
+  }
+
+  .detail-item {
+    font-size: 14px;
   }
 }
 

@@ -8,6 +8,7 @@ import PracticePlanCard from '../PracticePlanCard'
 import PracticeStreakCard from '../PracticeStreakCard'
 import LessonMilestoneModal from '../LessonMilestoneModal'
 import RecentWins from '../RecentWins'
+import ProgressReportCard from '../ProgressReportCard'
 import '../../shared/Modal.css'
 import './HomeTab.css'
 
@@ -316,7 +317,7 @@ const HomeTab = ({ studentData, onBookLesson }) => {
     <div className="home-tab">
       {/* Header - Stage Aware */}
       <div className="home-header">
-        <h1>{stage?.title || `Welcome back, ${studentData?.profiles?.full_name?.split(' ')[0] || 'there'}! 👋`}</h1>
+        <h1>{stage?.title || `Welcome ${(studentData?.profiles?.full_name || studentData?.full_name || 'there')}, let's get started! 🎾`}</h1>
         <p className="home-subtitle">{stage?.description || 'Your tennis journey continues'}</p>
       </div>
 
@@ -489,6 +490,14 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             <PracticeStreakCard 
               studentId={studentData?.id}
               completedLessons={completedLessons}
+            />
+          )}
+
+          {/* Progress Report Card - Weekly/Monthly Summary */}
+          {completedLessons.length >= 2 && (
+            <ProgressReportCard 
+              studentId={studentData?.id}
+              timeRange={7}
             />
           )}
 

@@ -1,0 +1,246 @@
+.confirmation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confirmation-modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.confirmation-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.confirmation-modal-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.confirmation-modal-icon {
+  flex-shrink: 0;
+}
+
+.confirmation-modal-icon-danger {
+  color: #F44336;
+}
+
+.confirmation-modal-icon-warning {
+  color: #FF9800;
+}
+
+.confirmation-modal-icon-info {
+  color: #2196F3;
+}
+
+.confirmation-modal-icon-wrapper {
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.confirmation-modal-icon-wrapper .confirmation-modal-icon-warning {
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.confirmation-modal-icon-wrapper .confirmation-modal-icon-info {
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.confirmation-modal-title {
+  flex: 1;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2C2C2C;
+  margin: 0;
+}
+
+.confirmation-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.confirmation-modal-close:hover:not(:disabled) {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.confirmation-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmation-modal-body {
+  padding: 1.5rem;
+}
+
+.confirmation-modal-message {
+  color: #555;
+  line-height: 1.6;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.confirmation-modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #E0E0E0;
+  justify-content: flex-end;
+}
+
+.confirmation-modal-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.confirmation-modal-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmation-modal-button-cancel {
+  background: white;
+  color: #666;
+  border: 2px solid #E0E0E0;
+}
+
+.confirmation-modal-button-cancel:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.confirmation-modal-button-confirm {
+  color: white;
+}
+
+.confirmation-modal-button-danger {
+  background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+}
+
+.confirmation-modal-button-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #D32F2F 0%, #C62828 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.confirmation-modal-button-warning {
+  background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+}
+
+.confirmation-modal-button-warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, #F57C00 0%, #E65100 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.confirmation-modal-button-info {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.confirmation-modal-button-info:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.confirmation-modal-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .confirmation-modal-content {
+    max-width: 100%;
+    margin: 1rem;
+  }
+
+  .confirmation-modal-header {
+    padding: 1.25rem;
+  }
+
+  .confirmation-modal-body {
+    padding: 1.25rem;
+  }
+
+  .confirmation-modal-footer {
+    padding: 1.25rem;
+    flex-direction: column-reverse;
+  }
+
+  .confirmation-modal-button {
+    width: 100%;
+  }
+}

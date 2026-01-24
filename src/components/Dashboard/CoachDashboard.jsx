@@ -10,6 +10,9 @@ import '../shared/Modal.css'
 import LessonTemplates from '../Templates/LessonTemplates'
 import LogPaymentModal from '../Coach/LogPaymentModal'
 import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
+import CoachLayout from '../Layout/CoachLayout'
+import { useToast, ToastContainer } from '../shared/Toast'
+import ConfirmationModal from '../shared/ConfirmationModal'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -165,12 +168,17 @@ export default function CoachDashboard() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [showLogPayment, setShowLogPayment] = useState(false)
   const [currentSunday, setCurrentSunday] = useState(getThisSunday(new Date()))
+  const [viewMode, setViewMode] = useState('sunday') // 'sunday' or 'nonSunday'
   const [expandedLessonId, setExpandedLessonId] = useState(null)
   const [expandedFeedbackId, setExpandedFeedbackId] = useState(null)
   const [feedbackText, setFeedbackText] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [markingAllComplete, setMarkingAllComplete] = useState(false)
   const [showReferralCelebration, setShowReferralCelebration] = useState(false)
+  const { toasts, showToast, removeToast } = useToast()
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmModalConfig, setConfirmModalConfig] = useState(null)
+  const [creatingLesson, setCreatingLesson] = useState(false)
   const [referralCelebrationData, setReferralCelebrationData] = useState({
     referrerName: '',
     referredName: '',
@@ -305,22 +313,23 @@ export default function CoachDashboard() {
     e.preventDefault()
     
     if (!selectedStudent) {
-      alert('Please select a student')
+      showToast('Please select a student', 'warning')
       return
     }
 
     if (!lessonDate || !lessonTime) {
-      alert('Please enter both date and time')
+      showToast('Please enter both date and time', 'warning')
       return
     }
 
     const lessonDateTime = new Date(`${lessonDate}T${lessonTime}`)
     
     if (lessonDateTime < new Date()) {
-      alert('Cannot create a lesson in the past')
+      showToast('Cannot create a lesson in the past', 'warning')
       return
     }
 
+    setCreatingLesson(true)
     try {
       // Create the lesson
       const { error: lessonError } = await supabaseAdmin
@@ -357,7 +366,7 @@ export default function CoachDashboard() {
         }
       }
 
-      alert('Lesson created successfully!')
+      showToast('Lesson created successfully!', 'success')
       setShowCreateLesson(false)
       setSelectedStudent('')
       setLessonDate('')
@@ -366,80 +375,116 @@ export default function CoachDashboard() {
       fetchCoachData()
     } catch (error) {
       console.error('Error creating lesson:', error)
-      alert('Error creating lesson: ' + (error.message || 'Unknown error'))
+      showToast('Error creating lesson: ' + (error.message || 'Unknown error'), 'error')
+    } finally {
+      setCreatingLesson(false)
     }
   }
 
   const handlePreviousWeek = () => {
-    setCurrentSunday(getPreviousSunday(currentSunday))
+    if (viewMode === 'nonSunday') {
+      // Go back to current Sunday
+      setViewMode('sunday')
+      setCurrentSunday(getThisSunday(new Date()))
+    } else {
+      // Go to previous Sunday
+      const prevSunday = getPreviousSunday(currentSunday)
+      const thisSunday = getThisSunday(new Date())
+      
+      // If going back to current Sunday, stay on current Sunday
+      if (isSameDay(prevSunday, thisSunday)) {
+        setCurrentSunday(thisSunday)
+      } else {
+        setCurrentSunday(prevSunday)
+      }
+    }
   }
 
   const handleNextWeek = () => {
-    setCurrentSunday(getNextSunday(currentSunday))
+    const thisSunday = getThisSunday(new Date())
+    const isCurrentSunday = isSameDay(currentSunday, thisSunday)
+    
+    if (viewMode === 'sunday' && isCurrentSunday) {
+      // From current Sunday, go to "All Non-Sunday Lessons"
+      setViewMode('nonSunday')
+    } else if (viewMode === 'nonSunday') {
+      // From "All Non-Sunday Lessons", go to next Sunday (second week after current)
+      setViewMode('sunday')
+      setCurrentSunday(getNextSunday(thisSunday))
+    } else {
+      // From any other Sunday, go to next Sunday
+      setCurrentSunday(getNextSunday(currentSunday))
+    }
   }
 
-  const handleMarkAllSundayComplete = async () => {
-    if (!confirm('Mark all Sunday lessons as completed? This will update all scheduled lessons for this date.')) {
+  const handleMarkAllSundayComplete = () => {
+    const sundayLessons = lessons.filter(l => {
+      const lessonDate = new Date(l.lesson_date)
+      return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+    })
+    
+    const lessonIds = sundayLessons.map(l => l.id)
+    
+    if (lessonIds.length === 0) {
+      showToast('No scheduled lessons to mark complete', 'info')
       return
     }
-    
-    setMarkingAllComplete(true)
-    try {
-      const sundayLessons = lessons.filter(l => {
-        const lessonDate = new Date(l.lesson_date)
-        return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
-      })
-      
-      const lessonIds = sundayLessons.map(l => l.id)
-      
-      if (lessonIds.length === 0) {
-        alert('No scheduled lessons to mark complete')
-        return
-      }
-      
-      // Update all lessons to completed
-      const { error } = await supabaseAdmin
-        .from('lessons')
-        .update({ status: 'completed' })
-        .in('id', lessonIds)
-      
-      if (error) throw error
-      
-      // Create lesson transactions for each
-      const lessonDate = currentSunday.toISOString().split('T')[0]
-      
-      for (const lesson of sundayLessons) {
-        // Check if transaction already exists
-        const { data: existingTx } = await supabaseAdmin
-          .from('lesson_transactions')
-          .select('id')
-          .eq('student_id', lesson.student_id)
-          .eq('transaction_date', lessonDate)
-          .eq('transaction_type', 'lesson_taken')
-          .maybeSingle()
-        
-        if (!existingTx) {
-          await supabaseAdmin
-            .from('lesson_transactions')
-            .insert({
-              student_id: lesson.student_id,
-              transaction_date: lessonDate,
-              transaction_type: 'lesson_taken',
-              amount_paid: 0,
-              package_size: 0,
-              notes: 'Lesson completed (batch)'
-            })
+
+    setConfirmModalConfig({
+      title: 'Mark All Lessons Complete',
+      message: `Mark all ${lessonIds.length} Sunday lesson(s) as completed? This will update all scheduled lessons for this date.`,
+      confirmText: 'Mark Complete',
+      cancelText: 'Cancel',
+      type: 'info',
+      onConfirm: async () => {
+        setMarkingAllComplete(true)
+        try {
+          // Update all lessons to completed
+          const { error } = await supabaseAdmin
+            .from('lessons')
+            .update({ status: 'completed' })
+            .in('id', lessonIds)
+          
+          if (error) throw error
+          
+          // Create lesson transactions for each
+          const lessonDate = currentSunday.toISOString().split('T')[0]
+          
+          for (const lesson of sundayLessons) {
+            // Check if transaction already exists
+            const { data: existingTx } = await supabaseAdmin
+              .from('lesson_transactions')
+              .select('id')
+              .eq('student_id', lesson.student_id)
+              .eq('transaction_date', lessonDate)
+              .eq('transaction_type', 'lesson_taken')
+              .maybeSingle()
+            
+            if (!existingTx) {
+              await supabaseAdmin
+                .from('lesson_transactions')
+                .insert({
+                  student_id: lesson.student_id,
+                  transaction_date: lessonDate,
+                  transaction_type: 'lesson_taken',
+                  amount_paid: 0,
+                  package_size: 0,
+                  notes: 'Lesson completed (batch)'
+                })
+            }
+          }
+          
+          showToast(`✅ Marked ${lessonIds.length} lesson(s) as completed!`, 'success')
+          fetchCoachData() // Refresh
+        } catch (error) {
+          console.error('Error marking lessons complete:', error)
+          showToast('Error: ' + error.message, 'error')
+        } finally {
+          setMarkingAllComplete(false)
         }
       }
-      
-      alert(`✅ Marked ${lessonIds.length} lessons as completed!`)
-      fetchCoachData() // Refresh
-    } catch (error) {
-      console.error('Error marking lessons complete:', error)
-      alert('Error: ' + error.message)
-    } finally {
-      setMarkingAllComplete(false)
-    }
+    })
+    setShowConfirmModal(true)
   }
 
   const handleToggleLessonExpansion = (lessonId) => {
@@ -475,11 +520,11 @@ export default function CoachDashboard() {
       setExpandedFeedbackId(null)
       setFeedbackText('')
       
-      alert('Feedback saved successfully!')
+      showToast('Feedback saved successfully!', 'success')
       fetchCoachData() // Refresh to get updated data
     } catch (error) {
       console.error('Error saving feedback:', error)
-      alert('Error saving feedback: ' + error.message)
+      showToast('Error saving feedback: ' + error.message, 'error')
     }
   }
 
@@ -492,8 +537,9 @@ export default function CoachDashboard() {
       .eq('id', studentId)
 
     if (error) {
-      alert('Error updating credits: ' + error.message)
+      showToast('Error updating credits: ' + error.message, 'error')
     } else {
+      showToast('Credits updated successfully', 'success')
       fetchCoachData()
     }
   }
@@ -665,7 +711,13 @@ export default function CoachDashboard() {
         .filter(Boolean)
 
       // Call Netlify function
-      const response = await fetch('/.netlify/functions/generate-lesson-plan', {
+      // Automatically use test mode when running locally (localhost)
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const functionUrl = isLocalhost 
+        ? '/.netlify/functions/generate-lesson-plan?test=true'
+        : '/.netlify/functions/generate-lesson-plan'
+      
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -716,7 +768,7 @@ export default function CoachDashboard() {
       setIsEditingPlan(false) // Show in display mode first
     } catch (error) {
       console.error('Error generating lesson plan:', error)
-      alert('Error generating lesson plan: ' + error.message + '\n\nMake sure the Netlify function is properly configured.')
+      showToast('Error generating lesson plan: ' + error.message + '. Make sure the Netlify function is properly configured.', 'error')
     } finally {
       setGeneratingPlan(false)
     }
@@ -744,18 +796,18 @@ export default function CoachDashboard() {
 
       if (error) throw error
 
-      alert('Lesson plan saved!')
+      showToast('Lesson plan saved!', 'success')
       setIsEditingPlan(false)
       fetchCoachData() // Refresh to show updated lesson plan
     } catch (error) {
       console.error('Error saving lesson plan:', error)
-      alert('Error saving lesson plan: ' + error.message)
+      showToast('Error saving lesson plan: ' + error.message, 'error')
     }
   }
 
   const handleRefinePlan = async () => {
     if (!selectedLesson || !refinementFeedback.trim()) {
-      alert('Please provide refinement feedback')
+      showToast('Please provide refinement feedback', 'warning')
       return
     }
 
@@ -795,7 +847,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       setIsEditingPlan(false) // Show in display mode
     } catch (error) {
       console.error('Error refining lesson plan:', error)
-      alert('Error refining lesson plan: ' + error.message + '\n\nMake sure VITE_ANTHROPIC_API_KEY is set in your .env file.')
+      showToast('Error refining lesson plan: ' + error.message + '. Make sure VITE_ANTHROPIC_API_KEY is set in your .env file.', 'error')
     } finally {
       setRefiningPlan(false)
     }
@@ -898,7 +950,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       
     } catch (error) {
       console.error('Error generating practice plan:', error)
-      alert('Failed to generate suggestion. Please write one manually.')
+      showToast('Failed to generate suggestion. Please write one manually.', 'warning')
     } finally {
       setGeneratingPracticePlan(false)
     }
@@ -921,13 +973,13 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
   const handleSubmitFeedback = async () => {
     if (!selectedFeedbackLesson) {
-      alert('No lesson selected')
+      showToast('No lesson selected', 'warning')
       return
     }
 
     // Feedback is optional, but if provided it should not be empty
     if (coachFeedback.trim() && coachFeedback.trim().length < 10) {
-      alert('Please provide more detailed feedback (at least 10 characters) or leave it empty')
+      showToast('Please provide more detailed feedback (at least 10 characters) or leave it empty', 'warning')
       return
     }
 
@@ -969,7 +1021,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           })
       }
 
-      alert('Feedback and practice plan saved!')
+      showToast('Feedback and practice plan saved!', 'success')
       
       // Create notification for student if practice plan was added
       if (practicePlan.trim()) {
@@ -988,7 +1040,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       fetchCoachData() // Refresh data
     } catch (error) {
       console.error('Error saving feedback:', error)
-      alert('Error saving feedback: ' + error.message)
+      showToast('Error saving feedback: ' + error.message, 'error')
     }
   }
 
@@ -1067,9 +1119,10 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       if (selectedLessonDetail?.id === lessonId) {
         setSelectedLessonDetail({ ...selectedLessonDetail, status: newStatus })
       }
+      showToast('Lesson status updated successfully', 'success')
     } catch (error) {
       console.error('Error updating lesson status:', error)
-      alert('Error updating lesson status: ' + error.message)
+      showToast('Error updating lesson status: ' + error.message, 'error')
     }
   }
 
@@ -1120,25 +1173,60 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       setLessons(lessons.map(l => l.id === selectedLessonDetail.id ? updatedLesson : l))
       
       setEditingLesson(false)
-      alert('Lesson updated successfully!')
+      showToast('Lesson updated successfully!', 'success')
       fetchCoachData() // Refresh data
     } catch (error) {
       console.error('Error updating lesson:', error)
-      alert('Error updating lesson: ' + error.message)
+      showToast('Error updating lesson: ' + error.message, 'error')
     }
   }
 
   if (loading) {
-    return <div style={{ padding: '20px' }}>Loading...</div>
+    return (
+      <CoachLayout>
+        <div style={{ padding: '20px' }}>Loading...</div>
+      </CoachLayout>
+    )
   }
 
   const upcomingLessons = lessons.filter(l => l.status === 'scheduled' && new Date(l.lesson_date) > new Date())
   const completedLessons = lessons.filter(l => l.status === 'completed').slice(0, 10).reverse()
-  const pendingFeedback = lessons.filter(l => l.status === 'completed' && !l.coach_feedback)
+  // Filter for lessons that need feedback
+  // Exclude lessons that have been moved (have google_calendar_id but lesson_date is old, suggesting it was rescheduled)
+  const pendingFeedback = lessons.filter(l => {
+    if (l.status !== 'completed' || l.coach_feedback) {
+      return false
+    }
+    
+    const lessonDate = new Date(l.lesson_date)
+    const now = new Date()
+    const daysSinceLesson = (now - lessonDate) / (1000 * 60 * 60 * 24)
+    
+    // Check if lesson has a google_calendar_id in metadata (synced from Google Calendar)
+    try {
+      const metadata = typeof l.metadata === 'string' ? JSON.parse(l.metadata) : l.metadata
+      const hasGoogleCalendarId = metadata?.google_calendar_id
+      
+      if (hasGoogleCalendarId) {
+        // If lesson has google_calendar_id and is more than 2 days old, it might have been moved
+        // Only show lessons that are within the last 2 days (reasonable window for feedback on recent lessons)
+        // This prevents showing lessons that were moved but sync hasn't updated the date yet
+        if (daysSinceLesson > 2) {
+          return false // Lesson is too old and has google_calendar_id, likely moved
+        }
+      }
+    } catch (e) {
+      // If metadata parsing fails, include the lesson (better to show it than hide it)
+    }
+    
+    // Only show lessons that are within the last 7 days (reasonable feedback window)
+    return daysSinceLesson <= 7
+  })
 
   return (
-    <div className="page-container">
-      <div className="coach-dashboard">
+    <CoachLayout>
+      <div className="page-container">
+        <div className="coach-dashboard coach-dashboard-content">
       {/* Header */}
       <div className="dashboard-header">
         <h1 className="dashboard-title">Coach Dashboard</h1>
@@ -1531,7 +1619,7 @@ Do NOT use markdown formatting - just plain text with line breaks.`
         </div>
       )}
 
-      {/* Sunday Calendar View */}
+      {/* Sunday Calendar View / All Non-Sunday Lessons View */}
       <div className="section">
         <div style={{ 
           display: 'flex', 
@@ -1543,48 +1631,82 @@ Do NOT use markdown formatting - just plain text with line breaks.`
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
             <h2 className="section-title" style={{ margin: 0 }}>
-              Sunday
+              {viewMode === 'nonSunday' ? 'Upcoming Lessons' : 'Sunday'}
             </h2>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px',
-              fontSize: '16px',
-              color: '#666'
-            }}>
-              <span style={{ fontWeight: '600', color: 'var(--color-primary)' }}>
-                {formatDateShort(currentSunday)}
-              </span>
-              <span style={{ color: '#999' }}>•</span>
-              <span>
-                Week {getSundayWeekNumber(currentSunday)}
-              </span>
-              <span style={{ color: '#999' }}>•</span>
-              <span style={{ 
-                fontWeight: '700', 
-                color: 'var(--color-secondary)',
-                fontSize: '18px'
+            {viewMode === 'sunday' ? (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                fontSize: '16px',
+                color: '#666'
               }}>
-                ${(() => {
-                  const sundayLessons = lessons.filter(l => {
-                    const lessonDate = new Date(l.lesson_date)
-                    return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
-                  })
-                  
-                  let totalRevenue = 0
-                  sundayLessons.forEach(lesson => {
-                    const revenue = getLessonRevenue(lesson.students)
-                    totalRevenue += revenue
-                  })
-                  
-                  return Math.round(totalRevenue)
-                })()}
-              </span>
-            </div>
+                <span style={{ fontWeight: '600', color: 'var(--color-primary)' }}>
+                  {formatDateShort(currentSunday)}
+                </span>
+                <span style={{ color: '#999' }}>•</span>
+                <span>
+                  Week {getSundayWeekNumber(currentSunday)}
+                </span>
+                <span style={{ color: '#999' }}>•</span>
+                <span style={{ 
+                  fontWeight: '700', 
+                  color: 'var(--color-secondary)',
+                  fontSize: '18px'
+                }}>
+                  ${(() => {
+                    const sundayLessons = lessons.filter(l => {
+                      const lessonDate = new Date(l.lesson_date)
+                      return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+                    })
+                    
+                    let totalRevenue = 0
+                    sundayLessons.forEach(lesson => {
+                      const revenue = getLessonRevenue(lesson.students)
+                      totalRevenue += revenue
+                    })
+                    
+                    return Math.round(totalRevenue)
+                  })()}
+                </span>
+              </div>
+            ) : (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                fontSize: '16px',
+                color: '#666'
+              }}>
+                <span style={{ 
+                  fontWeight: '700', 
+                  color: 'var(--color-secondary)',
+                  fontSize: '18px'
+                }}>
+                  ${(() => {
+                    const nonSundayLessons = lessons.filter(l => {
+                      const lessonDate = new Date(l.lesson_date)
+                      const dayOfWeek = lessonDate.getDay()
+                      return dayOfWeek !== 0 && // Not Sunday
+                             l.status === 'scheduled' &&
+                             lessonDate > new Date() // Future lessons
+                    })
+                    
+                    let totalRevenue = 0
+                    nonSundayLessons.forEach(lesson => {
+                      const revenue = getLessonRevenue(lesson.students)
+                      totalRevenue += revenue
+                    })
+                    
+                    return Math.round(totalRevenue)
+                  })()}
+                </span>
+              </div>
+            )}
           </div>
           <div className="calendar-navigation-buttons" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'nowrap' }}>
-            {/* Mark All Complete Button - only show if there are scheduled lessons */}
-            {(() => {
+            {/* Mark All Complete Button - only show for Sunday view with scheduled lessons */}
+            {viewMode === 'sunday' && (() => {
               const sundayLessons = lessons.filter(l => {
                 const lessonDate = new Date(l.lesson_date)
                 return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
@@ -1631,38 +1753,368 @@ Do NOT use markdown formatting - just plain text with line breaks.`
               </div>
       </div>
 
-        {(() => {
-          const sundayLessons = lessons.filter(l => {
-            const lessonDate = new Date(l.lesson_date)
-            return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
-          }).sort((a, b) => new Date(a.lesson_date) - new Date(b.lesson_date))
+        {viewMode === 'nonSunday' ? (
+          // All Non-Sunday Lessons View
+          (() => {
+            const nonSundayLessons = lessons.filter(l => {
+              const lessonDate = new Date(l.lesson_date)
+              const dayOfWeek = lessonDate.getDay()
+              return dayOfWeek !== 0 && // Not Sunday
+                     l.status === 'scheduled' &&
+                     lessonDate > new Date() // Future lessons
+            }).sort((a, b) => new Date(a.lesson_date) - new Date(b.lesson_date))
 
-          if (sundayLessons.length === 0) {
+            if (nonSundayLessons.length === 0) {
+              return (
+                <div className="empty-state" style={{ 
+                  padding: '48px', 
+                  textAlign: 'center',
+                  backgroundColor: '#f9f9f9',
+                  borderRadius: 'var(--radius-md)'
+                }}>
+                  <p style={{ fontSize: '18px', color: '#666', marginBottom: '12px' }}>
+                    No upcoming non-Sunday lessons
+                  </p>
+                </div>
+              )
+            }
+
             return (
-              <div className="empty-state" style={{ 
-                padding: '48px', 
-                textAlign: 'center',
-                backgroundColor: '#f9f9f9',
-                borderRadius: 'var(--radius-md)'
-              }}>
-                <p style={{ fontSize: '18px', color: '#666', marginBottom: '12px' }}>
-                  No lessons scheduled for this Sunday
-                </p>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => setShowCreateLesson(true)}
-                  style={{ marginTop: '16px' }}
-                >
-                  <Plus size={18} />
-                  Schedule a Lesson
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {nonSundayLessons.map((lesson) => {
+                  const isExpanded = expandedLessonId === lesson.id
+                  const studentName = lesson.students?.profiles?.full_name || 'Unknown Student'
+                  const lessonTime = new Date(lesson.lesson_date).toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })
+                  const lessonDate = new Date(lesson.lesson_date)
+                  const dayName = lessonDate.toLocaleDateString('en-US', { weekday: 'long' })
+                  const dateStr = lessonDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+                  return (
+                    <div 
+                      key={lesson.id}
+                      style={{ 
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        overflow: 'hidden',
+                        transition: 'all 0.3s ease',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      {/* Collapsed View - COMPACT */}
+                      <div 
+                        onClick={() => handleToggleLessonExpansion(lesson.id)}
+                        style={{
+                          padding: '12px 16px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          backgroundColor: 'white',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isExpanded) e.currentTarget.style.backgroundColor = '#f9f9f9'
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isExpanded) e.currentTarget.style.backgroundColor = 'white'
+                        }}
+                      >
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '16px',
+                          flex: 1 
+                        }}>
+                          {/* Time */}
+                          <div style={{ 
+                            fontSize: '15px',
+                            fontWeight: '700', 
+                            color: 'var(--color-primary)',
+                            minWidth: '70px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {lessonTime}
+                          </div>
+                          
+                          {/* Vertical separator */}
+                          <div style={{
+                            width: '1px',
+                            height: '24px',
+                            backgroundColor: '#e0e0e0'
+                          }} />
+                          
+                          {/* Student Name with Stage Tag and Credits */}
+                          <div style={{ 
+                            display: 'flex',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: '8px',
+                            flex: 1,
+                            flexWrap: 'wrap'
+                          }} className="student-info-row">
+                            <div style={{ 
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              color: 'var(--color-dark)'
+                            }}>
+                              {studentName}
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#666' }}>
+                              {dayName}, {dateStr}
+                            </div>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              flexWrap: 'wrap'
+                            }} className="student-badges">
+                              {(() => {
+                                const lessonCount = lesson.students?.lesson_count || 0
+                                const stage = getStudentStage(lessonCount)
+                                const credits = lesson.students?.lesson_credits || 0
+                                return (
+                                  <>
+                                    <span style={{
+                                      fontSize: lessonCount === 0 ? '10px' : '11px',
+                                      padding: lessonCount === 0 ? '2px 6px' : '2px 8px',
+                                      borderRadius: '12px',
+                                      backgroundColor: stage.color,
+                                      color: 'white',
+                                      fontWeight: '600',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {stage.label}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '11px',
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      backgroundColor: credits <= 2 ? '#FF9800' : '#f0f0f0',
+                                      color: credits <= 2 ? 'white' : '#666',
+                                      fontWeight: '600',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {credits} credit{credits !== 1 ? 's' : ''}
+                                    </span>
+                                  </>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Right side - Revenue, Credits, Status and Arrow */}
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '10px',
+                          marginLeft: '16px'
+                        }}>
+                          <div style={{ 
+                            fontSize: '14px', 
+                            fontWeight: '600',
+                            color: 'var(--color-secondary)'
+                          }}>
+                            ${getLessonRevenue(lesson.students)}
+                          </div>
+                          {lesson.lesson_plan ? (
+                            <span style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#E8F5E9',
+                              color: '#2D7F6F',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              📝 <span>Ready</span>
+                            </span>
+                          ) : (
+                            <span style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#FFF3E0',
+                              color: '#FF9800',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}>
+                              No Plan
+                            </span>
+                          )}
+                          <span style={{ 
+                            fontSize: '14px',
+                            color: '#999',
+                            transition: 'transform 0.2s'
+                          }}>
+                            {isExpanded ? '▲' : '▼'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expanded View - reuse same expanded view as Sunday lessons */}
+                      {isExpanded && (
+                        <div 
+                          style={{
+                            padding: '24px',
+                            backgroundColor: '#f9f9f9',
+                            borderTop: '2px solid var(--color-border)'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Lesson Details */}
+                          <div style={{ marginBottom: '20px' }}>
+                            <h4 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>
+                              Lesson Details
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                              <div>
+                                <strong>Student:</strong> {studentName}
+                              </div>
+                              <div>
+                                <strong>Time:</strong> {lessonTime} on {dayName}, {dateStr}
+                              </div>
+                              <div>
+                                <strong>Status:</strong>
+                                <select 
+                                  value={lesson.status}
+                                  onChange={(e) => handleUpdateLessonStatus(lesson.id, e.target.value)}
+                                  className="status-dropdown"
+                                  style={{ marginLeft: '8px', padding: '4px 8px' }}
+                                >
+                                  <option value="scheduled">Scheduled</option>
+                                  <option value="completed">Completed</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Current Package Info */}
+                            {lesson.students?.student_packages?.[0] && (
+                              <div style={{
+                                marginTop: '16px',
+                                padding: '12px',
+                                backgroundColor: '#f9f9f9',
+                                borderRadius: '8px',
+                                border: '1px solid #e0e0e0'
+                              }}>
+                                <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: 'var(--color-primary)' }}>
+                                  Current Package
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '13px' }}>
+                                  <div>
+                                    <div style={{ color: '#666' }}>Package Size</div>
+                                    <div style={{ fontWeight: '600' }}>{lesson.students.student_packages[0].package_size} lessons</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ color: '#666' }}>Used</div>
+                                    <div style={{ fontWeight: '600' }}>{lesson.students.student_packages[0].lessons_used}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ color: '#666' }}>Remaining</div>
+                                    <div style={{ fontWeight: '600', color: lesson.students.student_packages[0].lessons_remaining <= 2 ? '#FF9800' : 'inherit' }}>
+                                      {lesson.students.student_packages[0].lessons_remaining}
+                                      {lesson.students.student_packages[0].lessons_remaining <= 2 && ' ⚠️'}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                                  ${lesson.students.student_packages[0].price_per_lesson?.toFixed(2) || '0.00'}/lesson
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Lesson Plan Preview */}
+                          {lesson.lesson_plan && (
+                            <div style={{ marginBottom: '20px' }}>
+                              <h4 style={{ marginBottom: '12px', color: 'var(--color-primary)' }}>
+                                Lesson Plan
+                              </h4>
+                              <div style={{
+                                padding: '16px',
+                                backgroundColor: 'white',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--color-border)',
+                                maxHeight: '200px',
+                                overflowY: 'auto',
+                                whiteSpace: 'pre-wrap',
+                                fontSize: '14px',
+                                lineHeight: '1.6'
+                              }}>
+                                {lesson.lesson_plan}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            <button 
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleLessonPlanClick(lesson)}
+                            >
+                              {lesson.lesson_plan ? '✏️ Edit Plan' : '📝 Create Plan'}
+                            </button>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => navigate(`/coach/students/${lesson.student_id}`)}
+                            >
+                              👤 View Student Profile
+                            </button>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => handleLessonClick(lesson)}
+                            >
+                              📋 Full Details
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )
-          }
+          })()
+        ) : (
+          // Sunday Lessons View
+          (() => {
+            const sundayLessons = lessons.filter(l => {
+              const lessonDate = new Date(l.lesson_date)
+              return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+            }).sort((a, b) => new Date(a.lesson_date) - new Date(b.lesson_date))
 
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {sundayLessons.map((lesson) => {
+            if (sundayLessons.length === 0) {
+              return (
+                <div className="empty-state" style={{ 
+                  padding: '48px', 
+                  textAlign: 'center',
+                  backgroundColor: '#f9f9f9',
+                  borderRadius: 'var(--radius-md)'
+                }}>
+                  <p style={{ fontSize: '18px', color: '#666', marginBottom: '12px' }}>
+                    No lessons scheduled for this Sunday
+                  </p>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => setShowCreateLesson(true)}
+                    style={{ marginTop: '16px' }}
+                  >
+                    <Plus size={18} />
+                    Schedule a Lesson
+                  </button>
+                </div>
+              )
+            }
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {sundayLessons.map((lesson) => {
                 const isExpanded = expandedLessonId === lesson.id
                 const studentName = lesson.students?.profiles?.full_name || 'Unknown Student'
                 const lessonTime = new Date(lesson.lesson_date).toLocaleTimeString('en-US', { 
@@ -1965,7 +2417,8 @@ Do NOT use markdown formatting - just plain text with line breaks.`
               })}
             </div>
           )
-        })()}
+        })()
+        )}
       </div>
 
 
@@ -2563,8 +3016,36 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           }}
         />
       )}
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && confirmModalConfig && (
+        <ConfirmationModal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            setShowConfirmModal(false)
+            setConfirmModalConfig(null)
+          }}
+          onConfirm={() => {
+            if (confirmModalConfig.onConfirm) {
+              confirmModalConfig.onConfirm()
+            }
+            setShowConfirmModal(false)
+            setConfirmModalConfig(null)
+          }}
+          title={confirmModalConfig.title}
+          message={confirmModalConfig.message}
+          confirmText={confirmModalConfig.confirmText}
+          cancelText={confirmModalConfig.cancelText}
+          type={confirmModalConfig.type}
+          isLoading={confirmModalConfig.isLoading}
+        />
+      )}
+        </div>
       </div>
-    </div>
+    </CoachLayout>
   )
 }
 

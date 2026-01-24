@@ -326,3 +326,85 @@
     align-items: center !important;
   }
 }
+
+/* =============================================
+   COACH DASHBOARD - Mobile Optimizations
+   ============================================= */
+@media (max-width: 768px) {
+  .coach-dashboard {
+    padding: 16px;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-title {
+    font-size: 24px !important;
+  }
+
+  .dashboard-subtitle {
+    font-size: 14px !important;
+  }
+
+  /* Quick Actions */
+  .coach-dashboard > div:first-of-type {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .coach-dashboard input[type="text"] {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+
+  .coach-dashboard .btn {
+    width: 100%;
+    min-height: 44px; /* Touch-friendly */
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+
+  /* Stats Bar */
+  .coach-dashboard > div[style*="display: flex"][style*="gap: 16px"] {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Sunday Calendar */
+  .coach-dashboard > div[style*="margin-bottom: 24px"] {
+    margin-bottom: 16px;
+  }
+
+  /* Lesson Cards */
+  .lesson-card {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .lesson-card h3 {
+    font-size: 16px;
+  }
+
+  /* Create Lesson Form */
+  .create-lesson-form {
+    padding: 16px;
+  }
+
+  .create-lesson-form .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .create-lesson-form .input,
+  .create-lesson-form select {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;
+  }
+}

@@ -18,8 +18,21 @@ exports.handler = async (event, context) => {
   // This function runs on a schedule: Wednesday at 12pm PST
   // Cron: 0 20 * * 3 (12pm PST = 8pm UTC Wednesday)
   
+  // Test mode: Add ?test=true to the URL or set DRY_RUN=true in environment
+  const isTestMode = event.queryStringParameters?.test === 'true' || process.env.DRY_RUN === 'true'
+  
+  // Filter by specific students: Add ?students=matt,kaitlin,karen,ryan (case insensitive)
+  const studentsFilter = event.queryStringParameters?.students
+  const targetStudentNames = studentsFilter 
+    ? studentsFilter.split(',').map(name => name.trim().toLowerCase())
+    : null
+  
   console.log('=== WEDNESDAY CHECK-IN EMAILS STARTED ===')
   console.log('Time:', new Date().toISOString())
+  console.log(`Mode: ${isTestMode ? 'TEST/DRY-RUN (no emails will be sent)' : 'PRODUCTION'}`)
+  if (targetStudentNames) {
+    console.log(`Filter: Only sending to: ${targetStudentNames.join(', ')}`)
+  }
 
   try {
     // Get all students with upcoming Sunday lessons
@@ -32,7 +45,7 @@ exports.handler = async (event, context) => {
     // Fetch lessons first
     const { data: lessons, error: lessonsError } = await supabase
       .from('lessons')
-      .select('id, lesson_date, practice_plan, practice_plan_time_estimate, practice_plan_completed, student_id')
+      .select('id, lesson_date, practice_plan, practice_plan_time_estimate, practice_plan_completed, student_id, status')
       .gte('lesson_date', nextSunday.toISOString())
       .lte('lesson_date', nextSundayEnd.toISOString())
       .eq('status', 'scheduled')
@@ -43,6 +56,14 @@ exports.handler = async (event, context) => {
     }
 
     console.log(`Found ${lessons?.length || 0} upcoming Sunday lessons`)
+    
+    // Debug: Log all lesson IDs and student IDs found
+    if (lessons && lessons.length > 0) {
+      console.log('Lesson details:')
+      lessons.forEach(lesson => {
+        console.log(`  - Lesson ID: ${lesson.id}, Student ID: ${lesson.student_id}, Date: ${lesson.lesson_date}, Status: ${lesson.status || 'N/A'}`)
+      })
+    }
 
     if (!lessons || lessons.length === 0) {
       return {
@@ -53,6 +74,7 @@ exports.handler = async (event, context) => {
 
     // Get unique student IDs
     const studentIds = [...new Set(lessons.map(l => l.student_id))]
+    console.log(`Unique student IDs: ${studentIds.join(', ')}`)
     
     // Fetch students with profiles using explicit foreign key
     const { data: students, error: studentsError } = await supabase
@@ -65,11 +87,23 @@ exports.handler = async (event, context) => {
         )
       `)
       .in('id', studentIds)
-      .not('profiles', 'is', null)
     
     if (studentsError) {
       console.error('Error fetching students:', studentsError)
       throw studentsError
+    }
+
+    console.log(`Fetched ${students?.length || 0} students with profile data`)
+    
+    // Debug: Log student profile status
+    if (students && students.length > 0) {
+      console.log('Student profile status:')
+      students.forEach(student => {
+        const hasProfile = !!student.profiles
+        const hasEmail = hasProfile && !!student.profiles.email
+        const hasName = hasProfile && !!student.profiles.full_name
+        console.log(`  - Student ID: ${student.id}, Has Profile: ${hasProfile}, Has Email: ${hasEmail}, Has Name: ${hasName}, Email: ${student.profiles?.email || 'N/A'}, Name: ${student.profiles?.full_name || 'N/A'}`)
+      })
     }
 
     // Create a map of student_id to student data
@@ -77,6 +111,8 @@ exports.handler = async (event, context) => {
     students.forEach(student => {
       if (student.profiles) {
         studentMap.set(student.id, student)
+      } else {
+        console.log(`WARNING: Student ${student.id} has no profile data`)
       }
     })
 
@@ -85,6 +121,11 @@ exports.handler = async (event, context) => {
       .map(lesson => {
         const student = studentMap.get(lesson.student_id)
         if (!student || !student.profiles) {
+          console.log(`WARNING: Lesson ${lesson.id} (Student ${lesson.student_id}) has no valid student profile`)
+          return null
+        }
+        if (!student.profiles.email) {
+          console.log(`WARNING: Lesson ${lesson.id} (Student ${lesson.student_id}, Name: ${student.profiles.full_name}) has no email`)
           return null
         }
         return {
@@ -98,6 +139,21 @@ exports.handler = async (event, context) => {
       .filter(Boolean) // Remove lessons without valid student profiles
 
     console.log(`Found ${upcomingLessons.length} lessons with valid student profiles`)
+    
+    // Debug: Log which students will receive emails
+    if (upcomingLessons.length > 0) {
+      console.log('Students who will receive emails:')
+      upcomingLessons.forEach(lesson => {
+        console.log(`  - ${lesson.students.profiles.full_name} (${lesson.students.profiles.email})`)
+      })
+    }
+    
+    // Debug: Log which students are missing
+    const processedStudentIds = new Set(upcomingLessons.map(l => l.student_id))
+    const missingStudentIds = studentIds.filter(id => !processedStudentIds.has(id))
+    if (missingStudentIds.length > 0) {
+      console.log(`WARNING: ${missingStudentIds.length} student(s) will NOT receive emails: ${missingStudentIds.join(', ')}`)
+    }
 
     if (upcomingLessons.length === 0) {
       return {
@@ -125,7 +181,24 @@ exports.handler = async (event, context) => {
     for (const lesson of upcomingLessons) {
       try {
         const studentEmail = lesson.students.profiles.email
-        const studentName = lesson.students.profiles.full_name.split(' ')[0]
+        const fullName = lesson.students.profiles.full_name
+        const studentName = fullName.split(' ')[0]
+        const fullNameLower = fullName.toLowerCase()
+        
+        // Filter by student names if specified
+        if (targetStudentNames) {
+          const matchesFilter = targetStudentNames.some(filterName => {
+            // Check if first name or full name matches (case insensitive)
+            return fullNameLower.includes(filterName) || 
+                   studentName.toLowerCase() === filterName ||
+                   fullNameLower === filterName
+          })
+          
+          if (!matchesFilter) {
+            console.log(`Skipping ${fullName} - not in filter list`)
+            continue
+          }
+        }
         
         console.log(`Processing student: ${studentName} (${studentEmail})`)
 
@@ -210,22 +283,31 @@ exports.handler = async (event, context) => {
           }]
         }
 
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SENDGRID_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(emailData)
-        })
-
-        if (response.ok) {
-          console.log(`Email sent successfully to ${studentEmail}`)
+        if (isTestMode) {
+          // Test mode: Just log what would be sent
+          console.log(`[TEST MODE] Would send email to ${studentEmail}`)
+          console.log(`[TEST MODE] Subject: ${emailData.personalizations[0].subject}`)
+          console.log(`[TEST MODE] Student: ${studentName}`)
           sentCount++
         } else {
-          const errorText = await response.text()
-          console.error(`Failed to send email to ${studentEmail}:`, response.status, errorText)
-          errorCount++
+          // Production mode: Actually send the email
+          const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(emailData)
+          })
+
+          if (response.ok) {
+            console.log(`Email sent successfully to ${studentEmail}`)
+            sentCount++
+          } else {
+            const errorText = await response.text()
+            console.error(`Failed to send email to ${studentEmail}:`, response.status, errorText)
+            errorCount++
+          }
         }
 
       } catch (error) {
@@ -235,14 +317,21 @@ exports.handler = async (event, context) => {
     }
 
     console.log(`=== CHECK-IN EMAILS COMPLETE ===`)
-    console.log(`Sent: ${sentCount}, Errors: ${errorCount}`)
+    if (isTestMode) {
+      console.log(`[TEST MODE] Would have sent: ${sentCount}, Errors: ${errorCount}`)
+    } else {
+      console.log(`Sent: ${sentCount}, Errors: ${errorCount}`)
+    }
 
     return {
       statusCode: 200,
       body: JSON.stringify({ 
-        message: `Sent ${sentCount} midweek check-in emails`,
+        message: isTestMode 
+          ? `[TEST MODE] Would have sent ${sentCount} midweek check-in emails (no emails actually sent)`
+          : `Sent ${sentCount} midweek check-in emails`,
         sent: sentCount,
-        errors: errorCount
+        errors: errorCount,
+        testMode: isTestMode
       })
     }
 

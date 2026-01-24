@@ -77,6 +77,49 @@ exports.handler = async (event, context) => {
     let syncedCount = 0
     let skippedCount = 0
     let errorCount = 0
+    let cancelledCount = 0
+
+    // Collect all Google Calendar event IDs from fetched events
+    const activeEventIds = new Set(lessonEvents.map(event => event.id))
+
+    // Find and cancel lessons that no longer exist in Google Calendar
+    // Get all scheduled lessons with google_calendar_id in metadata
+    const { data: allScheduledLessons } = await supabase
+      .from('lessons')
+      .select('id, metadata, student_id')
+      .eq('status', 'scheduled')
+      .not('metadata', 'is', null)
+
+    if (allScheduledLessons) {
+      for (const lesson of allScheduledLessons) {
+        try {
+          const metadata = typeof lesson.metadata === 'string' 
+            ? JSON.parse(lesson.metadata) 
+            : lesson.metadata
+          
+          const googleCalendarId = metadata?.google_calendar_id
+          
+          if (googleCalendarId && !activeEventIds.has(googleCalendarId)) {
+            // This lesson's Google Calendar event no longer exists
+            // Mark it as cancelled
+            const { error: cancelError } = await supabase
+              .from('lessons')
+              .update({ status: 'cancelled' })
+              .eq('id', lesson.id)
+
+            if (cancelError) {
+              console.error(`Error cancelling lesson ${lesson.id}:`, cancelError)
+              errorCount++
+            } else {
+              console.log(`Cancelled lesson ${lesson.id} - no longer in Google Calendar`)
+              cancelledCount++
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing lesson ${lesson.id} for cancellation check:`, e)
+        }
+      }
+    }
 
     for (const event of lessonEvents) {
       try {
@@ -140,16 +183,16 @@ exports.handler = async (event, context) => {
           }
 
           // Check if lesson already exists for THIS student with THIS google_calendar_id
-          const { data: existingLessons } = await supabase
+          // Search more broadly to find lessons with matching google_calendar_id
+          const { data: allStudentLessons } = await supabase
             .from('lessons')
-            .select('id, metadata')
+            .select('id, lesson_date, location, metadata')
             .eq('student_id', studentId)
-            .eq('lesson_date', lessonDate.toISOString())
-            .limit(5)
+            .limit(50) // Get more lessons to search through
 
           let existingLesson = null
-          if (existingLessons) {
-            existingLesson = existingLessons.find(lesson => {
+          if (allStudentLessons) {
+            existingLesson = allStudentLessons.find(lesson => {
               try {
                 const metadata = typeof lesson.metadata === 'string' 
                   ? JSON.parse(lesson.metadata) 
@@ -162,12 +205,71 @@ exports.handler = async (event, context) => {
           }
 
           if (existingLesson) {
-            console.log(`Lesson already exists for ${studentName} on ${lessonDate.toISOString()}`)
-            skippedCount++
+            // Lesson exists - check if time or location has changed
+            const existingDate = new Date(existingLesson.lesson_date)
+            const newDate = lessonDate
+            const existingLocation = existingLesson.location || 'Colina Del Sol Park'
+            const newLocation = event.location || 'Colina Del Sol Park'
+            
+            const dateChanged = existingDate.getTime() !== newDate.getTime()
+            const locationChanged = existingLocation !== newLocation
+            
+            if (dateChanged || locationChanged) {
+              // Update the lesson
+              const updateData = {}
+              if (dateChanged) {
+                updateData.lesson_date = newDate.toISOString()
+                console.log(`Time changed for ${studentName}: ${existingDate.toISOString()} -> ${newDate.toISOString()}`)
+              }
+              if (locationChanged) {
+                updateData.location = newLocation
+                console.log(`Location changed for ${studentName}: ${existingLocation} -> ${newLocation}`)
+              }
+              
+              // Update metadata with new sync time
+              try {
+                const existingMetadata = typeof existingLesson.metadata === 'string' 
+                  ? JSON.parse(existingLesson.metadata) 
+                  : existingLesson.metadata
+                
+                updateData.metadata = {
+                  ...existingMetadata,
+                  synced_at: new Date().toISOString(),
+                  google_calendar_link: event.htmlLink,
+                  original_title: event.summary
+                }
+              } catch (e) {
+                // If metadata parsing fails, create new metadata
+                updateData.metadata = {
+                  source: 'google_calendar',
+                  google_calendar_id: event.id,
+                  google_calendar_link: event.htmlLink,
+                  synced_at: new Date().toISOString(),
+                  original_title: event.summary,
+                  is_semi_private: studentNames.length > 1
+                }
+              }
+
+              const { error: updateError } = await supabase
+                .from('lessons')
+                .update(updateData)
+                .eq('id', existingLesson.id)
+
+              if (updateError) {
+                console.error(`Error updating lesson for ${studentName}:`, updateError)
+                errorCount++
+              } else {
+                console.log(`Updated lesson for ${studentName} on ${newDate.toISOString()}`)
+                syncedCount++
+              }
+            } else {
+              console.log(`Lesson already exists and unchanged for ${studentName} on ${lessonDate.toISOString()}`)
+              skippedCount++
+            }
             continue
           }
 
-          // Create lesson for this student
+          // Create new lesson for this student
           const { error: insertError } = await supabase
             .from('lessons')
             .insert([{
@@ -206,6 +308,7 @@ exports.handler = async (event, context) => {
         success: true,
         synced: syncedCount,
         skipped: skippedCount,
+        cancelled: cancelledCount,
         errors: errorCount,
         total: lessonEvents.length
       })

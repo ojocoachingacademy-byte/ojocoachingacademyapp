@@ -116,6 +116,49 @@ exports.handler = async (event, context) => {
       }
     }
 
+    // Check for test mode
+    const isTestMode = event.queryStringParameters?.test === 'true' || process.env.DRY_RUN === 'true'
+    
+    if (isTestMode) {
+      console.log('[TEST MODE] Returning mock lesson plan data (no API call)')
+      // Return mock data for testing without calling Anthropic API
+      const mockStudentPlan = `# Where We Are on Tennis Mountain
+
+Last Lesson Recap:
+- Worked on forehand consistency
+- Practiced serving technique
+
+Your Progress:
+- Milestone 15: Volley Victory - In Progress
+- Next: Milestone 16: The Thirty
+
+Today's Focus:
+- Continue building rally consistency
+- Practice volley technique at net
+- Work on serve placement
+
+Practice Plan:
+- 10 minutes: Forehand rally warm-up
+- 15 minutes: Volley drills at net
+- 10 minutes: Serve practice`
+
+      const mockCoachPlan = `${mockStudentPlan}
+
+Coaching Points:
+- Focus on keeping the ball in play during rallies
+- Work on volley footwork and positioning
+- Continue developing serve consistency`
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          studentPlan: mockStudentPlan,
+          coachPlan: mockCoachPlan,
+          testMode: true
+        })
+      }
+    }
+
     // Get API key from environment variable
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {

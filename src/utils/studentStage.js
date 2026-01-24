@@ -10,10 +10,11 @@ export const getStudentStage = (studentData, upcomingLesson, completedLessons) =
 
   // Stage 1: Pre-First Lesson - No lessons completed yet
   if (lessonsCompleted < 1) {
+    const studentName = studentData?.profiles?.full_name || studentData?.full_name || 'there'
     return {
       stage: 'pre_first_lesson',
       stageNumber: 1,
-      title: 'Welcome! Let\'s get started 🎾',
+      title: `Welcome ${studentName}, let's get started! 🎾`,
       description: 'Your first lesson is coming up',
       showGettingStarted: true,
       showFirstLessonCard: true,

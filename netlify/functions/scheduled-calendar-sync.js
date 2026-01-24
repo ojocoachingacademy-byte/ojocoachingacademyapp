@@ -72,6 +72,66 @@ exports.handler = async (event, context) => {
     let syncedCount = 0
     let skippedCount = 0
     let errorCount = 0
+    let cancelledCount = 0
+
+    // Collect all Google Calendar event IDs from fetched events
+    const activeEventIds = new Set(lessonEvents.map(event => event.id))
+
+    // Find and cancel lessons that no longer exist in Google Calendar
+    // Check both scheduled AND completed lessons (completed lessons might have been moved/deleted)
+    const { data: allLessonsWithCalendarId } = await supabase
+      .from('lessons')
+      .select('id, metadata, student_id, status, lesson_date')
+      .in('status', ['scheduled', 'completed'])
+      .not('metadata', 'is', null)
+
+    console.log(`Checking ${allLessonsWithCalendarId?.length || 0} lessons with metadata for cancellation`)
+
+    if (allLessonsWithCalendarId) {
+      for (const lesson of allLessonsWithCalendarId) {
+        try {
+          const metadata = typeof lesson.metadata === 'string' 
+            ? JSON.parse(lesson.metadata) 
+            : lesson.metadata
+          
+          const googleCalendarId = metadata?.google_calendar_id
+          
+          if (googleCalendarId && !activeEventIds.has(googleCalendarId)) {
+            // This lesson's Google Calendar event no longer exists
+            if (lesson.status === 'scheduled') {
+              // Mark scheduled lessons as cancelled
+              const { error: cancelError } = await supabase
+                .from('lessons')
+                .update({ status: 'cancelled' })
+                .eq('id', lesson.id)
+
+              if (cancelError) {
+                console.error(`Error cancelling scheduled lesson ${lesson.id}:`, cancelError)
+                errorCount++
+              } else {
+                console.log(`Cancelled scheduled lesson ${lesson.id} - no longer in Google Calendar`)
+                cancelledCount++
+              }
+            } else if (lesson.status === 'completed') {
+              // For completed lessons, check if the lesson_date is more than 7 days old
+              // If so, it was likely moved/deleted and we should note it
+              const lessonDate = new Date(lesson.lesson_date)
+              const now = new Date()
+              const daysSinceLesson = (now - lessonDate) / (1000 * 60 * 60 * 24)
+              
+              if (daysSinceLesson > 7) {
+                // Lesson is old and no longer in calendar - log it but don't change status
+                console.log(`Completed lesson ${lesson.id} (${daysSinceLesson.toFixed(1)} days old) no longer in Google Calendar - may have been moved/deleted`)
+              } else {
+                console.log(`Completed lesson ${lesson.id} (${daysSinceLesson.toFixed(1)} days old) no longer in Google Calendar - recent, may have been moved`)
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing lesson ${lesson.id} for cancellation check:`, e)
+        }
+      }
+    }
 
     for (const event of lessonEvents) {
       try {
@@ -135,16 +195,17 @@ exports.handler = async (event, context) => {
           }
 
           // Check if lesson already exists for THIS student with THIS google_calendar_id
-          const { data: existingLessons } = await supabase
+          // Also check for lessons on similar dates (within 1 day) that might be the same lesson moved
+          const { data: allStudentLessons } = await supabase
             .from('lessons')
-            .select('id, metadata')
+            .select('id, lesson_date, location, metadata')
             .eq('student_id', studentId)
-            .eq('lesson_date', lessonDate.toISOString())
-            .limit(5)
+            .limit(50) // Get more lessons to search through
 
           let existingLesson = null
-          if (existingLessons) {
-            existingLesson = existingLessons.find(lesson => {
+          if (allStudentLessons) {
+            // First, try to find by google_calendar_id
+            existingLesson = allStudentLessons.find(lesson => {
               try {
                 const metadata = typeof lesson.metadata === 'string' 
                   ? JSON.parse(lesson.metadata) 
@@ -154,15 +215,166 @@ exports.handler = async (event, context) => {
                 return false
               }
             })
+            
+            // If not found by google_calendar_id, check for lessons on similar dates (within 1 day)
+            // This handles cases where a lesson was created manually and then moved in Google Calendar
+            if (!existingLesson) {
+              const newDate = lessonDate
+              existingLesson = allStudentLessons.find(lesson => {
+                const lessonDateObj = new Date(lesson.lesson_date)
+                const timeDiff = Math.abs(newDate.getTime() - lessonDateObj.getTime())
+                const daysDiff = timeDiff / (1000 * 60 * 60 * 24)
+                
+                // If lesson is within 1 day of the new date, it might be the same lesson
+                // Also check if it doesn't have a google_calendar_id (manually created)
+                if (daysDiff <= 1) {
+                  try {
+                    const metadata = typeof lesson.metadata === 'string' 
+                      ? JSON.parse(lesson.metadata) 
+                      : lesson.metadata
+                    // If it doesn't have google_calendar_id, it's likely the same lesson that was moved
+                    return !metadata?.google_calendar_id
+                  } catch {
+                    return false
+                  }
+                }
+                return false
+              })
+              
+              if (existingLesson) {
+                console.log(`Found existing lesson for ${studentName} on similar date (${new Date(existingLesson.lesson_date).toISOString()}) - will update with google_calendar_id`)
+              }
+            }
           }
 
           if (existingLesson) {
-            console.log(`Lesson already exists for ${studentName} on ${lessonDate.toISOString()}`)
-            skippedCount++
+            // Get the full lesson to check status
+            const { data: fullLesson } = await supabase
+              .from('lessons')
+              .select('status, lesson_date, location')
+              .eq('id', existingLesson.id)
+              .single()
+            
+            // Lesson exists - check if time or location has changed
+            const existingDate = new Date(existingLesson.lesson_date)
+            const newDate = lessonDate
+            const existingLocation = existingLesson.location || 'Colina Del Sol Park'
+            const newLocation = event.location || 'Colina Del Sol Park'
+            
+            // Compare dates more carefully (ignore milliseconds for comparison)
+            const existingDateMs = Math.floor(existingDate.getTime() / 1000) * 1000
+            const newDateMs = Math.floor(newDate.getTime() / 1000) * 1000
+            const dateChanged = existingDateMs !== newDateMs
+            const locationChanged = existingLocation !== newLocation
+            
+            if (dateChanged || locationChanged) {
+              // Update the lesson (regardless of status - completed lessons can be moved too)
+              const updateData = {}
+              if (dateChanged) {
+                updateData.lesson_date = newDate.toISOString()
+                console.log(`Time changed for ${studentName} (status: ${fullLesson?.status || 'unknown'}): ${existingDate.toISOString()} -> ${newDate.toISOString()}`)
+              }
+              if (locationChanged) {
+                updateData.location = newLocation
+                console.log(`Location changed for ${studentName}: ${existingLocation} -> ${newLocation}`)
+              }
+              
+              // Update metadata with new sync time
+              try {
+                const existingMetadata = typeof existingLesson.metadata === 'string' 
+                  ? JSON.parse(existingLesson.metadata) 
+                  : existingLesson.metadata
+                
+                updateData.metadata = {
+                  ...existingMetadata,
+                  synced_at: new Date().toISOString(),
+                  google_calendar_link: event.htmlLink,
+                  original_title: event.summary
+                }
+              } catch (e) {
+                // If metadata parsing fails, create new metadata
+                updateData.metadata = {
+                  source: 'google_calendar',
+                  google_calendar_id: event.id,
+                  google_calendar_link: event.htmlLink,
+                  synced_at: new Date().toISOString(),
+                  original_title: event.summary,
+                  is_semi_private: studentNames.length > 1
+                }
+              }
+
+              const { error: updateError } = await supabase
+                .from('lessons')
+                .update(updateData)
+                .eq('id', existingLesson.id)
+
+              if (updateError) {
+                console.error(`Error updating lesson for ${studentName}:`, updateError)
+                errorCount++
+              } else {
+                console.log(`Updated lesson for ${studentName} on ${newDate.toISOString()}`)
+                syncedCount++
+                
+                // After updating a lesson that was moved, check for and delete old duplicate lessons
+                // that might exist on the old date (within 7 days) for the same student
+                // These are likely the same lesson that was created manually or from a previous sync
+                if (dateChanged) {
+                  const oldDate = existingDate
+                  const daysSinceOldDate = (newDate.getTime() - oldDate.getTime()) / (1000 * 60 * 60 * 24)
+                  
+                  // Only check if the date changed by more than 1 day (actual move, not just time adjustment)
+                  if (Math.abs(daysSinceOldDate) > 1) {
+                    // Find lessons on the old date (within 1 day window) that don't have google_calendar_id
+                    // These are likely duplicates that should be deleted
+                    const oldDateStart = new Date(oldDate)
+                    oldDateStart.setHours(0, 0, 0, 0)
+                    const oldDateEnd = new Date(oldDate)
+                    oldDateEnd.setHours(23, 59, 59, 999)
+                    
+                    const { data: oldLessons } = await supabase
+                      .from('lessons')
+                      .select('id, metadata')
+                      .eq('student_id', studentId)
+                      .gte('lesson_date', oldDateStart.toISOString())
+                      .lte('lesson_date', oldDateEnd.toISOString())
+                      .neq('id', existingLesson.id) // Don't delete the one we just updated
+                    
+                    if (oldLessons && oldLessons.length > 0) {
+                      for (const oldLesson of oldLessons) {
+                        try {
+                          const oldMetadata = typeof oldLesson.metadata === 'string' 
+                            ? JSON.parse(oldLesson.metadata) 
+                            : oldLesson.metadata
+                          
+                          // Only delete if it doesn't have a google_calendar_id (manually created duplicate)
+                          if (!oldMetadata?.google_calendar_id) {
+                            const { error: deleteError } = await supabase
+                              .from('lessons')
+                              .delete()
+                              .eq('id', oldLesson.id)
+                            
+                            if (deleteError) {
+                              console.error(`Error deleting old duplicate lesson ${oldLesson.id}:`, deleteError)
+                            } else {
+                              console.log(`Deleted old duplicate lesson ${oldLesson.id} for ${studentName} on old date ${oldDate.toISOString()}`)
+                            }
+                          }
+                        } catch (e) {
+                          console.error(`Error processing old lesson ${oldLesson.id} for deletion:`, e)
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            } else {
+              console.log(`Lesson already exists and unchanged for ${studentName} on ${lessonDate.toISOString()}`)
+              skippedCount++
+            }
             continue
           }
 
-          // Create lesson for this student
+          // Create new lesson for this student
           const { error: insertError } = await supabase
             .from('lessons')
             .insert([{
@@ -196,7 +408,7 @@ exports.handler = async (event, context) => {
     }
 
     console.log('=== SYNC COMPLETE ===')
-    console.log(`Synced: ${syncedCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`)
+    console.log(`Synced: ${syncedCount}, Skipped: ${skippedCount}, Cancelled: ${cancelledCount}, Errors: ${errorCount}`)
 
     return {
       statusCode: 200,
@@ -204,6 +416,7 @@ exports.handler = async (event, context) => {
         success: true,
         synced: syncedCount,
         skipped: skippedCount,
+        cancelled: cancelledCount,
         errors: errorCount,
         total: lessonEvents.length,
         timestamp: new Date().toISOString()

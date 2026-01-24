@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp, MapPin, Menu, X, Bell, User } from 'lucide-react'
+import { LogOut, LayoutDashboard, Calendar, Users, MessageSquare, Settings, DollarSign, Receipt, UserCheck, ThumbsUp, MapPin, Menu, X, Bell, User, Mail } from 'lucide-react'
 import NotificationBell from '../Notifications/NotificationBell'
 import DropdownNav from './DropdownNav'
 import './Header.css'
@@ -31,9 +31,19 @@ export default function Header({ user, isCoach }) {
     '/settings'
   ]
   
-  const shouldHideHeader = !isCoach && studentPagesWithBottomNav.some(page => 
+  // Hide header for coach pages that use bottom navigation
+  const coachPagesWithBottomNav = [
+    '/coach',
+    '/coach/students',
+    '/coach/lessons',
+    '/coach/calendar'
+  ]
+  
+  const shouldHideHeader = (!isCoach && studentPagesWithBottomNav.some(page => 
     location.pathname === page || location.pathname.startsWith(page + '/')
-  )
+  )) || (isCoach && coachPagesWithBottomNav.some(page => 
+    location.pathname === page || location.pathname.startsWith(page + '/')
+  ))
 
   if (shouldHideHeader) {
     return null
@@ -147,6 +157,16 @@ export default function Header({ user, isCoach }) {
                     >
                       <Calendar size={16} className="icon" />
                       Calendar
+                    </button>
+                    <button 
+                      className={`dropdown-menu-item ${isActive('/coach/emails') ? 'active' : ''}`}
+                      onClick={() => {
+                        navigate('/coach/emails')
+                        closeMobileMenu()
+                      }}
+                    >
+                      <Mail size={16} className="icon" />
+                      Emails
                     </button>
                   </DropdownNav>
 

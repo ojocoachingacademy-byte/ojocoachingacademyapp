@@ -1,5 +1,43 @@
 import { createClient } from '@supabase/supabase-js'
 
+/**
+ * DELETE STUDENT FUNCTION - IMPORTANT MAINTENANCE NOTE
+ * 
+ * ⚠️ WHENEVER YOU ADD A NEW TABLE WITH A FOREIGN KEY TO:
+ *   - students.id (student_id)
+ *   - profiles.id (user_id)
+ *   - auth.users.id
+ * 
+ * YOU MUST UPDATE THIS FUNCTION TO DELETE THOSE RECORDS!
+ * 
+ * Current tables being deleted (in order):
+ * 1. Messages (conversations, sender_id, receiver_id)
+ * 2. Conversations (participant_1_id, participant_2_id)
+ * 3. Notifications (user_id)
+ * 4. Testimonial requests (student_id)
+ * 5. Testimonials (student_id)
+ * 6. Hitting partners (id)
+ * 7. Scheduled notifications (metadata.studentId)
+ * 8. Practice plans (student_id)
+ * 9. Development focus areas (student_id)
+ * 10. Student focus areas (student_id) ⚠️ ADDED
+ * 11. Student packages (student_id) ⚠️ ADDED
+ * 12. Skill progress snapshots (student_id)
+ * 13. Student milestones (student_id)
+ * 14. Lesson homework (student_id)
+ * 15. Payment transactions (student_id)
+ * 16. Lesson transactions (student_id)
+ * 17. Lessons (student_id)
+ * 18. Students (id) - after clearing referrals
+ * 19. Profiles (id)
+ * 20. Auth user (id)
+ * 
+ * To add a new table:
+ * 1. Add deletion code in the appropriate section (before students table)
+ * 2. Add it to the referenceChecks array for debugging
+ * 3. Update this comment list
+ */
+
 export const handler = async (event, context) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) }
@@ -173,6 +211,34 @@ export const handler = async (event, context) => {
         console.log('Development focus areas table may not exist, skipping deletion')
       }
       
+      // 6.8. Delete student_focus_areas (different from development_focus_areas)
+      try {
+        const { error: studentFocusAreasError } = await supabaseAdmin
+          .from('student_focus_areas')
+          .delete()
+          .eq('student_id', userId)
+        if (studentFocusAreasError && !studentFocusAreasError.message?.includes('does not exist')) {
+          console.warn('Error deleting student focus areas:', studentFocusAreasError.message)
+        }
+      } catch (e) {
+        console.log('Student focus areas table may not exist, skipping deletion')
+      }
+      
+      // 6.9. Delete student_packages (must be deleted before students table)
+      try {
+        const { error: studentPackagesError } = await supabaseAdmin
+          .from('student_packages')
+          .delete()
+          .eq('student_id', userId)
+        if (studentPackagesError && !studentPackagesError.message?.includes('does not exist')) {
+          console.warn('Error deleting student packages:', studentPackagesError.message)
+        } else {
+          console.log('Student packages deleted successfully')
+        }
+      } catch (e) {
+        console.log('Student packages table may not exist, skipping deletion')
+      }
+      
       // 7. Delete student-related data (in dependency order)
       const { error: skillProgressError } = await supabaseAdmin.from('skill_progress_snapshots').delete().eq('student_id', userId)
       if (skillProgressError) console.warn('Error deleting skill progress:', skillProgressError.message)
@@ -330,6 +396,8 @@ export const handler = async (event, context) => {
             { table: 'testimonial_requests', column: 'student_id' },
             { table: 'practice_plans', column: 'student_id' },
             { table: 'development_focus_areas', column: 'student_id' },
+            { table: 'student_focus_areas', column: 'student_id' },
+            { table: 'student_packages', column: 'student_id' },
             { table: 'lesson_transactions', column: 'student_id' },
             { table: 'payment_transactions', column: 'student_id' }
           ]

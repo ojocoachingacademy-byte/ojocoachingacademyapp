@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { Bell, User, LogOut, X } from 'lucide-react'
+import { Bell, User, LogOut, X, Users } from 'lucide-react'
 import './MoreMenu.css'
 
-export default function MoreMenu({ isOpen, onClose }) {
+export default function MoreMenu({ isOpen, onClose, isCoach = false }) {
   const navigate = useNavigate()
   const menuRef = useRef(null)
   const [notifications, setNotifications] = useState([])
@@ -77,13 +77,23 @@ export default function MoreMenu({ isOpen, onClose }) {
 
   const handleProfileClick = () => {
     onClose()
-    // Trigger profile modal in StudentDashboard
-    window.dispatchEvent(new CustomEvent('openProfileModal'))
+    if (isCoach) {
+      // For coach, could navigate to settings or profile page
+      navigate('/coach')
+    } else {
+      // Trigger profile modal in StudentDashboard
+      window.dispatchEvent(new CustomEvent('openProfileModal'))
+    }
   }
 
   const handleNotificationsClick = () => {
     onClose()
     navigate('/notifications')
+  }
+
+  const handleCommunityClick = () => {
+    onClose()
+    navigate('/hitting-partners')
   }
 
   if (!isOpen) {
@@ -116,6 +126,14 @@ export default function MoreMenu({ isOpen, onClose }) {
             {unreadCount > 0 && (
               <span className="more-menu-item-count">{unreadCount} new</span>
             )}
+          </button>
+
+          <button 
+            className="more-menu-item"
+            onClick={handleCommunityClick}
+          >
+            <Users size={20} className="more-menu-item-icon" />
+            <span className="more-menu-item-label">Community</span>
           </button>
 
           <button 
