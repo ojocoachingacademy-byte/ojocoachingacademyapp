@@ -1,33 +1,49 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-echo "🔍 Checking if database schema changed..."
-
-# Check if .schema-cache.json exists
-if [ ! -f ".schema-cache.json" ]; then
-  echo "⚠️  No schema cache found, generating..."
-  npm run generate-delete-function
-  git add netlify/functions/delete-auth-user.js .schema-cache.json
-  echo "✅ Delete function generated and added to commit"
-  exit 0
+# Load .env file if it exists (optional - skip if not available)
+# Note: Schema check will be skipped if credentials aren't available
+if [ -f .env ]; then
+  # Try to load .env, but don't fail if it has issues
+  set -a
+  . .env 2>/dev/null || true
+  set +a
 fi
 
-# Analyze current schema
-npm run analyze-schema
+# Only run schema check if credentials are available
+if [ -n "$VITE_SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+  echo "🔍 Checking if database schema changed..."
 
-# Get current hash
-CURRENT_HASH=$(node scripts/get-schema-hash.js 2>/dev/null || echo "none")
+  # Check if .schema-cache.json exists
+  if [ ! -f ".schema-cache.json" ]; then
+    echo "⚠️  No schema cache found, generating..."
+    npm run generate-delete-function 2>/dev/null || echo "⚠️  Could not generate delete function (credentials may be missing)"
+    git add netlify/functions/delete-auth-user.js .schema-cache.json 2>/dev/null || true
+    exit 0
+  fi
 
-# Get previous hash (from git)
-PREVIOUS_HASH=$(git show HEAD:.schema-cache.json 2>/dev/null | node scripts/get-schema-hash.js 2>/dev/null || echo "none")
+  # Analyze current schema
+  npm run analyze-schema >/dev/null 2>&1 || {
+    echo "⚠️  Could not analyze schema (credentials may be missing), skipping..."
+    exit 0
+  }
 
-if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
-  echo "📝 Schema changed (${PREVIOUS_HASH} → ${CURRENT_HASH}), regenerating delete function..."
-  npm run generate-delete-function
-  git add netlify/functions/delete-auth-user.js .schema-cache.json
-  echo "✅ Delete function updated automatically"
+  # Get current hash
+  CURRENT_HASH=$(node scripts/get-schema-hash.js 2>/dev/null || echo "none")
+
+  # Get previous hash (from git)
+  PREVIOUS_HASH=$(git show HEAD:.schema-cache.json 2>/dev/null | node scripts/get-schema-hash.js 2>/dev/null || echo "none")
+
+  if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
+    echo "📝 Schema changed (${PREVIOUS_HASH} → ${CURRENT_HASH}), regenerating delete function..."
+    npm run generate-delete-function 2>/dev/null || echo "⚠️  Could not regenerate delete function"
+    git add netlify/functions/delete-auth-user.js .schema-cache.json 2>/dev/null || true
+    echo "✅ Delete function updated automatically"
+  else
+    echo "✅ Schema unchanged, no regeneration needed"
+  fi
 else
-  echo "✅ Schema unchanged, no regeneration needed"
+  echo "⚠️  Supabase credentials not available, skipping schema check"
 fi
 
 # Also run validation if delete function was manually modified

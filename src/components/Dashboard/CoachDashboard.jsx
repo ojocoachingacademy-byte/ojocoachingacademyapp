@@ -1663,46 +1663,108 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                       onClick={(e) => e.stopPropagation()}
                     >
                       {/* Student Learnings */}
-                      {lesson.student_learnings && (
+                      {lesson.student_learnings && lesson.student_learnings.trim() !== '' && (
                         <div style={{ marginBottom: '24px' }}>
                           <h4 style={{ 
                             marginBottom: '12px', 
-                            color: 'var(--color-primary)' 
+                            color: 'var(--color-primary)',
+                            fontSize: '16px',
+                            fontWeight: '600'
                           }}>
-                            Student's 3 Learnings:
+                            📝 Student's 3 Learnings:
                           </h4>
                           <div style={{
                             padding: '16px',
-                            backgroundColor: 'white',
+                            backgroundColor: '#E8F5E9',
                             borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--color-border)'
+                            border: '1px solid #4CAF50'
                           }}>
                             {(() => {
+                              // Try to parse as JSON first (if stored as array)
                               try {
                                 const learnings = JSON.parse(lesson.student_learnings)
-                                return learnings.map((learning, idx) => (
-                                  <div 
-                                    key={idx}
-                                    style={{ 
-                                      marginBottom: idx < 2 ? '8px' : 0,
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      gap: '8px'
-                                    }}
-                                  >
-                                    <span style={{ color: 'var(--color-secondary)', fontWeight: 'bold' }}>
-                                      •
-                                    </span>
-                                    <span>{learning}</span>
-                          </div>
-                                ))
+                                if (Array.isArray(learnings)) {
+                                  return learnings.map((learning, idx) => (
+                                    <div 
+                                      key={idx}
+                                      style={{ 
+                                        marginBottom: idx < learnings.length - 1 ? '12px' : 0,
+                                        padding: '8px',
+                                        backgroundColor: 'white',
+                                        borderRadius: '4px',
+                                        borderLeft: '3px solid var(--color-secondary)'
+                                      }}
+                                    >
+                                      <strong style={{ color: 'var(--color-secondary)' }}>
+                                        Learning {idx + 1}:
+                                      </strong>
+                                      <div style={{ marginTop: '4px', color: '#333' }}>{learning}</div>
+                                    </div>
+                                  ))
+                                }
                               } catch (e) {
-                                return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px' }}>{lesson.student_learnings}</div>
+                                // Not JSON, try to parse as numbered list format (1. ... 2. ... 3. ...)
+                                const learningsText = lesson.student_learnings.trim()
+                                const lines = learningsText.split('\n').filter(line => line.trim())
+                                
+                                // Check if it's in the format "1. Learning 1\n2. Learning 2\n3. Learning 3"
+                                if (lines.length > 0 && /^\d+\.\s/.test(lines[0].trim())) {
+                                  return lines.map((line, idx) => {
+                                    // Remove the number prefix (e.g., "1. " or "1.")
+                                    const learningText = line.replace(/^\d+\.\s*/, '').trim()
+                                    return (
+                                      <div 
+                                        key={idx}
+                                        style={{ 
+                                          marginBottom: idx < lines.length - 1 ? '12px' : 0,
+                                          padding: '8px',
+                                          backgroundColor: 'white',
+                                          borderRadius: '4px',
+                                          borderLeft: '3px solid var(--color-secondary)'
+                                        }}
+                                      >
+                                        <strong style={{ color: 'var(--color-secondary)' }}>
+                                          Learning {idx + 1}:
+                                        </strong>
+                                        <div style={{ marginTop: '4px', color: '#333' }}>{learningText}</div>
+                                      </div>
+                                    )
+                                  })
+                                }
+                                
+                                // Fallback: display as-is with formatting
+                                return (
+                                  <div style={{ 
+                                    padding: '12px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '4px',
+                                    whiteSpace: 'pre-wrap',
+                                    fontSize: '14px',
+                                    lineHeight: '1.6',
+                                    color: '#333'
+                                  }}>
+                                    {learningsText}
+                                  </div>
+                                )
                               }
                             })()}
-                              </div>
-                              </div>
-                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(!lesson.student_learnings || lesson.student_learnings.trim() === '') && (
+                        <div style={{ 
+                          marginBottom: '24px',
+                          padding: '12px',
+                          backgroundColor: '#FFF3E0',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid #FF9800'
+                        }}>
+                          <p style={{ margin: 0, fontSize: '14px', color: '#666', fontStyle: 'italic' }}>
+                            ⏳ Student hasn't submitted their learnings yet
+                          </p>
+                        </div>
+                      )}
 
                       {/* Coach Feedback Textarea */}
                       <div style={{ marginBottom: '20px' }}>
