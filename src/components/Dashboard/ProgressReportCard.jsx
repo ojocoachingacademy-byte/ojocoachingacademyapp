@@ -8,7 +8,7 @@ export default function ProgressReportCard({ studentId, timeRange = 7 }) {
   const [summary, setSummary] = useState(null)
   const [comparison, setComparison] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false) // Start collapsed by default
   const [selectedRange, setSelectedRange] = useState(timeRange)
 
   useEffect(() => {
@@ -63,11 +63,12 @@ export default function ProgressReportCard({ studentId, timeRange = 7 }) {
         .lt('assessed_at', currentStartDate.toISOString())
         .order('assessed_at', { ascending: true })
 
-      // Fetch lessons
+      // Fetch lessons - filter by status='completed' and use lesson_date for date range
       const { data: currentLessons } = await supabase
         .from('lessons')
         .select('*')
         .eq('student_id', studentId)
+        .eq('status', 'completed')
         .gte('lesson_date', currentStartDate.toISOString())
         .lte('lesson_date', currentEndDate.toISOString())
 
@@ -75,6 +76,7 @@ export default function ProgressReportCard({ studentId, timeRange = 7 }) {
         .from('lessons')
         .select('*')
         .eq('student_id', studentId)
+        .eq('status', 'completed')
         .gte('lesson_date', previousStartDate.toISOString())
         .lt('lesson_date', currentStartDate.toISOString())
 
@@ -176,28 +178,38 @@ export default function ProgressReportCard({ studentId, timeRange = 7 }) {
 
   return (
     <div className="progress-report-card">
-      {/* Header */}
-      <div className="progress-report-header">
+      {/* Header - Clickable to expand/collapse */}
+      <div 
+        className="progress-report-header"
+        onClick={() => setExpanded(!expanded)}
+        style={{ cursor: 'pointer' }}
+      >
         <div className="progress-report-title">
           <TrendingUp size={24} style={{ color: 'var(--color-secondary)' }} />
           <h3>{rangeLabel} Progress Report</h3>
         </div>
-        <div className="progress-report-tabs">
-          <button
-            className={`tab-btn ${selectedRange === 7 ? 'active' : ''}`}
-            onClick={() => setSelectedRange(7)}
-          >
-            Week
-          </button>
-          <button
-            className={`tab-btn ${selectedRange === 30 ? 'active' : ''}`}
-            onClick={() => setSelectedRange(30)}
-          >
-            Month
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="progress-report-tabs" onClick={(e) => e.stopPropagation()}>
+            <button
+              className={`tab-btn ${selectedRange === 7 ? 'active' : ''}`}
+              onClick={() => setSelectedRange(7)}
+            >
+              Week
+            </button>
+            <button
+              className={`tab-btn ${selectedRange === 30 ? 'active' : ''}`}
+              onClick={() => setSelectedRange(30)}
+            >
+              Month
+            </button>
+          </div>
+          {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </div>
       </div>
 
+      {/* Content - Only show when expanded */}
+      {expanded && (
+        <>
       {/* Key Stats */}
       <div className="progress-stats-grid">
         <div className="progress-stat">
@@ -227,10 +239,15 @@ export default function ProgressReportCard({ studentId, timeRange = 7 }) {
         </div>
 
         <div className="progress-stat">
-          <Zap size={18} />
+          <Target size={18} />
           <div>
-            <div className="stat-label">Practice Streak</div>
-            <div className="stat-value">{summary.practiceStreak} days</div>
+            <div className="stat-label">Practice Sessions</div>
+            <div className="stat-value">{summary.practiceCompletions}</div>
+            {comparison && comparison.practice && comparison.practice.change !== 0 && (
+              <div className={`stat-change ${comparison.practice.change > 0 ? 'positive' : 'negative'}`}>
+                {comparison.practice.change > 0 ? '+' : ''}{comparison.practice.change} vs {previousLabel}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -283,41 +300,23 @@ export default function ProgressReportCard({ studentId, timeRange = 7 }) {
         </div>
       )}
 
-      {/* Expand/Collapse Button */}
-      <button
-        className="expand-btn"
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? (
-          <>
-            <ChevronUp size={16} />
-            Show Less
-          </>
-        ) : (
-          <>
-            <ChevronDown size={16} />
-            View Full Report
-          </>
-        )}
-      </button>
-
-      {/* Expanded Content */}
-      {expanded && (
-        <div className="progress-expanded">
-          <div className="expanded-stat">
-            <strong>Total Practice Hours:</strong> {summary.totalPracticeHours.toFixed(1)}h
-          </div>
-          {comparison && (
-            <div className="period-comparison">
-              <h4>Comparison vs {previousLabel}</h4>
-              <div className="comparison-grid">
-                <div>Lessons: {comparison.lessons.percentChange > 0 ? '+' : ''}{comparison.lessons.percentChange}%</div>
-                <div>Milestones: {comparison.milestones.percentChange > 0 ? '+' : ''}{comparison.milestones.percentChange}%</div>
-                <div>Practice: {comparison.practice.percentChange > 0 ? '+' : ''}{comparison.practice.percentChange}%</div>
-              </div>
-            </div>
-          )}
+      {/* Additional Details */}
+      <div className="progress-expanded">
+        <div className="expanded-stat">
+          <strong>Total Practice Hours:</strong> {summary.totalPracticeHours.toFixed(1)}h
         </div>
+        {comparison && (
+          <div className="period-comparison">
+            <h4>Comparison vs {previousLabel}</h4>
+            <div className="comparison-grid">
+              <div>Lessons: {comparison.lessons.percentChange > 0 ? '+' : ''}{comparison.lessons.percentChange}%</div>
+              <div>Milestones: {comparison.milestones.percentChange > 0 ? '+' : ''}{comparison.milestones.percentChange}%</div>
+              <div>Practice: {comparison.practice.percentChange > 0 ? '+' : ''}{comparison.practice.percentChange}%</div>
+            </div>
+          </div>
+        )}
+      </div>
+        </>
       )}
     </div>
   )

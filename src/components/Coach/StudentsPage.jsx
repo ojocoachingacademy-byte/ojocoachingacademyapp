@@ -383,9 +383,9 @@ export default function StudentsPage() {
                   <div className="student-email">{student.profiles.email}</div>
                 )}
                 {student.lead_source && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                    <span style={{ fontSize: '12px', color: '#666', fontWeight: '600' }}>Lead Source:</span>
-                    <span className="lead-source-badge">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '12px', color: '#666', fontWeight: '600', flexShrink: 0 }}>Lead Source:</span>
+                    <span className="lead-source-badge" style={{ flex: '1 1 auto', minWidth: 0 }}>
                       {student.lead_source}
                     </span>
                   </div>

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import PracticePlanCelebrationModal from './PracticePlanCelebrationModal'
 import './PracticePlanCard.css'
 
-export default function PracticePlanCard({ lesson, onComplete }) {
+export default function PracticePlanCard({ lesson, onComplete, studentGoal }) {
   const [completed, setCompleted] = useState(lesson.practice_plan_completed || false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [showCelebrationModal, setShowCelebrationModal] = useState(false)
 
   // Update if lesson prop changes
   useEffect(() => {
@@ -31,6 +33,9 @@ export default function PracticePlanCard({ lesson, onComplete }) {
         setShowConfetti(true)
         setTimeout(() => setShowConfetti(false), 3000)
         
+        // Show celebration modal
+        setShowCelebrationModal(true)
+        
         // Create notification for coach
         await supabase
           .from('notifications')
@@ -42,11 +47,6 @@ export default function PracticePlanCard({ lesson, onComplete }) {
             link: `/coach/students/${lesson.student_id}`,
             read: false
           })
-        
-        // Call onComplete callback if provided
-        if (onComplete) {
-          onComplete()
-        }
       } else {
         console.error('Error updating practice plan:', error)
         alert('Error marking as complete. Please try again.')
@@ -59,10 +59,28 @@ export default function PracticePlanCard({ lesson, onComplete }) {
     }
   }
 
+  const handleCelebrationClose = () => {
+    setShowCelebrationModal(false)
+    // Call onComplete callback to refresh practice plan list (will hide this card since it's now completed)
+    // This will update the parent's currentPracticePlan state, which will cause this component to unmount
+    if (onComplete) {
+      onComplete()
+    }
+  }
+
   if (!lesson.practice_plan) return null
 
   return (
-    <div className={`practice-plan-card ${completed ? 'completed' : 'pending'}`}>
+    <>
+      {showCelebrationModal && (
+        <PracticePlanCelebrationModal
+          goal={studentGoal}
+          onClose={handleCelebrationClose}
+        />
+      )}
+      {/* Hide the card content when completed, but keep component mounted so modal can show */}
+      {!completed && (
+        <div className={`practice-plan-card ${completed ? 'completed' : 'pending'}`}>
       {showConfetti && (
         <div className="confetti-animation">
           <span>🎉</span>
@@ -107,6 +125,8 @@ export default function PracticePlanCard({ lesson, onComplete }) {
         )}
       </div>
     </div>
+      )}
+    </>
   )
 }
 

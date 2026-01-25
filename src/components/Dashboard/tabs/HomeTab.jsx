@@ -5,10 +5,9 @@ import { trackEvent, EVENTS } from '../../../utils/analytics'
 import { getStudentStage } from '../../../utils/studentStage'
 import { detectNewMilestone } from '../../../utils/lessonMilestones'
 import PracticePlanCard from '../PracticePlanCard'
-import PracticeStreakCard from '../PracticeStreakCard'
 import LessonMilestoneModal from '../LessonMilestoneModal'
 import RecentWins from '../RecentWins'
-import ProgressReportCard from '../ProgressReportCard'
+// import ProgressReportCard from '../ProgressReportCard' // Commented out - may add back later
 import '../../shared/Modal.css'
 import './HomeTab.css'
 
@@ -23,6 +22,22 @@ const HomeTab = ({ studentData, onBookLesson }) => {
   const [manualFocusAreas, setManualFocusAreas] = useState([])
   const [showMilestoneModal, setShowMilestoneModal] = useState(false)
   const [currentMilestone, setCurrentMilestone] = useState(null)
+
+  // Helper to extract goal from development plan
+  const getStudentGoal = () => {
+    if (!studentData?.development_plan) return null
+    try {
+      const plan = typeof studentData.development_plan === 'string' 
+        ? JSON.parse(studentData.development_plan) 
+        : studentData.development_plan
+      const bigGoal = plan?.section1?.bigGoal || plan?.goals?.bigGoal
+      // If it's 'other', treat as 'custom'
+      if (bigGoal === 'other') return 'custom'
+      return bigGoal || null
+    } catch {
+      return null
+    }
+  }
 
   useEffect(() => {
     if (studentData?.id) {
@@ -321,23 +336,37 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         <p className="home-subtitle">{stage?.description || 'Your tennis journey continues'}</p>
       </div>
 
-      {/* Quick Stats Bar */}
+      {/* Quick Stats Bar - Enhanced */}
       <div className="quick-stats">
-        <div className="stat-item">
-          <span className="stat-value">{completedCount}</span>
-          <span className="stat-label">Lessons</span>
+        <div className="stat-item enhanced">
+          <div className="stat-icon">📚</div>
+          <div className="stat-content">
+            <span className="stat-value">{completedCount}</span>
+            <span className="stat-label">Lessons</span>
+          </div>
         </div>
         <div className="stat-divider"></div>
-        <div className="stat-item">
-          <span className="stat-value">{studentData?.lesson_credits || 0}</span>
-          <span className="stat-label">Credits</span>
+        <div className="stat-item enhanced">
+          <div className="stat-icon">💳</div>
+          <div className="stat-content">
+            <span className="stat-value">{studentData?.lesson_credits || 0}</span>
+            <span className="stat-label">Credits</span>
+          </div>
         </div>
         <div className="stat-divider"></div>
-        <div className="stat-item">
-          <span className="stat-value">
-            {practicePlanCount > 0 ? `${completedPracticeCount}/${practicePlanCount}` : '0'}
-          </span>
-          <span className="stat-label">Practice</span>
+        <div className="stat-item enhanced">
+          <div className="stat-icon">🎯</div>
+          <div className="stat-content">
+            <span className="stat-value">
+              {practicePlanCount > 0 ? `${completedPracticeCount}/${practicePlanCount}` : '0'}
+            </span>
+            <span className="stat-label">Practice</span>
+            {practicePlanCount > 0 && (
+              <span className="stat-progress">
+                {Math.round((completedPracticeCount / practicePlanCount) * 100)}% complete
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -361,6 +390,7 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             <PracticePlanCard 
               lesson={activePracticePlan}
               onComplete={fetchHomeData}
+              studentGoal={getStudentGoal()}
             />
           )}
 
@@ -406,13 +436,6 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         </>
       )}
 
-      {/* Practice Streak Card - Show for all stages with practice plans */}
-      {completedLessons.length > 0 && (
-        <PracticeStreakCard 
-          studentId={studentData?.id}
-          completedLessons={completedLessons}
-        />
-      )}
 
       {/* STAGE 2: Just Started (1-4 lessons) */}
       {stage?.stageNumber === 2 && (
@@ -422,6 +445,7 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             <PracticePlanCard 
               lesson={activePracticePlan}
               onComplete={fetchHomeData}
+              studentGoal={getStudentGoal()}
             />
           )}
 
@@ -482,24 +506,20 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             <PracticePlanCard 
               lesson={activePracticePlan}
               onComplete={fetchHomeData}
+              studentGoal={getStudentGoal()}
             />
           )}
 
-          {/* 2. Practice Streak Card - Motivation/Accountability */}
-          {completedLessons.length > 0 && (
-            <PracticeStreakCard 
-              studentId={studentData?.id}
-              completedLessons={completedLessons}
-            />
-          )}
 
           {/* Progress Report Card - Weekly/Monthly Summary */}
+          {/* Commented out - may add back later
           {completedLessons.length >= 2 && (
             <ProgressReportCard 
               studentId={studentData?.id}
               timeRange={7}
             />
           )}
+          */}
 
           {/* 3. Next Lesson Card - Upcoming schedule */}
           {upcomingLesson && (

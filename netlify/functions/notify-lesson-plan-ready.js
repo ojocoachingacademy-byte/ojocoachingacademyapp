@@ -74,7 +74,17 @@ export const handler = async (event, context) => {
     `
 
     // Send email via send-email function
-    const sendEmailResponse = await fetch(`${process.env.URL || 'http://localhost:8888'}/.netlify/functions/send-email`, {
+    // Use DEPLOY_PRIME_URL in production, or construct from event headers
+    const baseUrl = process.env.DEPLOY_PRIME_URL 
+      ? `https://${process.env.DEPLOY_PRIME_URL}`
+      : (process.env.URL || 'http://localhost:8888')
+    
+    const sendEmailUrl = `${baseUrl}/.netlify/functions/send-email`
+    
+    console.log('Calling send-email function at:', sendEmailUrl)
+    console.log('Email details:', { to: studentEmail, subject: emailSubject })
+    
+    const sendEmailResponse = await fetch(sendEmailUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -88,8 +98,17 @@ export const handler = async (event, context) => {
     })
 
     if (!sendEmailResponse.ok) {
-      throw new Error('Failed to send email')
+      const errorText = await sendEmailResponse.text()
+      console.error('Send-email function failed:', {
+        status: sendEmailResponse.status,
+        statusText: sendEmailResponse.statusText,
+        error: errorText
+      })
+      throw new Error(`Failed to send email: ${sendEmailResponse.status} - ${errorText}`)
     }
+    
+    const emailResult = await sendEmailResponse.json()
+    console.log('Email sent successfully:', emailResult)
 
     return {
       statusCode: 200,

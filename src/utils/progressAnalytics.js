@@ -33,14 +33,14 @@ export const calculateProgressSummary = (timeRange, data) => {
     .sort((a, b) => b.change - a.change)
     .slice(0, 3)
   
-  // Calculate streaks
-  const practiceStreak = calculatePracticeStreak(recentPractice)
+  // Calculate practice completions count (not streak)
+  const practiceCompletions = recentPractice.length
   
   return {
     lessonsCompleted: recentLessons.length,
     milestonesAchieved: recentMilestones.length,
     topImprovements,
-    practiceStreak,
+    practiceCompletions,
     totalPracticeHours: calculateTotalPracticeHours(recentPractice),
     insights: generateInsights(improvements, recentPractice, recentLessons)
   }

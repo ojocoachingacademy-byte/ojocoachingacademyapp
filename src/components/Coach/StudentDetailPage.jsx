@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
-import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2 } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2, Users } from 'lucide-react'
 import Anthropic from '@anthropic-ai/sdk'
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import StudentPracticePlans from './StudentPracticePlans'
@@ -23,6 +23,7 @@ import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 import CoachLayout from '../Layout/CoachLayout'
 import { useToast, ToastContainer } from '../shared/Toast'
 import ConfirmationModal from '../shared/ConfirmationModal'
+import LinkPartnerModal from './LinkPartnerModal'
 import './StudentDetailPage.css'
 
 export default function StudentDetailPage() {
@@ -74,6 +75,8 @@ export default function StudentDetailPage() {
   const { toasts, showToast, removeToast } = useToast()
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmModalConfig, setConfirmModalConfig] = useState(null)
+  const [showLinkPartnerModal, setShowLinkPartnerModal] = useState(false)
+  const [pairedPartner, setPairedPartner] = useState(null)
   const [editingLesson, setEditingLesson] = useState(false)
   const [lessonEditForm, setLessonEditForm] = useState({
     lesson_date: '',
@@ -322,6 +325,17 @@ export default function StudentDetailPage() {
         logger.error('Error message:', studentError.message)
         logger.error('Error details:', studentError.details)
         
+        // Handle 406/PGRST116 error - student not found
+        if (studentError.code === 'PGRST116' || studentError.message?.includes('0 rows') || studentError.message?.includes('not found')) {
+          logger.warn('Student not found - may have been deleted')
+          showToast('Student not found. They may have been deleted. Redirecting...', 'warning')
+          setTimeout(() => {
+            navigate('/coach/students')
+          }, 2000)
+          setLoading(false)
+          return
+        }
+        
         // Handle 406 error specifically
         if (studentError.code === 'PGRST301' || studentError.message?.includes('406') || studentError.message?.includes('Not Acceptable')) {
           logger.error('406 Not Acceptable error - this usually means:')
@@ -366,6 +380,47 @@ export default function StudentDetailPage() {
       
       setStudent(data)
       setPrivateNotes(data.private_coach_notes || '')
+      
+      // Fetch paired partner info if exists
+      if (data.paired_with_id) {
+        try {
+          // Fetch student and profile separately to avoid relationship ambiguity
+          const { data: partnerStudentData, error: partnerStudentError } = await supabaseAdmin
+            .from('students')
+            .select('id')
+            .eq('id', data.paired_with_id)
+            .single()
+          
+          if (partnerStudentError) {
+            logger.warn('Error fetching paired partner student:', partnerStudentError.message)
+            setPairedPartner(null)
+          } else if (partnerStudentData) {
+            // Fetch profile separately
+            const { data: partnerProfileData, error: partnerProfileError } = await supabaseAdmin
+              .from('profiles')
+              .select('id, full_name, email')
+              .eq('id', data.paired_with_id)
+              .single()
+            
+            if (partnerProfileError) {
+              logger.warn('Error fetching paired partner profile:', partnerProfileError.message)
+              setPairedPartner(null)
+            } else {
+              setPairedPartner({
+                ...partnerStudentData,
+                profiles: partnerProfileData
+              })
+            }
+          } else {
+            setPairedPartner(null)
+          }
+        } catch (error) {
+          logger.warn('Error fetching paired partner:', error)
+          setPairedPartner(null)
+        }
+      } else {
+        setPairedPartner(null)
+      }
       
       // Populate profile form data - split full_name into first_name and last_name
       if (data?.profiles) {
@@ -1030,6 +1085,53 @@ Do NOT use markdown formatting - just plain text with line breaks.`
     }
   }
 
+  const handleUnlinkPartner = async () => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Unlink Semi-Private Pair',
+      message: `Unlink this semi-private pair? Both students will return to individual lessons.`,
+      confirmText: 'Unlink',
+      cancelText: 'Cancel',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const partnerId = student.paired_with_id
+
+          // Unlink current student
+          const { error: error1 } = await supabaseAdmin
+            .from('students')
+            .update({
+              paired_with_id: null,
+              is_primary_for_pair: false
+            })
+            .eq('id', student.id)
+
+          if (error1) throw error1
+
+          // Unlink partner
+          const { error: error2 } = await supabaseAdmin
+            .from('students')
+            .update({
+              paired_with_id: null,
+              is_primary_for_pair: false
+            })
+            .eq('id', partnerId)
+
+          if (error2) throw error2
+
+          showToast('Students unlinked successfully!', 'success')
+          setConfirmModalConfig(null)
+          fetchStudentData() // Refresh
+        } catch (error) {
+          console.error('Error unlinking:', error)
+          showToast('Error unlinking students: ' + error.message, 'error')
+          setConfirmModalConfig(null)
+        }
+      },
+      onClose: () => setConfirmModalConfig(null)
+    })
+  }
+
   const handleDeleteStudent = async () => {
     if (!student || deletingStudent) return // Prevent multiple clicks
     
@@ -1037,10 +1139,34 @@ Do NOT use markdown formatting - just plain text with line breaks.`
     try {
       const studentId = student.id
       
+      if (!studentId) {
+        throw new Error('No student ID available. Please refresh the page and try again.')
+      }
+      
       logger.debug('Starting deletion process for student:', studentId)
+      logger.debug('Student data before deletion:', { id: student.id, name: student.profiles?.full_name })
+      
+      // Verify student exists before attempting deletion
+      const { data: verifyStudent, error: verifyError } = await supabaseAdmin
+        .from('students')
+        .select('id')
+        .eq('id', studentId)
+        .maybeSingle()
+      
+      if (verifyError) {
+        logger.warn('Error verifying student exists:', verifyError)
+        // Continue anyway - might be a transient error
+      } else if (!verifyStudent) {
+        throw new Error('Student not found. They may have already been deleted. Refreshing page...')
+      }
       
       // Delete user and all related records via Netlify function
-      const response = await fetch('/.netlify/functions/delete-auth-user', {
+      logger.debug('Calling delete-auth-user function...')
+      const functionUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:8888/.netlify/functions/delete-auth-user'
+        : '/.netlify/functions/delete-auth-user'
+      
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1050,8 +1176,8 @@ Do NOT use markdown formatting - just plain text with line breaks.`
 
       // Check if response has content before parsing JSON
       const text = await response.text()
-        logger.debug('Delete user response status:', response.status)
-        logger.debug('Delete user response text:', text)
+      logger.debug('Delete user response status:', response.status)
+      logger.debug('Delete user response text:', text.substring(0, 500)) // Limit log size
 
       if (response.status === 404) {
         throw new Error('Netlify function not found. If testing locally, use "netlify dev" instead of "npm run dev". Or test on the deployed site.')
@@ -1069,12 +1195,21 @@ Do NOT use markdown formatting - just plain text with line breaks.`
       }
 
       if (!response.ok) {
-        logger.error('Error deleting user:', result)
+        logger.error('Error deleting user - Full error object:', result)
         
         // Provide more helpful error messages
         let errorMessage = result.error || result.details || 'Unknown error'
         
-        if (result.details && result.details.includes('configuration')) {
+        // Check for specific error types
+        if (result.code === 'database_constraint_error' || result.remainingReferences) {
+          const refs = result.remainingReferences || []
+          errorMessage = `Failed to delete: Database constraint error. Remaining references: ${refs.join(', ')}. Please check Netlify function logs for details.`
+        } else if (result.code === 'unexpected_failure' || result.details?.includes('Database error')) {
+          errorMessage = `Database error during deletion. ${result.details || 'Check Netlify function logs for details.'}`
+          if (result.remainingReferences && result.remainingReferences.length > 0) {
+            errorMessage += ` Remaining references: ${result.remainingReferences.join(', ')}`
+          }
+        } else if (result.details && result.details.includes('configuration')) {
           errorMessage = 'Server configuration error. Please contact support or check Netlify environment variables.'
         } else if (result.details && result.details.includes('not configured')) {
           errorMessage = 'Server configuration error. Please contact support.'
@@ -1087,13 +1222,46 @@ Do NOT use markdown formatting - just plain text with line breaks.`
         throw new Error(errorMessage)
       }
 
+      logger.debug('User deletion result:', result)
+      
+      // Handle partial success (all app data deleted but auth user deletion failed)
+      if (result.partial === true) {
+        logger.warn('Partial deletion success:', result)
+        showToast(
+          result.warning || 'Student data deleted, but auth user deletion failed. Student is removed from the app.',
+          'warning'
+        )
+        // Still navigate away since the student is effectively deleted from the app
+        navigate('/coach/students')
+        return
+      }
+      
+      // Full success
       logger.debug('User and all related records deleted successfully:', result)
       logger.debug('Student deletion completed successfully')
-      showToast('Student profile deleted successfully', 'success')
+      
+      // Show success message with any warnings
+      if (result.verification && (result.verification.studentsRemaining > 0 || result.verification.profilesRemaining > 0)) {
+        showToast('Student deleted, but some records may remain. Check logs for details.', 'warning')
+      } else {
+        showToast('Student profile deleted successfully', 'success')
+      }
+      
       navigate('/coach/students')
     } catch (error) {
       logger.error('Error deleting student:', error)
-      showToast('Error deleting student: ' + error.message, 'error')
+      logger.error('Error stack:', error.stack)
+      
+      // Show detailed error message
+      const errorMsg = error.message || 'Unknown error occurred'
+      showToast(`Error deleting student: ${errorMsg}`, 'error')
+      
+      // If student not found, refresh the page
+      if (error.message?.includes('not found') || error.message?.includes('already been deleted')) {
+        setTimeout(() => {
+          navigate('/coach/students')
+        }, 2000)
+      }
     } finally {
       setDeletingStudent(false)
       setShowDeleteConfirm(false)
@@ -1485,6 +1653,72 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                     <span>{student.lesson_credits || 0} Credits</span>
                   </div>
                 </div>
+
+                {/* Semi-Private Pairing Status */}
+                {student?.paired_with_id && pairedPartner ? (
+                  <div style={{
+                    padding: '16px',
+                    backgroundColor: '#f0f7ff',
+                    border: '2px solid #4B2C6C',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Users size={24} style={{ color: 'var(--color-primary)' }} />
+                      <div>
+                        <div style={{ fontWeight: '600', fontSize: '16px', marginBottom: '4px' }}>
+                          👥 Semi-Private Pair
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#666' }}>
+                          Paired with <strong>{pairedPartner.profiles?.full_name}</strong>
+                          {student.is_primary_for_pair && (
+                            <span style={{ 
+                              marginLeft: '8px',
+                              padding: '2px 8px',
+                              backgroundColor: 'var(--color-secondary)',
+                              color: 'white',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}>
+                              PRIMARY (Pays)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={handleUnlinkPartner}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: '#F44336'
+                      }}
+                    >
+                      <X size={16} />
+                      Unlink
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => setShowLinkPartnerModal(true)}
+                    style={{
+                      marginBottom: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <Link2 size={18} />
+                    Link Semi-Private Partner
+                  </button>
+                )}
 
                 {/* Lead Source Section */}
                 <div className="lead-source-section">
@@ -3040,6 +3274,18 @@ Do NOT use markdown formatting - just plain text with line breaks.`
           onClose={() => {
             setShowReferralCelebration(false)
             fetchStudentData() // Refresh to show updated credits
+          }}
+        />
+      )}
+
+      {/* Link Partner Modal */}
+      {showLinkPartnerModal && student && (
+        <LinkPartnerModal
+          student={student}
+          onClose={() => setShowLinkPartnerModal(false)}
+          onSuccess={() => {
+            setShowLinkPartnerModal(false)
+            fetchStudentData() // Refresh to show pairing
           }}
         />
       )}

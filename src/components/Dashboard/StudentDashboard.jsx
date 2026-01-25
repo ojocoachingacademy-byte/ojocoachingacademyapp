@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Users, Calendar, Award, Target, Edit2, TrendingUp, MessageSquare } from 'lucide-react'
@@ -55,7 +56,29 @@ export default function StudentDashboard() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmModalConfig, setConfirmModalConfig] = useState(null)
   const developmentPlanRef = useRef(null)
+  const promptedLessonsRef = useRef(new Set())
+  const componentMountTimeRef = useRef(new Date()) // Track when component mounted
   const navigate = useNavigate()
+
+  // Clear prompted lessons on mount - start fresh each time component mounts
+  // This ensures we only prompt for lessons completed AFTER the component loads
+  useEffect(() => {
+    componentMountTimeRef.current = new Date()
+    promptedLessonsRef.current.clear()
+  }, [])
+
+  // Save prompted lessons to sessionStorage whenever it changes
+  useEffect(() => {
+    const savePromptedLessons = () => {
+      const lessonIds = Array.from(promptedLessonsRef.current)
+      sessionStorage.setItem('promptedLessons', JSON.stringify(lessonIds))
+    }
+    
+    // Save periodically (every time the ref might have changed)
+    const interval = setInterval(savePromptedLessons, 2000)
+    return () => clearInterval(interval)
+  }, [])
+
 
   useEffect(() => {
     let isMounted = true
@@ -75,6 +98,159 @@ export default function StudentDashboard() {
       window.removeEventListener('openProfileModal', handleOpenProfileModal)
     }
   }, [])
+
+  // Function to check for newly completed lessons and show modal
+  const checkForCompletedLessons = async () => {
+    if (!user?.id) return
+
+    try {
+      
+      // Get all completed lessons - prioritize recently completed ones
+      // Only get lessons completed in the last 24 hours to avoid prompting for old lessons
+      const oneDayAgo = new Date()
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+      
+      const { data: completedLessons, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('student_id', user.id)
+        .eq('status', 'completed')
+        .gte('lesson_date', oneDayAgo.toISOString()) // Only lessons from last 24 hours
+        .order('lesson_date', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Error checking for completed lessons:', error)
+        return
+      }
+
+      if (completedLessons && completedLessons.length > 0) {
+        // Filter for lessons without learnings (null, empty string, or just whitespace)
+        const lessonsWithoutLearnings = completedLessons.filter(
+          lesson => !lesson.student_learnings || lesson.student_learnings.trim() === ''
+        )
+        
+        // Find the most recent one that we haven't prompted for
+        // Only prompt for lessons completed AFTER component mounted (new lessons)
+        const mountTime = componentMountTimeRef.current
+        const lessonToShow = lessonsWithoutLearnings.find(
+          lesson => {
+            const wasPrompted = promptedLessonsRef.current.has(lesson.id)
+            // Check when lesson was completed (use updated_at if available, otherwise lesson_date)
+            const completedTime = lesson.updated_at ? new Date(lesson.updated_at) : new Date(lesson.lesson_date)
+            const isNewLesson = completedTime >= mountTime // Completed after component mounted
+            
+            // Show if: not prompted OR it's a new lesson (completed after mount)
+            return !wasPrompted || isNewLesson
+          }
+        )
+
+        if (lessonToShow) {
+          // Double-check the lesson still meets criteria
+          if (lessonToShow.status !== 'completed' || (lessonToShow.student_learnings && lessonToShow.student_learnings.trim() !== '')) {
+            return
+          }
+          
+          // Check if this exact lesson is already showing
+          if (selectedLesson?.id === lessonToShow.id) {
+            return
+          }
+          
+          // If ANY other modal is open, close it first
+          if (selectedLesson !== null && selectedLesson.id !== lessonToShow.id) {
+            setSelectedLesson(null)
+            
+            // Wait for state to clear, then show new modal
+            setTimeout(() => {
+              console.log('Learnings modal opened')
+              setSelectedLesson(lessonToShow)
+              promptedLessonsRef.current.add(lessonToShow.id)
+            }, 150)
+            return
+          }
+          
+          // No modal open, show immediately
+          console.log('Learnings modal opened')
+          setSelectedLesson(lessonToShow)
+          promptedLessonsRef.current.add(lessonToShow.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkForCompletedLessons:', error)
+    }
+  }
+
+  // Real-time subscription to detect when lessons are marked as completed
+  useEffect(() => {
+    if (!user?.id) return
+
+    // Subscribe to lessons table changes for this student
+    const channel = supabase
+      .channel(`lesson-status-changes-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'lessons',
+          filter: `student_id=eq.${user.id}`
+        },
+        async (payload) => {
+          const updatedLesson = payload.new
+          const oldLesson = payload.old
+
+          // Check if lesson was just marked as completed
+          const wasCompleted = updatedLesson.status === 'completed'
+          const wasNotCompleted = oldLesson?.status !== 'completed'
+          const hasNoLearnings = !updatedLesson.student_learnings || updatedLesson.student_learnings.trim() === ''
+
+          // If lesson was just completed and has no learnings, show the modal
+          if (wasCompleted && wasNotCompleted && hasNoLearnings) {
+            // Immediately trigger a check (don't wait for polling interval)
+            await checkForCompletedLessons()
+          } else if (wasCompleted) {
+            // Lesson was completed but already has learnings - just refresh the list
+            const { data: refreshedLessons } = await supabase
+              .from('lessons')
+              .select('*')
+              .eq('student_id', user.id)
+              .order('lesson_date', { ascending: false })
+            
+            if (refreshedLessons) {
+              setLessons(refreshedLessons)
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Channel subscription error - falling back to polling')
+        }
+      })
+
+    // Fallback: Poll every 2 seconds to check for newly completed lessons
+    // This ensures the modal appears even if real-time isn't working
+    // Works in both development and production
+    
+    // Immediate checks on mount (aggressive polling at start)
+    checkForCompletedLessons()
+    const immediateCheck1 = setTimeout(() => checkForCompletedLessons(), 500)
+    const immediateCheck2 = setTimeout(() => checkForCompletedLessons(), 1500)
+    const immediateCheck3 = setTimeout(() => checkForCompletedLessons(), 2500)
+    
+    // Then regular polling every 2 seconds
+    const pollInterval = setInterval(() => {
+      checkForCompletedLessons()
+    }, 2000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(pollInterval)
+      clearTimeout(immediateCheck1)
+      clearTimeout(immediateCheck2)
+      clearTimeout(immediateCheck3)
+    }
+  }, [user?.id])
 
   const fetchStudentData = async (isMounted = true) => {
     try {
@@ -134,24 +310,34 @@ export default function StudentDashboard() {
       setLessons(lessonsData || [])
 
       // Check if we should show the lesson plan welcome screen
-      // Only show if: onboarding completed, has a lesson with a plan, and hasn't been dismissed
+      // Only show if: onboarding completed, has a lesson with a plan, hasn't been dismissed, AND no completed lessons yet
       if (studentData.onboarding_completed && lessonsData && lessonsData.length > 0) {
-        // Find the first upcoming lesson with a lesson plan
+        // Check if student has any completed lessons
         const now = new Date()
-        const upcomingLessonWithPlan = lessonsData.find(lesson => {
+        const hasCompletedLesson = lessonsData.some(lesson => {
           const lessonDate = new Date(lesson.lesson_date)
-          const hasPlan = lesson.lesson_plan || lesson.student_lesson_plan
-          return lessonDate > now && hasPlan
+          const status = lesson.status || 'scheduled'
+          return (status === 'completed') || (lessonDate < now && status !== 'cancelled')
         })
         
-        if (upcomingLessonWithPlan) {
-          // Check if user has already dismissed this welcome screen
-          const dismissedKey = `lessonPlanWelcomeDismissed_${upcomingLessonWithPlan.id}`
-          const hasDismissed = localStorage.getItem(dismissedKey)
+        // Only show welcome screen if they haven't completed any lessons yet
+        if (!hasCompletedLesson) {
+          // Find the first upcoming lesson with a lesson plan
+          const upcomingLessonWithPlan = lessonsData.find(lesson => {
+            const lessonDate = new Date(lesson.lesson_date)
+            const hasPlan = lesson.lesson_plan || lesson.student_lesson_plan
+            return lessonDate > now && hasPlan
+          })
           
-          if (!hasDismissed) {
-            setFirstLessonWithPlan(upcomingLessonWithPlan)
-            setShowLessonPlanWelcome(true)
+          if (upcomingLessonWithPlan) {
+            // Check if user has already dismissed this welcome screen
+            const dismissedKey = `lessonPlanWelcomeDismissed_${upcomingLessonWithPlan.id}`
+            const hasDismissed = localStorage.getItem(dismissedKey)
+            
+            if (!hasDismissed) {
+              setFirstLessonWithPlan(upcomingLessonWithPlan)
+              setShowLessonPlanWelcome(true)
+            }
           }
         }
       }
@@ -192,9 +378,10 @@ export default function StudentDashboard() {
       }
       
       if (data && data.length > 0) {
-        // Find the most recent incomplete practice plan, or the most recent one if all are complete
+        // Find the most recent incomplete practice plan only
+        // If all are complete, don't show any (it will reappear when a new one is set)
         const incomplete = data.find(lesson => !lesson.practice_plan_completed)
-        setCurrentPracticePlan(incomplete || data[0])
+        setCurrentPracticePlan(incomplete || null)
       } else {
         setCurrentPracticePlan(null)
       }
@@ -345,6 +532,7 @@ export default function StudentDashboard() {
     setLearning1('')
     setLearning2('')
     setLearning3('')
+    // Don't clear promptedLessonsRef here - we want to remember we prompted
   }
 
   const now = new Date()
@@ -772,6 +960,21 @@ export default function StudentDashboard() {
         <PracticePlanCard 
           lesson={currentPracticePlan} 
           onComplete={() => fetchCurrentPracticePlan(user.id)}
+          studentGoal={(() => {
+            // Extract goal from development plan
+            if (!student?.development_plan) return null
+            try {
+              const plan = typeof student.development_plan === 'string' 
+                ? JSON.parse(student.development_plan) 
+                : student.development_plan
+              const bigGoal = plan?.section1?.bigGoal || plan?.goals?.bigGoal
+              // If it's 'other', treat as 'custom'
+              if (bigGoal === 'other') return 'custom'
+              return bigGoal || null
+            } catch {
+              return null
+            }
+          })()}
         />
       )}
       {!currentPracticePlan && pastLessons.length > 0 && (
@@ -1411,13 +1614,62 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* Submit Learnings Modal */}
-      {selectedLesson && (
-        <div className="modal-overlay" onClick={handleCloseLearningsModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Reflection Time 🎾</h2>
-              <button className="modal-close" onClick={handleCloseLearningsModal}>×</button>
+      {/* Submit Learnings Modal - Rendered via Portal to ensure visibility */}
+      {selectedLesson && (!selectedLesson.student_learnings || selectedLesson.student_learnings.trim() === '') && createPortal(
+        <div 
+          className="modal-overlay" 
+          onClick={handleCloseLearningsModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            opacity: 1,
+            visibility: 'visible'
+          }}
+        >
+          <div 
+            className="modal-content" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '32px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative',
+              zIndex: 10000,
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+            }}
+          >
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '2px solid var(--color-primary)' }}>
+              <h2 className="modal-title" style={{ color: 'var(--color-primary)', margin: 0 }}>Reflection Time 🎾</h2>
+              <button 
+                className="modal-close" 
+                onClick={handleCloseLearningsModal}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '28px',
+                  cursor: 'pointer',
+                  color: '#999',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  lineHeight: 1
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <p style={{ color: '#666', marginBottom: '20px', lineHeight: '1.6' }}>
@@ -1488,6 +1740,8 @@ export default function StudentDashboard() {
             </div>
           </div>
         </div>
+        ,
+        document.body
       )}
 
       {/* Book Lesson Modal */}

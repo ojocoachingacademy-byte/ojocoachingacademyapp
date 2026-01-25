@@ -119,6 +119,11 @@
   font-size: 11px;
   font-weight: 600;
   margin-top: 8px;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  line-height: 1.4;
 }
 
 .referral-badge {

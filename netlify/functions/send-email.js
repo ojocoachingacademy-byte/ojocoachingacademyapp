@@ -61,23 +61,38 @@ exports.handler = async (event, context) => {
       }
     }
 
+    // Build content array - SendGrid requires text/plain FIRST, then text/html
+    const content = []
+    
+    // Add text/plain first if it exists
+    if (text) {
+      content.push({
+        type: 'text/plain',
+        value: text
+      })
+    }
+    
+    // Add text/html second (or use text if html not provided)
+    if (html) {
+      content.push({
+        type: 'text/html',
+        value: html
+      })
+    } else if (text) {
+      // If only text provided, use it as HTML too
+      content.push({
+        type: 'text/html',
+        value: text
+      })
+    }
+
     const emailData = {
       personalizations: [{
         to: [{ email: to }],
         subject: subject
       }],
       from: { email: SENDGRID_FROM_EMAIL },
-      content: [{
-        type: 'text/html',
-        value: html || text
-      }]
-    }
-
-    if (text && html) {
-      emailData.content.push({
-        type: 'text/plain',
-        value: text
-      })
+      content: content
     }
 
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {

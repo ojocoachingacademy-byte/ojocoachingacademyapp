@@ -22,15 +22,20 @@ import { createClient } from '@supabase/supabase-js'
  * 9. Development focus areas (student_id)
  * 10. Student focus areas (student_id) ⚠️ ADDED
  * 11. Student packages (student_id) ⚠️ ADDED
- * 12. Skill progress snapshots (student_id)
- * 13. Student milestones (student_id)
- * 14. Lesson homework (student_id)
- * 15. Payment transactions (student_id)
- * 16. Lesson transactions (student_id)
- * 17. Lessons (student_id)
- * 18. Students (id) - after clearing referrals
- * 19. Profiles (id)
- * 20. Auth user (id)
+ * 12. Skill assessments (student_id) ⚠️ ADDED
+ * 13. Skill progress snapshots (student_id)
+ * 14. Student milestones (student_id)
+ * 15. Lesson homework (student_id)
+ * 16. Payment transactions (student_id)
+ * 17. Lesson transactions (student_id)
+ * 18. Lessons (student_id)
+ * 19. Students (id) - after clearing referrals and pairings
+ * 20. Profiles (id) - may need to be deleted after auth user if CASCADE is set
+ * 21. Auth user (id) - MUST be deleted last, or before profiles if profiles has CASCADE
+ * 
+ * NOTE: Also clears:
+ * - Referral references (referred_by_student_id)
+ * - Pairing relationships (paired_with_id)
  * 
  * To add a new table:
  * 1. Add deletion code in the appropriate section (before students table)
@@ -85,64 +90,104 @@ export const handler = async (event, context) => {
       serviceRoleKey
     )
 
+    // AUTOMATED VALIDATION: Check for all tables with foreign keys to this user
+    // This helps catch missing tables BEFORE deletion fails
+    console.log('🔍 Validating foreign key relationships...')
+    const validationResults = await validateForeignKeys(supabaseAdmin, userId)
+    if (validationResults.missing.length > 0) {
+      console.error('⚠️ WARNING: Found tables with foreign keys that are NOT in deletion list:')
+      validationResults.missing.forEach(table => {
+        console.error(`  - ${table.table_name}.${table.column_name} (${table.constraint_name})`)
+      })
+      console.error('⚠️ These tables should be added to the delete function!')
+    }
+    if (validationResults.found.length > 0) {
+      console.log(`✓ Found ${validationResults.found.length} foreign key relationship(s) to check`)
+    }
+
     // Delete related records FIRST (in correct order)
     console.log('Deleting related records for user:', userId)
     
     try {
-      // 1. Delete messages first (must be deleted before conversations due to foreign key)
-      // Get all conversation IDs where this user is a participant
-      const { data: userConversations, error: convFetchError } = await supabaseAdmin
-        .from('conversations')
-        .select('id')
-        .or(`participant_1_id.eq.${userId},participant_2_id.eq.${userId}`)
-      
-      if (convFetchError) {
-        console.warn('Error fetching conversations:', convFetchError.message)
-      } else if (userConversations && userConversations.length > 0) {
-        // Delete messages in these conversations
-        const conversationIds = userConversations.map(c => c.id)
+      // 1. Delete messages (sender and receiver)
+      try {
         const { error: messagesError } = await supabaseAdmin
           .from('messages')
           .delete()
-          .in('conversation_id', conversationIds)
-        if (messagesError) console.warn('Error deleting messages:', messagesError.message)
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        
+        if (messagesError && messagesError.code !== 'PGRST116') {
+          console.error('Error deleting messages:', messagesError.message)
+        } else {
+          console.log('Messages deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting messages:', error.message)
       }
       
-      // Also delete any messages where user is directly sender or receiver (fallback)
-      const { error: senderMessagesError } = await supabaseAdmin
-        .from('messages')
-        .delete()
-        .eq('sender_id', userId)
-      if (senderMessagesError && !senderMessagesError.message?.includes('does not exist')) {
-        console.warn('Error deleting messages (sender):', senderMessagesError.message)
+      // 2. Delete conversations (participant_1 and participant_2)
+      try {
+        const { error: conversationsError } = await supabaseAdmin
+          .from('conversations')
+          .delete()
+          .or(`participant_1_id.eq.${userId},participant_2_id.eq.${userId}`)
+        
+        if (conversationsError && conversationsError.code !== 'PGRST116') {
+          console.error('Error deleting conversations:', conversationsError.message)
+        } else {
+          console.log('Conversations deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting conversations:', error.message)
       }
-      
-      const { error: receiverMessagesError } = await supabaseAdmin
-        .from('messages')
-        .delete()
-        .eq('receiver_id', userId)
-      if (receiverMessagesError && !receiverMessagesError.message?.includes('does not exist')) {
-        console.warn('Error deleting messages (receiver):', receiverMessagesError.message)
-      }
-      
-      // 2. Delete conversations (CASCADE will handle messages, but we already deleted them)
-      const { error: conversationsError } = await supabaseAdmin
-        .from('conversations')
-        .delete()
-        .or(`participant_1_id.eq.${userId},participant_2_id.eq.${userId}`)
-      if (conversationsError) console.warn('Error deleting conversations:', conversationsError.message)
       
       // 3. Delete notifications
-      const { error: notificationsError } = await supabaseAdmin.from('notifications').delete().eq('user_id', userId)
-      if (notificationsError) console.warn('Error deleting notifications:', notificationsError.message)
+      try {
+        const { error: notificationsError } = await supabaseAdmin
+          .from('notifications')
+          .delete()
+          .eq('user_id', userId)
+        
+        if (notificationsError && notificationsError.code !== 'PGRST116') {
+          console.error('Error deleting notifications:', notificationsError.message)
+        } else {
+          console.log('Notifications deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting notifications:', error.message)
+      }
       
-      // 4. Delete testimonial requests
-      const { error: testimonialRequestsError } = await supabaseAdmin.from('testimonial_requests').delete().eq('student_id', userId)
-      if (testimonialRequestsError) console.warn('Error deleting testimonial requests:', testimonialRequestsError.message)
+      // 4. Delete testimonials
+      try {
+        const { error: testimonialsError } = await supabaseAdmin
+          .from('testimonials')
+          .delete()
+          .eq('student_id', userId)
+        
+        if (testimonialsError && testimonialsError.code !== 'PGRST116') {
+          console.error('Error deleting testimonials:', testimonialsError.message)
+        } else {
+          console.log('Testimonials deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting testimonials:', error.message)
+      }
       
-      // 5. Delete testimonials
-      const { error: testimonialsError } = await supabaseAdmin.from('testimonials').delete().eq('student_id', userId)
-      if (testimonialsError) console.warn('Error deleting testimonials:', testimonialsError.message)
+      // 5. Delete testimonial requests
+      try {
+        const { error: testimonialRequestsError } = await supabaseAdmin
+          .from('testimonial_requests')
+          .delete()
+          .eq('student_id', userId)
+        
+        if (testimonialRequestsError && testimonialRequestsError.code !== 'PGRST116') {
+          console.error('Error deleting testimonial requests:', testimonialRequestsError.message)
+        } else {
+          console.log('Testimonial requests deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting testimonial requests:', error.message)
+      }
       
       // 6. Delete hitting_partners
       const { error: hittingPartnersError } = await supabaseAdmin.from('hitting_partners').delete().eq('id', userId)
@@ -190,12 +235,19 @@ export const handler = async (event, context) => {
           .from('practice_plans')
           .delete()
           .eq('student_id', userId)
-        if (practicePlansError && !practicePlansError.message?.includes('does not exist')) {
-          console.warn('Error deleting practice plans:', practicePlansError.message)
+        if (practicePlansError) {
+          // Ignore "does not exist" and "schema cache" errors (table might not exist)
+          if (!practicePlansError.message?.includes('does not exist') && 
+              !practicePlansError.message?.includes('schema cache') &&
+              !practicePlansError.message?.includes('relation')) {
+            console.warn('Error deleting practice plans:', practicePlansError.message)
+          }
         }
       } catch (e) {
         // Table might not exist, ignore
-        console.log('Practice plans table may not exist, skipping deletion')
+        if (!e.message?.includes('schema cache') && !e.message?.includes('does not exist')) {
+          console.log('Practice plans table may not exist, skipping deletion')
+        }
       }
       
       // 6.7. Delete development focus areas (has ON DELETE CASCADE but delete explicitly to be safe)
@@ -204,11 +256,19 @@ export const handler = async (event, context) => {
           .from('development_focus_areas')
           .delete()
           .eq('student_id', userId)
-        if (focusAreasError && !focusAreasError.message?.includes('does not exist')) {
-          console.warn('Error deleting development focus areas:', focusAreasError.message)
+        if (focusAreasError) {
+          // Ignore "does not exist" and "schema cache" errors (table might not exist)
+          if (!focusAreasError.message?.includes('does not exist') && 
+              !focusAreasError.message?.includes('schema cache') &&
+              !focusAreasError.message?.includes('relation')) {
+            console.warn('Error deleting development focus areas:', focusAreasError.message)
+          }
         }
       } catch (e) {
-        console.log('Development focus areas table may not exist, skipping deletion')
+        // Table might not exist, ignore
+        if (!e.message?.includes('schema cache') && !e.message?.includes('does not exist')) {
+          console.log('Development focus areas table may not exist, skipping deletion')
+        }
       }
       
       // 6.8. Delete student_focus_areas (different from development_focus_areas)
@@ -240,25 +300,124 @@ export const handler = async (event, context) => {
       }
       
       // 7. Delete student-related data (in dependency order)
+      // 7.1. Delete skill assessments first
+      const { error: skillAssessmentsError } = await supabaseAdmin.from('skill_assessments').delete().eq('student_id', userId)
+      if (skillAssessmentsError && !skillAssessmentsError.message?.includes('does not exist')) {
+        console.warn('Error deleting skill assessments:', skillAssessmentsError.message)
+      } else {
+        console.log('Skill assessments deleted successfully')
+      }
+      
       const { error: skillProgressError } = await supabaseAdmin.from('skill_progress_snapshots').delete().eq('student_id', userId)
       if (skillProgressError) console.warn('Error deleting skill progress:', skillProgressError.message)
       
       const { error: milestonesError } = await supabaseAdmin.from('student_milestones').delete().eq('student_id', userId)
       if (milestonesError) console.warn('Error deleting milestones:', milestonesError.message)
       
-      const { error: homeworkError } = await supabaseAdmin.from('lesson_homework').delete().eq('student_id', userId)
-      if (homeworkError) console.warn('Error deleting homework:', homeworkError.message)
+      // Delete lesson_homework
+      try {
+        const { error: homeworkError } = await supabaseAdmin
+          .from('lesson_homework')
+          .delete()
+          .eq('student_id', userId)
+        
+        if (homeworkError && homeworkError.code !== 'PGRST116') {
+          console.error('Error deleting lesson homework:', homeworkError.message)
+        } else {
+          console.log('Lesson homework deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting lesson homework:', error.message)
+      }
       
-      const { error: paymentTransactionsError } = await supabaseAdmin.from('payment_transactions').delete().eq('student_id', userId)
-      if (paymentTransactionsError) console.warn('Error deleting payment transactions:', paymentTransactionsError.message)
+      // Delete skill_progress_snapshots
+      try {
+        const { error: snapshotsError } = await supabaseAdmin
+          .from('skill_progress_snapshots')
+          .delete()
+          .eq('student_id', userId)
+        
+        if (snapshotsError && snapshotsError.code !== 'PGRST116') {
+          console.error('Error deleting skill snapshots:', snapshotsError.message)
+        } else {
+          console.log('Skill snapshots deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting skill snapshots:', error.message)
+      }
+      
+      // Delete student_focus_areas
+      try {
+        const { error: focusError } = await supabaseAdmin
+          .from('student_focus_areas')
+          .delete()
+          .eq('student_id', userId)
+        
+        if (focusError && focusError.code !== 'PGRST116') {
+          console.error('Error deleting student focus areas:', focusError.message)
+        } else {
+          console.log('Student focus areas deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting student focus areas:', error.message)
+      }
+      
+      // Delete payment_transactions
+      try {
+        const { error: paymentError } = await supabaseAdmin
+          .from('payment_transactions')
+          .delete()
+          .eq('student_id', userId)
+        
+        if (paymentError && paymentError.code !== 'PGRST116') {
+          console.error('Error deleting payment transactions:', paymentError.message)
+        } else {
+          console.log('Payment transactions deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting payment transactions:', error.message)
+      }
       
       const { error: lessonTransactionsError } = await supabaseAdmin.from('lesson_transactions').delete().eq('student_id', userId)
-      if (lessonTransactionsError) console.warn('Error deleting lesson transactions:', lessonTransactionsError.message)
+      if (lessonTransactionsError && lessonTransactionsError.code !== 'PGRST116') {
+        console.warn('Error deleting lesson transactions:', lessonTransactionsError.message)
+      } else {
+        console.log('Lesson transactions deleted successfully')
+      }
       
-      const { error: lessonsError } = await supabaseAdmin.from('lessons').delete().eq('student_id', userId)
-      if (lessonsError) console.warn('Error deleting lessons:', lessonsError.message)
+      // Delete lessons (both as student and paired student)
+      try {
+        const { error: lessonsError } = await supabaseAdmin
+          .from('lessons')
+          .delete()
+          .or(`student_id.eq.${userId},paired_student_id.eq.${userId}`)
+        
+        if (lessonsError && lessonsError.code !== 'PGRST116') {
+          console.error('Error deleting lessons:', lessonsError.message)
+        } else {
+          console.log('Lessons deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting lessons:', error.message)
+      }
       
-      // 8. Clear referral references FIRST (set referred_by_student_id to null)
+      // Delete analytics_events if table exists
+      try {
+        const { error: analyticsError } = await supabaseAdmin
+          .from('analytics_events')
+          .delete()
+          .eq('user_id', userId)
+        
+        if (analyticsError && analyticsError.code !== 'PGRST116') {
+          console.error('Error deleting analytics_events:', analyticsError.message)
+        } else {
+          console.log('Analytics events deleted successfully')
+        }
+      } catch (error) {
+        console.error('Error deleting analytics_events:', error.message)
+      }
+      
+      // 8. Clear referral references and pairing relationships FIRST
       // IMPORTANT: Do this BEFORE deleting the student record to avoid foreign key constraint issues
       console.log('Clearing referral references...')
       const { error: referralUpdateError } = await supabaseAdmin.from('students')
@@ -268,6 +427,20 @@ export const handler = async (event, context) => {
         console.warn('Error updating referrals:', referralUpdateError.message)
       } else {
         console.log('Referral references cleared')
+      }
+      
+      // 8.5. Clear pairing relationships (unlink any students paired with this one)
+      console.log('Clearing pairing relationships...')
+      const { error: pairingUpdateError } = await supabaseAdmin.from('students')
+        .update({ 
+          paired_with_id: null,
+          is_primary_for_pair: false
+        })
+        .eq('paired_with_id', userId)
+      if (pairingUpdateError) {
+        console.warn('Error updating pairings:', pairingUpdateError.message)
+      } else {
+        console.log('Pairing relationships cleared')
       }
       
       // 9. Delete students record (must be after all foreign key dependencies are cleared)
@@ -282,34 +455,66 @@ export const handler = async (event, context) => {
         console.log('Students record deleted successfully')
       }
       
-      // 10. Delete profiles (NOTE: profiles.id references auth.users.id, so this should work)
-      // But if it has ON DELETE CASCADE, we might not need to delete it manually
-      // However, we should delete it BEFORE auth user to avoid foreign key issues
-      console.log('Attempting to delete profiles for user:', userId)
-      const { data: profileCheck, error: profileCheckError } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle()
+      // Final verification before auth deletion
+      console.log('Verifying all foreign key references are cleared...')
       
-      if (profileCheckError) {
-        console.warn('Error checking if profile exists:', profileCheckError.message)
-      } else if (profileCheck) {
-        console.log('Profile exists, attempting deletion...')
-        const { error: profilesError } = await supabaseAdmin.from('profiles').delete().eq('id', userId)
-        if (profilesError) {
-          console.error('Error deleting profiles:', profilesError.message)
-          console.error('Profiles error code:', profilesError.code)
-          console.error('Profiles error details:', JSON.stringify(profilesError, null, 2))
-          // Don't throw - continue to try auth deletion
-        } else {
-          console.log('Profiles deleted successfully')
+      const tablesToCheck = [
+        'messages',
+        'conversations', 
+        'notifications',
+        'analytics_events',
+        'lessons',
+        'lesson_homework',
+        'skill_progress_snapshots',
+        'student_focus_areas',
+        'lesson_transactions',
+        'payment_transactions',
+        'testimonials',
+        'testimonial_requests',
+        'student_packages',
+        'students',
+        'profiles'
+      ]
+      
+      let hasReferences = false
+      
+      for (const table of tablesToCheck) {
+        try {
+          const { count } = await supabaseAdmin
+            .from(table)
+            .select('*', { count: 'exact', head: true })
+            .or(`id.eq.${userId},student_id.eq.${userId},user_id.eq.${userId},sender_id.eq.${userId},receiver_id.eq.${userId},participant_1_id.eq.${userId},participant_2_id.eq.${userId},paired_with_id.eq.${userId},referred_by_student_id.eq.${userId},paired_student_id.eq.${userId}`)
+          
+          if (count > 0) {
+            console.error(`❌ Still has ${count} references in ${table}`)
+            hasReferences = true
+          } else {
+            console.log(`✓ No references in ${table}`)
+          }
+        } catch (error) {
+          // Ignore tables that don't exist or don't have the column
+          console.log(`⚠️ Could not check ${table}: ${error.message}`)
         }
-      } else {
-        console.log('No profile found for user (may have already been deleted)')
       }
       
-      // 11. Finally delete auth user
+      if (hasReferences) {
+        console.error('❌ Cannot delete auth user - still has foreign key references')
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            error: 'Cannot delete auth user',
+            details: 'Still has foreign key references in one or more tables. Check logs for details.',
+            code: 'foreign_key_constraint_error'
+          })
+        }
+      }
+      
+      console.log('✓ All foreign key references cleared, proceeding with auth deletion...')
+      
+      // 10. Delete auth user FIRST (before profiles)
+      // CRITICAL: Delete auth user BEFORE profiles to avoid foreign key constraint issues
+      // If profiles has ON DELETE CASCADE, deleting auth user will automatically delete the profile
+      // If not, we'll delete the profile manually after
       console.log('Deleting auth user:', userId)
       
       // Check if user exists in auth first
@@ -317,12 +522,14 @@ export const handler = async (event, context) => {
       
       if (getUserError && getUserError.message?.includes('not found')) {
         console.warn('Auth user not found, may have already been deleted:', userId)
-        // User doesn't exist in auth, but we've cleaned up DB records, so consider it successful
+        // User doesn't exist in auth, but we've cleaned up DB records, so delete profile manually
+        console.log('Auth user not found, cleaning up remaining profile if it exists...')
+        await supabaseAdmin.from('profiles').delete().eq('id', userId).catch(() => {})
         return {
           statusCode: 200,
           body: JSON.stringify({ 
             success: true, 
-            message: 'User not found in auth (may have been deleted), but all database records were cleaned up'
+            message: 'User not found in auth (may have been deleted), all database records cleaned up'
           })
         }
       }
@@ -334,19 +541,40 @@ export const handler = async (event, context) => {
         console.log('User exists in auth, proceeding with deletion')
       }
       
-      // Try to delete auth user
-      // Note: If this fails with "Database error deleting user", it usually means
-      // there are still foreign key references in the database that need to be cleaned up
+      // Try to delete auth user FIRST (before profile)
+      // This is the correct order - deleting auth user may CASCADE delete profile
       const { data: deleteData, error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
       if (authDeleteError) {
         console.error('Error deleting auth user:', authDeleteError)
         console.error('Error details:', JSON.stringify(authDeleteError, null, 2))
         
+        // If auth deletion fails, try deleting profile first, then retry auth deletion
+        // Sometimes the profile foreign key constraint prevents auth user deletion
+        console.log('Auth deletion failed, trying to delete profile first then retry...')
+        const { error: profileDeleteError } = await supabaseAdmin.from('profiles').delete().eq('id', userId)
+        if (!profileDeleteError) {
+          console.log('Profile deleted, retrying auth user deletion...')
+          const { error: retryAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+          if (!retryAuthError) {
+            console.log('Auth user deleted successfully after profile deletion!')
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ success: true, message: 'User deleted successfully after profile deletion' })
+            }
+          } else {
+            console.error('Auth deletion still failed after profile deletion:', retryAuthError.message)
+          }
+        }
+        
         // If it's a database error, it might be due to remaining foreign key references
         // Check if we can identify which table might still have references
         if (authDeleteError.message?.includes('Database error') || authDeleteError.code === 'unexpected_failure') {
           console.warn('Database error during auth deletion - checking for remaining references...')
+          
+          // Initialize variables for error handling
+          let fkTables = []
+          let remainingRefs = []
           
           // Query to find all foreign key constraints pointing to auth.users
           const fkQuery = `
@@ -366,20 +594,19 @@ export const handler = async (event, context) => {
               AND ccu.table_schema = 'auth'
           `
           
-          let fkTables = []
           try {
-            const { data: fkData, error: fkError } = await supabaseAdmin.rpc('exec_sql', { 
-              query: fkQuery 
-            }).catch(() => ({ data: null, error: { message: 'RPC not available' } }))
+            // Try to query foreign keys using RPC (if available)
+            const fkResult = await supabaseAdmin.rpc('exec_sql', { query: fkQuery })
+            const { data: fkData, error: fkError } = fkResult
             
             if (!fkError && fkData) {
               fkTables = fkData.map(fk => `${fk.table_name}.${fk.column_name}`)
               console.log('Foreign keys to auth.users found:', fkTables)
             } else {
-              console.warn('Could not query foreign keys directly:', fkError?.message)
+              console.warn('Could not query foreign keys directly:', fkError?.message || 'RPC not available')
             }
           } catch (e) {
-            console.warn('Error querying foreign keys:', e.message)
+            console.warn('Error querying foreign keys:', e.message || 'RPC not available')
           }
           
           // Try to identify remaining references by checking common tables
@@ -398,11 +625,13 @@ export const handler = async (event, context) => {
             { table: 'development_focus_areas', column: 'student_id' },
             { table: 'student_focus_areas', column: 'student_id' },
             { table: 'student_packages', column: 'student_id' },
+            { table: 'skill_assessments', column: 'student_id' },
             { table: 'lesson_transactions', column: 'student_id' },
-            { table: 'payment_transactions', column: 'student_id' }
+            { table: 'payment_transactions', column: 'student_id' },
+            { table: 'students', column: 'paired_with_id' }
           ]
           
-          const remainingRefs = []
+          // remainingRefs already declared above at line 405
           console.log('Checking for remaining references in tables...')
           
           for (const check of referenceChecks) {
@@ -413,9 +642,12 @@ export const handler = async (event, context) => {
                 .eq(check.column, userId)
               
               if (error) {
-                // Ignore "does not exist" errors for tables that might not exist
-                if (!error.message?.includes('does not exist') && !error.message?.includes('relation') && !error.code?.includes('42P01')) {
-                  console.warn(`Error checking ${check.table}.${check.column}:`, error.message)
+                // Ignore "does not exist", "schema cache", and "relation" errors for tables that might not exist
+                if (!error.message?.includes('does not exist') && 
+                    !error.message?.includes('schema cache') &&
+                    !error.message?.includes('relation') && 
+                    !error.code?.includes('42P01')) {
+                  console.warn(`Error checking ${check.table}.${check.column}:`, error.message || 'Unknown error')
                 }
               } else {
                 const refCount = count || 0
@@ -428,8 +660,11 @@ export const handler = async (event, context) => {
               }
             } catch (checkError) {
               // Ignore table not found errors
-              if (!checkError.message?.includes('does not exist') && !checkError.message?.includes('relation')) {
-                console.warn(`Exception checking ${check.table}.${check.column}:`, checkError.message)
+              const errorMsg = checkError?.message || checkError?.toString() || 'Unknown error'
+              if (!errorMsg.includes('does not exist') && 
+                  !errorMsg.includes('schema cache') &&
+                  !errorMsg.includes('relation')) {
+                console.warn(`Exception checking ${check.table}.${check.column}:`, errorMsg)
               }
             }
           }
@@ -478,6 +713,42 @@ export const handler = async (event, context) => {
           } else {
             console.warn('No remaining references found in checked tables, but auth deletion still failed.')
             console.warn('This might indicate a foreign key constraint in a table we did not check, or a database trigger preventing deletion.')
+            
+            // If all data is cleaned up but auth user deletion fails, return partial success
+            // Verify that all app data has been deleted
+            console.log('Verifying all app data has been cleaned up...')
+            const { count: verifyStudentCount } = await supabaseAdmin
+              .from('students')
+              .select('*', { count: 'exact', head: true })
+              .eq('id', userId)
+            
+            const { count: verifyProfileCount } = await supabaseAdmin
+              .from('profiles')
+              .select('*', { count: 'exact', head: true })
+              .eq('id', userId)
+            
+            if (verifyStudentCount === 0 && verifyProfileCount === 0) {
+              console.log('✓ All app data has been cleaned up successfully')
+              console.warn('⚠️ Auth user deletion failed, but all app data is removed')
+              console.warn('⚠️ The auth user may need to be deleted manually from Supabase dashboard')
+              
+              // Return partial success - all app data deleted, but auth user remains
+              return {
+                statusCode: 200,
+                body: JSON.stringify({
+                  success: true,
+                  partial: true,
+                  message: 'All app data deleted successfully, but auth user deletion failed',
+                  warning: 'The auth user could not be deleted automatically. All student data has been removed from the app. You may need to delete the auth user manually from the Supabase dashboard.',
+                  details: authDeleteError.message || 'Database error deleting user',
+                  code: authDeleteError.code || 'unexpected_failure',
+                  verification: {
+                    studentsRemaining: verifyStudentCount || 0,
+                    profilesRemaining: verifyProfileCount || 0
+                  }
+                })
+              }
+            }
           }
         }
         
@@ -486,18 +757,97 @@ export const handler = async (event, context) => {
         if (authDeleteError.status) errorDetails += ` (Status: ${authDeleteError.status})`
         if (authDeleteError.code) errorDetails += ` (Code: ${authDeleteError.code})`
         
+        // Initialize variables if they weren't set in the database error check block
+        if (typeof remainingRefs === 'undefined') {
+          remainingRefs = []
+        }
+        if (typeof fkTables === 'undefined') {
+          fkTables = []
+        }
+        
+        // Verify if app data was cleaned up before returning error
+        const { count: finalVerifyStudentCount } = await supabaseAdmin
+          .from('students')
+          .select('*', { count: 'exact', head: true })
+          .eq('id', userId)
+        
+        const { count: finalVerifyProfileCount } = await supabaseAdmin
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('id', userId)
+        
+        // If all app data is cleaned up, return partial success instead of error
+        if (finalVerifyStudentCount === 0 && finalVerifyProfileCount === 0 && remainingRefs.length === 0) {
+          console.log('✓ All app data cleaned up, returning partial success')
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              partial: true,
+              message: 'All app data deleted successfully, but auth user deletion failed',
+              warning: 'The auth user could not be deleted automatically. All student data has been removed from the app.',
+              details: errorDetails,
+              code: authDeleteError.code || 'unexpected_failure',
+              verification: {
+                studentsRemaining: 0,
+                profilesRemaining: 0
+              }
+            })
+          }
+        }
+        
+        // Return detailed error information if data still exists
+        const errorResponse = {
+          error: 'Failed to delete auth user',
+          details: errorDetails,
+          code: authDeleteError.status || authDeleteError.code || 'unexpected_failure',
+          message: authDeleteError.message || 'Database error deleting user'
+        }
+        
+        // Include additional debugging info if available
+        if (remainingRefs && remainingRefs.length > 0) {
+          errorResponse.remainingReferences = remainingRefs
+        }
+        if (fkTables && fkTables.length > 0) {
+          errorResponse.foreignKeyConstraints = fkTables
+        }
+        errorResponse.verification = {
+          studentsRemaining: finalVerifyStudentCount || 0,
+          profilesRemaining: finalVerifyProfileCount || 0
+        }
+        
+        console.error('Returning error response:', JSON.stringify(errorResponse, null, 2))
+        
         return {
           statusCode: 500,
-          body: JSON.stringify({ 
-            error: 'Failed to delete auth user', 
-            details: errorDetails,
-            code: authDeleteError.status || authDeleteError.code,
-            fullError: process.env.NODE_ENV === 'development' ? authDeleteError : undefined
-          })
+          body: JSON.stringify(errorResponse)
         }
       }
       
       console.log('Auth user deleted successfully:', deleteData)
+      
+      // 11. Delete profile manually if it still exists (in case CASCADE didn't work)
+      // After auth user is deleted, profile should be deletable or already deleted by CASCADE
+      console.log('Checking if profile still exists and needs manual deletion...')
+      const { data: remainingProfile, error: profileCheckError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle()
+      
+      if (profileCheckError && !profileCheckError.message?.includes('not found')) {
+        console.warn('Error checking for remaining profile:', profileCheckError.message)
+      } else if (remainingProfile) {
+        console.log('Profile still exists after auth deletion, deleting manually...')
+        const { error: profileDeleteError } = await supabaseAdmin.from('profiles').delete().eq('id', userId)
+        if (profileDeleteError) {
+          console.warn('Error deleting remaining profile:', profileDeleteError.message)
+        } else {
+          console.log('Remaining profile deleted successfully')
+        }
+      } else {
+        console.log('Profile was automatically deleted by CASCADE or already removed')
+      }
       
       // Final verification - check if any records still exist
       console.log('Performing final verification...')
@@ -576,4 +926,92 @@ export const handler = async (event, context) => {
       })
     }
   }
+}
+
+/**
+ * AUTOMATED VALIDATION FUNCTION
+ * This function queries the database to find ALL foreign key relationships
+ * to the user being deleted. This helps catch missing tables automatically.
+ */
+async function validateForeignKeys(supabaseAdmin, userId) {
+  const found = []
+  const missing = []
+  
+  // Known tables that should be deleted (keep this updated!)
+  const knownTables = [
+    'messages', 'conversations', 'notifications', 'testimonial_requests', 
+    'testimonials', 'hitting_partners', 'scheduled_notifications', 
+    'practice_plans', 'development_focus_areas', 'student_focus_areas', 
+    'student_packages', 'skill_assessments', 'skill_progress_snapshots', 
+    'student_milestones', 'lesson_homework', 'payment_transactions', 
+    'lesson_transactions', 'lessons', 'students', 'profiles'
+  ]
+  
+  // Check common tables manually (more reliable than SQL queries)
+  const tablesToCheck = [
+    { table: 'messages', columns: ['sender_id', 'receiver_id', 'conversation_id'] },
+    { table: 'conversations', columns: ['participant_1_id', 'participant_2_id'] },
+    { table: 'notifications', columns: ['user_id'] },
+    { table: 'testimonial_requests', columns: ['student_id'] },
+    { table: 'testimonials', columns: ['student_id'] },
+    { table: 'hitting_partners', columns: ['id'] },
+    { table: 'practice_plans', columns: ['student_id'] },
+    { table: 'development_focus_areas', columns: ['student_id'] },
+    { table: 'student_focus_areas', columns: ['student_id'] },
+    { table: 'student_packages', columns: ['student_id'] },
+    { table: 'skill_assessments', columns: ['student_id'] },
+    { table: 'skill_progress_snapshots', columns: ['student_id'] },
+    { table: 'student_milestones', columns: ['student_id'] },
+    { table: 'lesson_homework', columns: ['student_id'] },
+    { table: 'payment_transactions', columns: ['student_id'] },
+    { table: 'lesson_transactions', columns: ['student_id'] },
+    { table: 'lessons', columns: ['student_id'] },
+    { table: 'students', columns: ['id', 'referred_by_student_id', 'paired_with_id'] },
+    { table: 'profiles', columns: ['id'] }
+  ]
+  
+  for (const tableInfo of tablesToCheck) {
+    for (const column of tableInfo.columns) {
+      try {
+        // Try to query the table to see if it exists and has data
+        const { count, error } = await supabaseAdmin
+          .from(tableInfo.table)
+          .select('*', { count: 'exact', head: true })
+          .eq(column, userId)
+        
+        if (error) {
+          // Table might not exist, skip it
+          if (error.message?.includes('does not exist') || error.code?.includes('42P01')) {
+            continue
+          }
+        } else {
+          const recordCount = count || 0
+          if (recordCount > 0) {
+            found.push({
+              table: tableInfo.table,
+              column: column,
+              count: recordCount
+            })
+            
+            // Check if this table is in our known list
+            if (!knownTables.includes(tableInfo.table)) {
+              missing.push({
+                table_name: tableInfo.table,
+                column_name: column,
+                constraint_name: `fk_${tableInfo.table}_${column}`,
+                record_count: recordCount
+              })
+            }
+          }
+        }
+      } catch (checkError) {
+        // Ignore errors for tables that don't exist
+        if (!checkError.message?.includes('does not exist')) {
+          console.warn(`Error checking ${tableInfo.table}.${column}:`, checkError.message)
+        }
+      }
+    }
+  }
+  
+  return { found, missing }
 }

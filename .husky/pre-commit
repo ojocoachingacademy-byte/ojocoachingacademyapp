@@ -1,0 +1,40 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Checking if database schema changed..."
+
+# Check if .schema-cache.json exists
+if [ ! -f ".schema-cache.json" ]; then
+  echo "⚠️  No schema cache found, generating..."
+  npm run generate-delete-function
+  git add netlify/functions/delete-auth-user.js .schema-cache.json
+  echo "✅ Delete function generated and added to commit"
+  exit 0
+fi
+
+# Analyze current schema
+npm run analyze-schema
+
+# Get current hash
+CURRENT_HASH=$(node scripts/get-schema-hash.js 2>/dev/null || echo "none")
+
+# Get previous hash (from git)
+PREVIOUS_HASH=$(git show HEAD:.schema-cache.json 2>/dev/null | node scripts/get-schema-hash.js 2>/dev/null || echo "none")
+
+if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
+  echo "📝 Schema changed (${PREVIOUS_HASH} → ${CURRENT_HASH}), regenerating delete function..."
+  npm run generate-delete-function
+  git add netlify/functions/delete-auth-user.js .schema-cache.json
+  echo "✅ Delete function updated automatically"
+else
+  echo "✅ Schema unchanged, no regeneration needed"
+fi
+
+# Also run validation if delete function was manually modified
+if git diff --cached --name-only | grep -qE "(delete-auth-user\.js|\.sql$|supabase/migrations)"; then
+  echo "⚠️  Delete function or database schema files modified. Running validation..."
+  npm run check-delete || {
+    echo "❌ Delete function validation failed. Please fix issues before committing."
+    exit 1
+  }
+fi

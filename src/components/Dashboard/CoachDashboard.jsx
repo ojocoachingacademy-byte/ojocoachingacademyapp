@@ -491,36 +491,108 @@ export default function CoachDashboard() {
     setExpandedLessonId(expandedLessonId === lessonId ? null : lessonId)
   }
 
-  const handleToggleFeedbackExpansion = (lessonId) => {
+  const handleToggleFeedbackExpansion = async (lessonId) => {
     if (expandedFeedbackId === lessonId) {
       setExpandedFeedbackId(null)
       setFeedbackText('')
+      setPracticePlan('')
+      setPracticePlanTime('15')
     } else {
       setExpandedFeedbackId(lessonId)
       const lesson = lessons.find(l => l.id === lessonId)
       setFeedbackText(lesson?.coach_feedback || '')
+      // Load practice plan for this lesson
+      await loadPracticePlan(lessonId)
     }
   }
 
   const handleSaveInlineFeedback = async (lessonId) => {
     try {
-      const { error } = await supabaseAdmin
+      const lesson = lessons.find(l => l.id === lessonId)
+      if (!lesson) {
+        showToast('Lesson not found', 'error')
+        return
+      }
+
+      // Save feedback (optional - can be empty)
+      const { error: feedbackError } = await supabaseAdmin
         .from('lessons')
-        .update({ coach_feedback: feedbackText })
+        .update({ coach_feedback: feedbackText.trim() || null })
         .eq('id', lessonId)
 
-      if (error) throw error
+      if (feedbackError) throw feedbackError
+
+      // Save practice plan (optional - can be empty)
+      const practicePlanUpdate = {
+        practice_plan: practicePlan.trim() || null,
+        practice_plan_time_estimate: practicePlan.trim() ? parseInt(practicePlanTime) : null,
+        practice_plan_completed: false, // Reset completion when updating
+        practice_plan_completed_at: null
+      }
+
+      const { error: practicePlanError } = await supabaseAdmin
+        .from('lessons')
+        .update(practicePlanUpdate)
+        .eq('id', lessonId)
+
+      if (practicePlanError) throw practicePlanError
 
       // Update local state
       setLessons(lessons.map(l => 
-        l.id === lessonId ? { ...l, coach_feedback: feedbackText } : l
+        l.id === lessonId ? { 
+          ...l, 
+          coach_feedback: feedbackText.trim() || null,
+          practice_plan: practicePlan.trim() || null,
+          practice_plan_time_estimate: practicePlan.trim() ? parseInt(practicePlanTime) : null
+        } : l
       ))
+
+      // Create notification for student if feedback was provided
+      if (feedbackText.trim()) {
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id: lesson.student_id,
+            type: 'feedback_posted',
+            title: 'Coach Feedback Posted',
+            body: `Your coach has posted feedback for your lesson on ${new Date(lesson.lesson_date).toLocaleDateString()}`,
+            link: `/dashboard`,
+            read: false
+          })
+      }
+
+      // Create notification for student if practice plan was added
+      if (practicePlan.trim()) {
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id: lesson.student_id,
+            type: 'practice_plan_assigned',
+            title: 'New Practice Plan Assigned',
+            body: `Your coach has assigned a new practice plan for this week!`,
+            link: `/dashboard`,
+            read: false
+          })
+      }
+
+      const savedItems = []
+      if (feedbackText.trim()) savedItems.push('feedback')
+      if (practicePlan.trim()) savedItems.push('practice plan')
+      
+      // Show success message
+      showToast(
+        savedItems.length > 0 
+          ? `${savedItems.join(' and ')} saved!` 
+          : 'Saved!', 
+        'success'
+      )
       
       // Collapse the feedback form
       setExpandedFeedbackId(null)
       setFeedbackText('')
+      setPracticePlan('')
+      setPracticePlanTime('15')
       
-      showToast('Feedback saved successfully!', 'success')
       fetchCoachData() // Refresh to get updated data
     } catch (error) {
       console.error('Error saving feedback:', error)
@@ -778,6 +850,23 @@ export default function CoachDashboard() {
     if (!selectedLesson) return
 
     try {
+      // Check if this is the first lesson plan for this student (before saving)
+      const { data: studentLessons } = await supabaseAdmin
+        .from('lessons')
+        .select('id, lesson_plan')
+        .eq('student_id', selectedLesson.student_id)
+        .neq('id', selectedLesson.id) // Exclude current lesson
+        .not('lesson_plan', 'is', null)
+        .neq('lesson_plan', '')
+
+      const isFirstLessonPlan = !studentLessons || studentLessons.length === 0
+      
+      console.log(`Checking first lesson plan for student ${selectedLesson.student_id}:`, {
+        existingLessonsWithPlans: studentLessons?.length || 0,
+        isFirstLessonPlan: isFirstLessonPlan,
+        currentLessonId: selectedLesson.id
+      })
+
       // Save both versions to database
       // lesson_plan stores the coach version (with coaching points)
       // student_lesson_plan stores the student version (motivational)
@@ -796,9 +885,73 @@ export default function CoachDashboard() {
 
       if (error) throw error
 
-      showToast('Lesson plan saved!', 'success')
+      // Update local state
+      setSelectedLesson({ ...selectedLesson, lesson_plan: lessonPlan })
       setIsEditingPlan(false)
       fetchCoachData() // Refresh to show updated lesson plan
+
+      // Send notification if this is the first lesson plan
+      if (isFirstLessonPlan && lessonPlan.trim()) {
+        try {
+          console.log('Sending first lesson plan notification...')
+          // Get student profile info
+          const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', selectedLesson.student_id)
+            .single()
+
+          if (profileError) {
+            console.error('Error fetching profile:', profileError)
+            throw profileError
+          }
+
+          if (profile && profile.email) {
+            console.log(`Sending notification to ${profile.full_name} (${profile.email})`)
+            
+            const functionUrl = window.location.hostname === 'localhost' 
+              ? 'http://localhost:8888/.netlify/functions/notify-lesson-plan-ready'
+              : '/.netlify/functions/notify-lesson-plan-ready'
+            
+            const response = await fetch(functionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                studentId: selectedLesson.student_id,
+                studentName: profile.full_name,
+                studentEmail: profile.email,
+                lessonId: selectedLesson.id,
+                lessonDate: selectedLesson.lesson_date,
+                lessonPlan: lessonPlan
+              })
+            })
+
+            const responseData = await response.json()
+            
+            if (response.ok) {
+              console.log('Lesson plan notification sent successfully:', responseData)
+              showToast(`Lesson plan saved! Notification email sent to ${profile.full_name}.`, 'success')
+            } else {
+              console.error('Failed to send notification:', response.status, responseData)
+              showToast(`Lesson plan saved, but notification email failed: ${responseData.error || 'Unknown error'}`, 'warning')
+            }
+          } else {
+            console.warn('No profile or email found for student:', selectedLesson.student_id)
+            showToast('Lesson plan saved!', 'success')
+          }
+        } catch (notifError) {
+          // Don't block lesson plan save if notification fails
+          console.error('Error sending lesson plan notification:', notifError)
+          showToast(`Lesson plan saved, but notification email failed: ${notifError.message}`, 'warning')
+        }
+      } else {
+        showToast('Lesson plan saved!', 'success')
+        if (!isFirstLessonPlan) {
+          console.log('Not sending notification - not first lesson plan')
+        }
+      }
     } catch (error) {
       console.error('Error saving lesson plan:', error)
       showToast('Error saving lesson plan: ' + error.message, 'error')
@@ -1573,22 +1726,86 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                         />
                           </div>
 
-                      {/* Practice Plan Generation */}
-                      <div style={{ marginBottom: '20px' }}>
-                        <button 
-                          className="btn btn-outline"
-                          onClick={() => handleFeedbackLessonClick(lesson)}
-                        >
-                          📝 Generate Practice Plan
-                        </button>
-                        <p style={{ 
-                          fontSize: '12px', 
-                          color: '#666', 
-                          marginTop: '8px',
-                          fontStyle: 'italic'
-                        }}>
-                          Opens full feedback modal with AI practice plan generator
+                      {/* Practice Plan Section */}
+                      <div style={{ marginTop: '24px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <label style={{ display: 'block', fontWeight: 'bold', fontSize: '16px' }}>
+                            🎯 Set This Week's Practice Plan
+                          </label>
+                          <button 
+                            onClick={async () => {
+                              // Generate practice plan for this specific lesson
+                              const originalSelected = selectedFeedbackLesson
+                              setSelectedFeedbackLesson(lesson)
+                              try {
+                                await handleGeneratePracticePlan()
+                              } finally {
+                                // Restore original selected lesson (or null if it was null)
+                                setSelectedFeedbackLesson(originalSelected)
+                              }
+                            }}
+                            className="btn btn-secondary"
+                            disabled={generatingPracticePlan}
+                            style={{
+                              padding: '8px 16px',
+                              fontSize: '14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            {generatingPracticePlan ? '🤖 Generating...' : '✨ Get AI Suggestion'}
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px', fontStyle: 'italic' }}>
+                          AI will suggest a personalized focus based on their goals and today's lesson
                         </p>
+                        
+                        <div style={{ marginBottom: '12px' }}>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
+                            Practice Plan (ONE focus for this week)
+                          </label>
+                          <textarea
+                            value={practicePlan}
+                            onChange={(e) => setPracticePlan(e.target.value)}
+                            placeholder="Example: Focus on serve toss consistency - 50 tosses in front of mirror, keeping arm relaxed"
+                            rows={4}
+                            className="input"
+                            style={{
+                              width: '100%',
+                              padding: '10px',
+                              fontSize: '14px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontFamily: 'inherit'
+                            }}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', fontSize: '14px' }}>
+                            Estimated Time
+                          </label>
+                          <select 
+                            value={practicePlanTime} 
+                            onChange={(e) => setPracticePlanTime(e.target.value)}
+                            className="input"
+                            style={{
+                              width: '100%',
+                              padding: '10px',
+                              fontSize: '14px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            <option value="5">5 minutes</option>
+                            <option value="10">10 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="20">20 minutes</option>
+                            <option value="30">30 minutes</option>
+                          </select>
+                        </div>
                       </div>
 
                       {/* Action Buttons */}
@@ -1596,15 +1813,16 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                         <button 
                           className="btn btn-primary"
                           onClick={() => handleSaveInlineFeedback(lesson.id)}
-                          disabled={!feedbackText.trim()}
                         >
-                          💾 Save Feedback
+                          💾 Save Feedback & Practice Plan
                         </button>
                         <button 
                           className="btn btn-outline"
                           onClick={() => {
                             setExpandedFeedbackId(null)
                             setFeedbackText('')
+                            setPracticePlan('')
+                            setPracticePlanTime('15')
                           }}
                         >
                           Cancel

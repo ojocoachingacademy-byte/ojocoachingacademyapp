@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import { X, Check } from 'lucide-react'
 import '../shared/Modal.css'
 import './MergeProfilesModal.css'
@@ -89,9 +90,31 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
       const deleteProfileId = fieldSelection.full_name === 'old' ? newProfileId : oldProfileId
       
       // Build merged profile data
+      const selectedEmail = fieldSelection.email === 'old' ? oldProfile?.email : newProfile?.email
+      
+      // Check if the selected email already exists in another profile (not the one being deleted)
+      // If it does, we need to handle it to avoid unique constraint violation
+      let finalEmail = selectedEmail
+      if (selectedEmail) {
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id, email')
+          .eq('email', selectedEmail)
+          .neq('id', keepProfileId) // Exclude the profile we're keeping
+          .maybeSingle()
+        
+        // If email exists in the profile being deleted, that's fine - we'll delete it
+        // But if it exists in a different profile, we need to handle it
+        if (existingProfile && existingProfile.id !== deleteProfileId) {
+          // Email exists in a different profile - use the kept profile's current email instead
+          console.warn(`Email ${selectedEmail} already exists in another profile. Keeping current email for profile ${keepProfileId}`)
+          finalEmail = fieldSelection.full_name === 'old' ? oldProfile?.email : newProfile?.email
+        }
+      }
+      
       const mergedProfile = {
         full_name: fieldSelection.full_name === 'old' ? oldProfile?.full_name : newProfile?.full_name,
-        email: fieldSelection.email === 'old' ? oldProfile?.email : newProfile?.email,
+        email: finalEmail,
         phone: fieldSelection.phone === 'old' ? oldProfile?.phone : newProfile?.phone,
         ntrp_level: fieldSelection.ntrp_level === 'old' ? oldProfile?.ntrp_level : newProfile?.ntrp_level
       }
@@ -109,8 +132,26 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
         private_coach_notes: fieldSelection.private_coach_notes === 'old' ? oldStudent?.private_coach_notes : newStudent?.private_coach_notes
       }
 
+      // First, temporarily update the email of the profile being deleted to avoid unique constraint
+      // This allows us to update the kept profile with the selected email
+      if (selectedEmail && deleteProfileId) {
+        const { data: deleteProfileData } = await supabaseAdmin
+          .from('profiles')
+          .select('email')
+          .eq('id', deleteProfileId)
+          .single()
+        
+        // If the profile being deleted has the same email we want to use, change it temporarily
+        if (deleteProfileData?.email === selectedEmail) {
+          await supabaseAdmin
+            .from('profiles')
+            .update({ email: `deleted_${Date.now()}_${deleteProfileId.substring(0, 8)}@temp.merge` })
+            .eq('id', deleteProfileId)
+        }
+      }
+
       // Update the profile to keep
-      const { error: profileError } = await supabase
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update(mergedProfile)
         .eq('id', keepProfileId)
@@ -118,7 +159,7 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
       if (profileError) throw profileError
 
       // Update the student to keep
-      const { error: studentError } = await supabase
+      const { error: studentError } = await supabaseAdmin
         .from('students')
         .update(mergedStudent)
         .eq('id', keepProfileId)
@@ -127,36 +168,42 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
 
       // Update all foreign key references from deleteProfileId to keepProfileId
       // Update lessons
-      await supabase
+      await supabaseAdmin
         .from('lessons')
         .update({ student_id: keepProfileId })
         .eq('student_id', deleteProfileId)
 
       // Update payment_transactions
-      await supabase
+      await supabaseAdmin
         .from('payment_transactions')
         .update({ student_id: keepProfileId })
         .eq('student_id', deleteProfileId)
 
       // Update lesson_transactions
-      await supabase
+      await supabaseAdmin
         .from('lesson_transactions')
         .update({ student_id: keepProfileId })
         .eq('student_id', deleteProfileId)
 
       // Update referred_by_student_id in students table
-      await supabase
+      await supabaseAdmin
         .from('students')
         .update({ referred_by_student_id: keepProfileId })
         .eq('referred_by_student_id', deleteProfileId)
 
+      // Update paired_with_id if either profile is part of a pair
+      await supabaseAdmin
+        .from('students')
+        .update({ paired_with_id: keepProfileId })
+        .eq('paired_with_id', deleteProfileId)
+
       // Delete the duplicate profile and student
-      await supabase
+      await supabaseAdmin
         .from('students')
         .delete()
         .eq('id', deleteProfileId)
 
-      await supabase
+      await supabaseAdmin
         .from('profiles')
         .delete()
         .eq('id', deleteProfileId)

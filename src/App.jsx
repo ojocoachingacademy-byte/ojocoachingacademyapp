@@ -53,17 +53,31 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!isMounted) return
+      
+      // Prevent loops: if we're signing out, don't try to fetch profile
+      if (_event === 'SIGNED_OUT') {
+        setSession(null)
+        setProfile(null)
+        setLoading(false)
+        return
+      }
       
       setSession(session)
       if (session) {
-        fetchProfile(session.user.id, isMounted)
-        // Track login event on auth state change
-        if (_event === 'SIGNED_IN') {
-          trackEvent(EVENTS.LOGIN)
+        // Only fetch profile if we have a valid session
+        // Add a small delay to prevent rapid-fire calls
+        await new Promise(resolve => setTimeout(resolve, 100))
+        if (isMounted && session) {
+          fetchProfile(session.user.id, isMounted)
+          // Track login event on auth state change
+          if (_event === 'SIGNED_IN') {
+            trackEvent(EVENTS.LOGIN)
+          }
         }
       } else {
+        setProfile(null)
         setLoading(false)
       }
     })
@@ -76,6 +90,18 @@ function App() {
 
   const fetchProfile = async (userId, isMounted) => {
     try {
+      // Check current session state before fetching
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      
+      if (!isMounted) return
+      
+      // If no current session, don't try to fetch profile
+      if (!currentSession) {
+        setProfile(null)
+        setLoading(false)
+        return
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -86,16 +112,57 @@ function App() {
       
       if (error) {
         console.error('Error fetching profile:', error)
+        // If profile doesn't exist and user is logged in, they might have been deleted
+        // Sign them out to prevent blank screen
+        if (error.code === 'PGRST116' || error.message?.includes('not found')) {
+          console.warn('Profile not found for logged-in user. Signing out...')
+          await supabase.auth.signOut()
+          setSession(null)
+          setProfile(null)
+          setLoading(false)
+          // Force navigation to login
+          window.location.href = '/login'
+          return
+        }
+        setProfile(null)
         setLoading(false)
         return
       }
       
-      // If no profile exists, set to null (user might be in auth but not have profile yet)
+      // If no profile exists but user is logged in, sign them out
+      // This prevents the blank loading screen issue when profile is deleted but auth user isn't
+      if (!data && currentSession) {
+        console.warn('No profile found for logged-in user. Signing out to prevent blank screen...')
+        await supabase.auth.signOut()
+        setSession(null)
+        setProfile(null)
+        setLoading(false)
+        // Force navigation to login to break any loops
+        window.location.href = '/login'
+        return
+      }
+      
       setProfile(data || null)
       setLoading(false)
     } catch (error) {
       if (!isMounted) return
       console.error('Error fetching profile:', error)
+      
+      // Check if user still has a session
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      
+      // Sign out if profile fetch fails and user is logged in
+      if (currentSession) {
+        console.warn('Profile fetch failed for logged-in user. Signing out...')
+        await supabase.auth.signOut()
+        setSession(null)
+        setProfile(null)
+        setLoading(false)
+        // Force navigation to login to break any loops
+        window.location.href = '/login'
+        return
+      }
+      
       setProfile(null)
       setLoading(false)
     }
