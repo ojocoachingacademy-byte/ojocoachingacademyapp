@@ -4,16 +4,36 @@
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  /* PWA safe area support */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
-@media (min-width: 768px) {
+/* Mobile optimizations */
+@media (max-width: 768px) {
   .coach-page-content {
-    padding-bottom: 100px;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    /* Touch optimization */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent text size adjustment on iOS */
+    -webkit-text-size-adjust: 100%;
   }
 }
 
-@media (max-width: 768px) {
+/* Desktop optimizations */
+@media (min-width: 768px) {
   .coach-page-content {
-    padding-bottom: 90px; /* Extra space for bottom nav */
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+}
+
+/* PWA specific optimizations */
+@media (display-mode: standalone) {
+  .coach-page-content {
+    /* Extra padding for PWA status bar */
+    padding-top: env(safe-area-inset-top);
   }
 }

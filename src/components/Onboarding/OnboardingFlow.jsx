@@ -157,48 +157,11 @@ const OnboardingFlow = ({ studentData, onComplete }) => {
           : null
       })
 
-        // Send immediate email notification to coach
-        try {
-          const studentName = studentData?.profiles?.full_name || 'New Student'
-          const studentEmail = studentData?.profiles?.email || 'No email provided'
-          const bigGoal = developmentPlanData.section1.bigGoal || 'Not specified'
-          const goalText = bigGoal === 'custom' 
-            ? developmentPlanData.section1.customGoal 
-            : (GOAL_OPTIONS.find(g => g.value === bigGoal)?.label || bigGoal)
-
-          const immediateEmailSubject = `New Student Signup: ${studentName}`
-          const immediateEmailBody = `
-            <h2>New Student Just Signed Up! 🎾</h2>
-            <p><strong>Student Name:</strong> ${studentName}</p>
-            <p><strong>Email:</strong> ${studentEmail}</p>
-            <p><strong>Goal:</strong> ${goalText}</p>
-            <p><strong>Development Plan Created:</strong> Yes</p>
-            <p><em>You'll receive a detailed email with their full development plan in 30 minutes after calendar sync.</em></p>
-          `
-
-          const emailResponse = await fetch('/.netlify/functions/send-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              to: 'tobi@ojocoachingacademy.com',
-              subject: immediateEmailSubject,
-              html: immediateEmailBody,
-              text: immediateEmailBody.replace(/<[^>]*>/g, '')
-            })
-          })
-
-          if (!emailResponse.ok) {
-            const errorText = await emailResponse.text()
-            console.warn('Email function returned non-OK status:', emailResponse.status, errorText)
-          }
-        } catch (emailError) {
-          // Don't block onboarding completion if email fails
-          console.error('Error sending immediate notification:', emailError)
-        }
+        // REMOVED: Immediate email notification
+        // Only the delayed email (below) will be sent to prevent duplicates
 
       // Schedule delayed email notification (30 minutes after onboarding)
+      // This is the ONLY email sent after development plan completion
       try {
         await fetch('/.netlify/functions/delayed-onboarding-notification', {
           method: 'POST',

@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Users, Calendar, Clock, Plus, Minus, Mail, Phone, Award, Target, MoreVertical, Edit2 } from 'lucide-react'
-import Anthropic from '@anthropic-ai/sdk'
+// Anthropic API calls are now handled server-side via Netlify functions
 import { GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import './CoachDashboard.css'
 import '../shared/Modal.css'
@@ -966,41 +966,42 @@ export default function CoachDashboard() {
 
     setRefiningPlan(true)
     try {
-      // Direct Anthropic API call for refining lesson plan
-      const anthropic = new Anthropic({
-        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-        dangerouslyAllowBrowser: true
+      // Call secure Netlify function instead of direct API call
+      const functionUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:8888/.netlify/functions/refine-lesson-plan'
+        : '/.netlify/functions/refine-lesson-plan'
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPlan: lessonPlan,
+          feedback: refinementFeedback
+        })
       })
 
-      const prompt = `You are an expert tennis coach. Refine this lesson plan based on the feedback provided.
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
 
-CURRENT LESSON PLAN:
-${lessonPlan}
+      const data = await response.json()
+      const refinedPlan = data.lessonPlan || data.refinedPlan
 
-COACH'S FEEDBACK/REQUESTED CHANGES:
-${refinementFeedback}
-
-Please provide an updated lesson plan that incorporates the feedback. Keep the same format but adjust content as requested.
-Do NOT use markdown formatting - just plain text with line breaks.`
-
-      const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
-      })
-
-      const refinedPlan = message.content[0].text
+      if (!refinedPlan) {
+        throw new Error('No refined plan returned from server')
+      }
 
       // Strip markdown from refined plan
       setLessonPlan(stripMarkdown(refinedPlan))
       setRefinementFeedback('')
       setIsEditingPlan(false) // Show in display mode
+      showToast('Lesson plan refined successfully!', 'success')
     } catch (error) {
       console.error('Error refining lesson plan:', error)
-      showToast('Error refining lesson plan: ' + error.message + '. Make sure VITE_ANTHROPIC_API_KEY is set in your .env file.', 'error')
+      showToast('Error refining lesson plan: ' + (error.message || 'Please try again'), 'error')
     } finally {
       setRefiningPlan(false)
     }
@@ -1662,6 +1663,27 @@ Do NOT use markdown formatting - just plain text with line breaks.`
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {/* Link to Development Plan */}
+                      <div style={{ 
+                        marginBottom: '16px', 
+                        paddingBottom: '16px', 
+                        borderBottom: '1px solid #e0e0e0' 
+                      }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => navigate(`/coach/students/${lesson.student_id}`)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '14px'
+                          }}
+                        >
+                          <Target size={16} />
+                          View {studentName}'s Development Plan
+                        </button>
+                      </div>
+
                       {/* Student Learnings */}
                       {lesson.student_learnings && lesson.student_learnings.trim() !== '' && (
                         <div style={{ marginBottom: '24px' }}>

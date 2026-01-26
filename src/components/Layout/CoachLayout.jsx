@@ -15,13 +15,13 @@ export default function CoachLayout({ children }) {
     const path = location.pathname
     let newTab = 'dashboard'
     
-    if (path.startsWith('/coach/students')) {
-      newTab = 'students'
-    } else if (path.startsWith('/coach/lessons')) {
-      newTab = 'lessons'
-    } else if (path.startsWith('/coach/calendar')) {
-      newTab = 'calendar'
-    } else if (path === '/coach') {
+    if (path.startsWith('/coach/students') || path.startsWith('/coach/lessons') || path.startsWith('/coach/calendar') || path.startsWith('/coach/emails')) {
+      newTab = 'manage'
+    } else if (path.startsWith('/coach/finances') || path.startsWith('/coach/expenses')) {
+      newTab = 'finances'
+    } else if (path.startsWith('/coach/testimonials') || path.startsWith('/coach/referrals')) {
+      newTab = 'community'
+    } else if (path === '/coach' || path.startsWith('/coach/dashboard')) {
       newTab = 'dashboard'
     }
     
@@ -32,12 +32,12 @@ export default function CoachLayout({ children }) {
 
   // Handle tab navigation when user clicks a tab
   const handleTabChange = (tabId) => {
-    if (tabId === 'students') {
-      navigate('/coach/students')
-    } else if (tabId === 'lessons') {
-      navigate('/coach/lessons')
-    } else if (tabId === 'calendar') {
-      navigate('/coach/calendar')
+    if (tabId === 'manage') {
+      navigate('/coach/students') // Default to students page
+    } else if (tabId === 'finances') {
+      navigate('/coach/finances') // Navigate to finances page
+    } else if (tabId === 'community') {
+      navigate('/coach/testimonials') // Default to testimonials
     } else if (tabId === 'dashboard') {
       navigate('/coach')
     }

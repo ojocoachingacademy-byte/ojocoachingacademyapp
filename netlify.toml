@@ -14,7 +14,7 @@
   schedule = "0 20 * * 3"  # 12pm PST (8pm UTC) - adjust timezone as needed
 
 [functions."send-lesson-recap"]
-  schedule = "0 2 * * 1"  # 6pm PST Sunday (2am UTC Monday) - adjust timezone as needed
+  schedule = "0 20 * * 1"  # Monday 12pm PST (8pm UTC) - recaps previous Sunday's lessons
 
 [functions."process-scheduled-notifications"]
   schedule = "*/10 * * * *"

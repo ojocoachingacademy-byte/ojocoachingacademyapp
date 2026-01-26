@@ -77,6 +77,28 @@
   transform: scale(1.05);
 }
 
+.tab-button.dropdown-open {
+  background: rgba(75, 44, 108, 0.12);
+}
+
+.dropdown-chevron {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: #4B2C6C;
+  opacity: 0.6;
+  transition: transform 0.3s ease;
+}
+
+.dropdown-chevron.open {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.tab-button {
+  position: relative;
+}
+
 /* Desktop view - keep bottom nav but make it more compact */
 @media (min-width: 768px) {
   .coach-tabs {
@@ -87,6 +109,40 @@
     max-width: 600px;
     margin: 0 auto;
     border-radius: 20px 20px 0 0;
+    /* PWA safe area support */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .coach-tabs {
+    /* PWA safe area support for mobile */
+    padding-bottom: env(safe-area-inset-bottom);
+    /* Ensure it's above everything */
+    z-index: 1000;
+  }
+
+  .tab-button {
+    /* Larger touch targets for mobile */
+    min-height: 56px;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .tab-icon {
+    font-size: 1.6rem;
+  }
+
+  .tab-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* PWA specific optimizations */
+@media (display-mode: standalone) {
+  .coach-tabs {
+    /* Extra padding for PWA home indicator on iOS */
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
   }
 }
 

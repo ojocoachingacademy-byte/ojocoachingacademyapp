@@ -401,6 +401,33 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
         </div>
       </div>
 
+      {/* App Settings */}
+      <div className="profile-section">
+        <h3>App Settings</h3>
+        <button
+          onClick={async () => {
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations()
+              registrations.forEach((registration) => registration.unregister())
+            }
+            // Clear all caches
+            if ('caches' in window) {
+              const cacheNames = await caches.keys()
+              cacheNames.forEach((name) => caches.delete(name))
+            }
+            // Reload
+            window.location.reload(true)
+          }}
+          className="btn btn-outline"
+          style={{ width: '100%', marginBottom: '8px' }}
+        >
+          🔄 Force Refresh App
+        </button>
+        <p style={{ fontSize: '12px', color: '#666', marginTop: '8px', marginBottom: 0 }}>
+          Use this if the app is behaving strangely or stuck on an old version
+        </p>
+      </div>
+
       {/* Logout */}
       <div className="profile-section logout-section">
         <button className="btn-logout" onClick={handleLogout}>

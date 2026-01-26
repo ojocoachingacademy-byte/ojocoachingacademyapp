@@ -8,7 +8,8 @@ exports.handler = async (event) => {
   try {
     const { studentName, goals, skillLevel, todayLessonPlan, todayNotes, recentLessons } = JSON.parse(event.body)
     
-    const apiKey = process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY
+    // Use server-side environment variable only (NOT VITE_ prefixed)
+    const apiKey = process.env.ANTHROPIC_API_KEY
     
     if (!apiKey) {
       return {

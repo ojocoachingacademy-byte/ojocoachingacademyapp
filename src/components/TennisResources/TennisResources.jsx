@@ -118,9 +118,17 @@ export default function TennisResources() {
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'f40f401599c1c5ad7f7e5591'
+    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
     
-    if (!apiKey) return
+    if (!apiKey) {
+      console.warn('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your environment variables.')
+      return
+    }
+    
+    if (!mapId) {
+      console.warn('Google Maps Map ID not configured. Please set VITE_GOOGLE_MAPS_MAP_ID in your environment variables.')
+      return
+    }
 
     // Already fully loaded
     if (mapsLoaded && window.google?.maps?.Map) {
@@ -191,8 +199,20 @@ export default function TennisResources() {
       return
     }
 
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDYcECmxX_mY3JKXz8P0qyws_62pBxWZMY'
-    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'f40f401599c1c5ad7f7e5591'
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+    
+    if (!apiKey) {
+      console.error('Google Maps API key not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your environment variables.')
+      setLocationError('Google Maps API key not configured')
+      return
+    }
+    
+    if (!mapId) {
+      console.error('Google Maps Map ID not configured. Please set VITE_GOOGLE_MAPS_MAP_ID in your environment variables.')
+      setLocationError('Google Maps Map ID not configured')
+      return
+    }
 
     console.log('Using Map ID:', mapId)
 

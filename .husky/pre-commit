@@ -1,56 +1,5 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-# Load .env file if it exists (optional - skip if not available)
-# Note: Schema check will be skipped if credentials aren't available
-if [ -f .env ]; then
-  # Try to load .env, but don't fail if it has issues
-  set -a
-  . .env 2>/dev/null || true
-  set +a
-fi
-
-# Only run schema check if credentials are available
-if [ -n "$VITE_SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-  echo "🔍 Checking if database schema changed..."
-
-  # Check if .schema-cache.json exists
-  if [ ! -f ".schema-cache.json" ]; then
-    echo "⚠️  No schema cache found, generating..."
-    npm run generate-delete-function 2>/dev/null || echo "⚠️  Could not generate delete function (credentials may be missing)"
-    git add netlify/functions/delete-auth-user.js .schema-cache.json 2>/dev/null || true
-    exit 0
-  fi
-
-  # Analyze current schema
-  npm run analyze-schema >/dev/null 2>&1 || {
-    echo "⚠️  Could not analyze schema (credentials may be missing), skipping..."
-    exit 0
-  }
-
-  # Get current hash
-  CURRENT_HASH=$(node scripts/get-schema-hash.js 2>/dev/null || echo "none")
-
-  # Get previous hash (from git)
-  PREVIOUS_HASH=$(git show HEAD:.schema-cache.json 2>/dev/null | node scripts/get-schema-hash.js 2>/dev/null || echo "none")
-
-  if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
-    echo "📝 Schema changed (${PREVIOUS_HASH} → ${CURRENT_HASH}), regenerating delete function..."
-    npm run generate-delete-function 2>/dev/null || echo "⚠️  Could not regenerate delete function"
-    git add netlify/functions/delete-auth-user.js .schema-cache.json 2>/dev/null || true
-    echo "✅ Delete function updated automatically"
-  else
-    echo "✅ Schema unchanged, no regeneration needed"
-  fi
-else
-  echo "⚠️  Supabase credentials not available, skipping schema check"
-fi
-
-# Also run validation if delete function was manually modified
-if git diff --cached --name-only | grep -qE "(delete-auth-user\.js|\.sql$|supabase/migrations)"; then
-  echo "⚠️  Delete function or database schema files modified. Running validation..."
-  npm run check-delete || {
-    echo "❌ Delete function validation failed. Please fix issues before committing."
-    exit 1
-  }
-fi
+# Run Node.js pre-commit script (cross-platform, handles .env properly)
+node scripts/pre-commit.js

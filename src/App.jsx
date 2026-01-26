@@ -25,9 +25,11 @@ import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
 import TestimonialsManagement from './components/Testimonials/TestimonialsManagement'
 import TennisResources from './components/TennisResources/TennisResources'
 import EmailsManagement from './components/Coach/EmailsManagement'
+import CoachLayout from './components/Layout/CoachLayout'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 import ErrorBoundary from './components/shared/ErrorBoundary'
+import AppUpdateNotice from './components/shared/AppUpdateNotice'
 import { trackEvent, EVENTS } from './utils/analytics'
 
 function App() {
@@ -177,6 +179,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <AppUpdateNotice />
       <Router>
         {session && <Header user={session.user} isCoach={isCoach} />}
         <Routes>
@@ -215,15 +218,15 @@ function App() {
         />
         <Route 
           path="/coach/finances" 
-          element={session && isCoach ? <FinancialDashboard /> : <Navigate to="/login" />} 
+          element={session && isCoach ? <CoachLayout><FinancialDashboard /></CoachLayout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/coach/expenses" 
-          element={session && isCoach ? <ExpensesPage /> : <Navigate to="/login" />} 
+          element={session && isCoach ? <CoachLayout><ExpensesPage /></CoachLayout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/coach/referrals" 
-          element={session && isCoach ? <ReferralDashboard /> : <Navigate to="/login" />} 
+          element={session && isCoach ? <CoachLayout><ReferralDashboard /></CoachLayout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/coach/test/referral-integration" 
@@ -231,7 +234,7 @@ function App() {
         />
         <Route 
           path="/coach/testimonials" 
-          element={session && isCoach ? <TestimonialsManagement /> : <Navigate to="/login" />} 
+          element={session && isCoach ? <CoachLayout><TestimonialsManagement /></CoachLayout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/coach/emails" 

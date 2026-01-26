@@ -1,7 +1,8 @@
 /**
  * Netlify Scheduled Function: Send Lesson Recap Emails
- * Runs every Sunday at 6pm
+ * Runs every Monday at 12pm PST (8pm UTC)
  * Sends recap emails to students after their lessons
+ * Recaps previous Sunday's lessons
  * Trigger: After coach completes lesson feedback
  */
 
@@ -9,7 +10,7 @@ const { createClient } = require('@supabase/supabase-js')
 
 exports.handler = async (event, context) => {
   // This function can be called:
-  // 1. On a schedule (Sunday 6pm PST = 2am UTC Monday) - sends recaps for lessons completed that day
+  // 1. On a schedule (Monday 12pm PST = 8pm UTC) - sends recaps for previous Sunday's lessons
   // 2. Manually triggered after coach submits feedback
   
   console.log('=== LESSON RECAP EMAILS STARTED ===')

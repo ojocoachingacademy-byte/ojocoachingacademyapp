@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
 import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2, Users } from 'lucide-react'
-import Anthropic from '@anthropic-ai/sdk'
+// Anthropic API calls are now handled server-side via Netlify functions
 import DevelopmentPlanForm from '../DevelopmentPlan/DevelopmentPlanForm'
 import StudentPracticePlans from './StudentPracticePlans'
 import NewConversationModal from '../Messaging/NewConversationModal'
@@ -915,40 +915,41 @@ export default function StudentDetailPage() {
 
     setRefiningPlan(true)
     try {
-      // Direct Anthropic API call for refining lesson plan
-      const anthropic = new Anthropic({
-        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-        dangerouslyAllowBrowser: true
+      // Call secure Netlify function instead of direct API call
+      const functionUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:8888/.netlify/functions/refine-lesson-plan'
+        : '/.netlify/functions/refine-lesson-plan'
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPlan: lessonEditForm.lesson_plan,
+          feedback: refinementFeedback
+        })
       })
 
-      const prompt = `You are an expert tennis coach. Refine this lesson plan based on the feedback provided.
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
 
-CURRENT LESSON PLAN:
-${lessonEditForm.lesson_plan}
+      const data = await response.json()
+      const refinedPlan = data.lessonPlan || data.refinedPlan
 
-COACH'S FEEDBACK/REQUESTED CHANGES:
-${refinementFeedback}
-
-Please provide an updated lesson plan that incorporates the feedback. Keep the same format but adjust content as requested.
-Do NOT use markdown formatting - just plain text with line breaks.`
-
-      const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
-      })
-
-      const refinedPlan = message.content[0].text
+      if (!refinedPlan) {
+        throw new Error('No refined plan returned from server')
+      }
 
       // Update the lesson plan in the form
       setLessonEditForm(prev => ({ ...prev, lesson_plan: stripMarkdown(refinedPlan) }))
       setRefinementFeedback('')
+      showToast('Lesson plan refined successfully!', 'success')
     } catch (error) {
       console.error('Error refining lesson plan:', error)
-      showToast('Error refining lesson plan: ' + error.message + '. Make sure VITE_ANTHROPIC_API_KEY is set in your .env file.', 'error')
+      showToast('Error refining lesson plan: ' + (error.message || 'Please try again'), 'error')
     } finally {
       setRefiningPlan(false)
     }

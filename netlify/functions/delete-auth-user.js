@@ -541,9 +541,41 @@ export const handler = async (event, context) => {
         console.log('User exists in auth, proceeding with deletion')
       }
       
-      // Try to delete auth user FIRST (before profile)
-      // This is the correct order - deleting auth user may CASCADE delete profile
-      const { data: deleteData, error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      // Try API deletion first
+      let authDeleteError = null
+      const { error: apiDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      
+      if (apiDeleteError) {
+        console.log('⚠️ API deletion failed, using SQL fallback...')
+        authDeleteError = apiDeleteError
+        
+        // Fallback to SQL function
+        const { error: sqlError } = await supabaseAdmin.rpc('force_delete_auth_user', {
+          user_id: userId
+        })
+        
+        if (sqlError) {
+          console.error('❌ SQL deletion failed:', sqlError)
+          authDeleteError = sqlError
+        } else {
+          console.log('✅ User deleted via SQL fallback')
+          authDeleteError = null // Success, clear the error
+        }
+      } else {
+        console.log('✅ User deleted via API')
+      }
+      
+      // Verify it worked
+      if (!authDeleteError) {
+        const { data: verifyUser } = await supabaseAdmin.auth.admin.getUserById(userId).catch(() => ({ data: null }))
+        if (verifyUser?.user) {
+          throw new Error('User still exists after deletion!')
+        }
+        console.log('✅ Verified: Auth user fully deleted')
+      }
+      
+      // If deletion failed, set authDeleteError for the error handling below
+      const deleteData = authDeleteError ? null : { success: true }
 
       if (authDeleteError) {
         console.error('Error deleting auth user:', authDeleteError)

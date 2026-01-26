@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/generate-service-worker.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "check-delete": "node scripts/check-delete-function.js",
     "analyze-schema": "node scripts/analyze-schema.js",
     "generate-delete-function": "node scripts/generate-delete-function.js",
+    "generate-service-worker": "node scripts/generate-service-worker.js",
     "prepare": "husky"
   },
   "dependencies": {

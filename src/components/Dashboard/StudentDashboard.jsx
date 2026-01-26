@@ -290,9 +290,25 @@ export default function StudentDashboard() {
       if (studentError) throw studentError
       setStudent(studentData)
 
-      // Check if onboarding needed
-      if (!studentData.onboarding_completed) {
+      // Check if onboarding should be shown
+      // Skip if: onboarding_completed is true OR development_plan already exists
+      const hasDevelopmentPlan = studentData.development_plan && 
+        (typeof studentData.development_plan === 'string' 
+          ? studentData.development_plan.trim() !== '' && studentData.development_plan !== '{}'
+          : Object.keys(studentData.development_plan || {}).length > 0)
+      const onboardingComplete = studentData.onboarding_completed === true
+
+      if (!onboardingComplete && !hasDevelopmentPlan) {
         setShowOnboarding(true)
+      } else if (!onboardingComplete && hasDevelopmentPlan) {
+        // User has dev plan but onboarding_completed flag wasn't set
+        // Fix it in the database
+        await supabase
+          .from('students')
+          .update({ onboarding_completed: true })
+          .eq('id', user.id)
+        
+        console.log('Fixed onboarding_completed flag for existing user')
       }
 
       // Development plan is stored in studentData.development_plan (JSON)
