@@ -4,10 +4,6 @@ import { getMilestonesByLevel } from './MilestonesConstants'
 import { CheckCircle, Target } from 'lucide-react'
 import './MilestoneTracker.css'
 
-function renderCampMountain(campStart, campEnd, campLayout) {
-  return null; // temporary
-}
-
 export default function MilestoneTracker({ studentId, isCoach = false, playerLevel = 'beginner', highlightTargetMilestone = null }) {
   const [achievedMilestones, setAchievedMilestones] = useState([])
   const [loading, setLoading] = useState(true)
@@ -16,22 +12,35 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
   
   const milestones = getMilestonesByLevel(playerLevel)
   
-  // Click outside to deselect
+  // Click outside to deselect (but not on milestone nodes or camp headers)
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      if (!containerRef.current) return
+      
+      // Don't deselect if clicking on a milestone node or camp header
+      const target = event.target
+      const isMilestoneNode = target.closest('.milestone-node')
+      const isCampHeader = target.closest('.camp-header')
+      
+      if (isMilestoneNode || isCampHeader) {
+        return // Let the node's own onClick handle it
+      }
+      
+      // Only deselect if clicking truly outside the container
+      if (!containerRef.current.contains(target)) {
         setSelectedMilestoneId(null)
       }
     }
     
     if (selectedMilestoneId !== null) {
-      document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('touchstart', handleClickOutside)
+      // Use capture phase to catch events before they bubble
+      document.addEventListener('mousedown', handleClickOutside, true)
+      document.addEventListener('touchstart', handleClickOutside, true)
     }
     
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside, true)
+      document.removeEventListener('touchstart', handleClickOutside, true)
     }
   }, [selectedMilestoneId])
 
@@ -167,11 +176,17 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
     return getCurrentCamp()
   })
 
-  // Update expanded camp when achievements change
+  // Update expanded camp when achievements change (but preserve user's manual selection)
   useEffect(() => {
-    if (!loading) {
+    if (!loading && achievedMilestones.length > 0) {
+      // Only auto-expand if no camp is currently expanded, or if user hasn't manually selected one
+      // This prevents jumping camps when user is viewing a specific camp
       const currentCamp = getCurrentCamp()
-      setExpandedCamp(currentCamp)
+      // Only update if expandedCamp is null or matches the calculated current camp
+      // This way, if user manually expanded a different camp, we don't force-switch them
+      if (expandedCamp === null || expandedCamp === currentCamp) {
+        setExpandedCamp(currentCamp)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, achievedMilestones.length])
@@ -213,6 +228,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                     className={`milestone-node ${achieved ? 'achieved' : ''} ${nextToAchieve ? 'next-up' : ''} ${isTarget ? 'target-milestone' : ''} ${isCoach ? 'clickable' : ''} ${isSelected ? 'selected' : ''} ${isTopNode ? 'summit-node' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation() // Prevent camp header toggle
+                      e.preventDefault() // Prevent any default behavior
                       if (isCoach) {
                         handleToggleMilestone(milestone)
                       } else {
@@ -258,8 +274,6 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
       </div>
     )
   }
-
-  console.log('renderCampMountain is', typeof renderCampMountain);
 
   return (
     <div className="mountain-journey" ref={containerRef}>
@@ -359,7 +373,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                   </div>
                   
                   {expandedCamp === 'advanced' && (
-                    <div className="camp-milestones-container">
+                    <div className="camp-milestones-container camp-content-expanded">
                       {renderCampMountain(19, 24, campPyramidLayout)}
                     </div>
                   )}
@@ -447,7 +461,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                   </div>
                   
                   {expandedCamp === 'learner' && (
-                    <div className="camp-milestones-container">
+                    <div className="camp-milestones-container camp-content-expanded">
                       {renderCampMountain(7, 12, campPyramidLayout)}
                     </div>
                   )}

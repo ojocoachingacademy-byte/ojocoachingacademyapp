@@ -6,7 +6,7 @@
  * Trigger: After coach completes lesson feedback
  */
 
-const { createClient } = require('@supabase/supabase-js')
+import { createClient } from '@supabase/supabase-js'
 
 export const handler = async (event, context) => {
   // This function can be called:
