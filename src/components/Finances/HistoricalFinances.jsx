@@ -4,9 +4,9 @@ import { supabase } from '../../supabaseClient'
 import { getWebsiteReferralStats } from '../../utils/referralDataSync'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
-import './FinancialDashboard.css'
+import './HistoricalFinances.css'
 
-export default function FinancialDashboard() {
+export default function HistoricalFinances() {
   const navigate = useNavigate()
   const [filteredStats, setFilteredStats] = useState({
     totalRevenue: 0,
@@ -702,7 +702,7 @@ export default function FinancialDashboard() {
   return (
     <div className="financial-dashboard">
       <div className="fin-dashboard-header">
-        <h1>💰 Financial Dashboard</h1>
+        <h1>📊 Historical Finances</h1>
         <div className="fin-header-actions">
           <div className="filter-group">
             <label>Year:</label>

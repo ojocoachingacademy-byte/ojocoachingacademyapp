@@ -96,7 +96,13 @@ const CoachTabsDropdown = ({
         label: 'Overview', 
         path: '/coach/finances', 
         icon: DollarSign,
-        active: isActive('/coach/finances')
+        active: isActive('/coach/finances') && !location.pathname.includes('/historical')
+      },
+      { 
+        label: 'Historical', 
+        path: '/coach/finances/historical', 
+        icon: Calendar,
+        active: isActive('/coach/finances/historical')
       },
       { 
         label: 'Expenses', 

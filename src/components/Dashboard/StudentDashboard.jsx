@@ -126,8 +126,9 @@ export default function StudentDashboard() {
 
       if (completedLessons && completedLessons.length > 0) {
         // Filter for lessons without learnings (null, empty string, or just whitespace)
+        // Exclude lessons with learnings_waived flag
         const lessonsWithoutLearnings = completedLessons.filter(
-          lesson => !lesson.student_learnings || lesson.student_learnings.trim() === ''
+          lesson => (!lesson.student_learnings || lesson.student_learnings.trim() === '') && !lesson.metadata?.learnings_waived
         )
         
         // Find the most recent one that we haven't prompted for
@@ -147,7 +148,10 @@ export default function StudentDashboard() {
 
         if (lessonToShow) {
           // Double-check the lesson still meets criteria
-          if (lessonToShow.status !== 'completed' || (lessonToShow.student_learnings && lessonToShow.student_learnings.trim() !== '')) {
+          // Exclude lessons with learnings_waived flag
+          if (lessonToShow.status !== 'completed' || 
+              (lessonToShow.student_learnings && lessonToShow.student_learnings.trim() !== '') ||
+              lessonToShow.metadata?.learnings_waived) {
             return
           }
           
@@ -569,34 +573,56 @@ export default function StudentDashboard() {
   
   // Update past scheduled lessons to completed in database
   useEffect(() => {
-    lessons.forEach(lesson => {
+    if (!lessons || lessons.length === 0) return
+    
+    const now = new Date()
+    // Find lessons that need to be updated (scheduled but past date)
+    const lessonsToUpdate = lessons.filter(lesson => {
       const lessonDate = new Date(lesson.lesson_date)
-      if (lesson.status === 'scheduled' && lessonDate < now) {
-        supabase
-          .from('lessons')
-          .update({ status: 'completed' })
-          .eq('id', lesson.id)
-          .then(async ({ error }) => {
-            if (error) {
-              logger.error('Error updating lesson status:', error)
-            } else {
-              // Check if testimonial request should be created
-              // The database trigger will create it, but we can also check client-side
-              // and send email notification
-              if (student && pastLessons.length + 1 >= 5) {
+      return lesson.status === 'scheduled' && lessonDate < now
+    })
+    
+    if (lessonsToUpdate.length === 0) return
+    
+    // Process updates
+    lessonsToUpdate.forEach(lesson => {
+      supabase
+        .from('lessons')
+        .update({ status: 'completed' })
+        .eq('id', lesson.id)
+        .then(async ({ error }) => {
+          if (error) {
+            logger.error('Error updating lesson status:', error)
+          } else {
+            // Check if testimonial request should be created
+            // The database trigger will create it, but we can also check client-side
+            // and send email notification
+            const studentId = student?.id
+            if (studentId) {
+              // Fetch updated lessons count after update
+              const { data: updatedLessons } = await supabase
+                .from('lessons')
+                .select('id, status, lesson_date')
+                .eq('student_id', studentId)
+                .eq('status', 'completed')
+              
+              const currentPastLessonsCount = updatedLessons?.length || 0
+              
+              if (currentPastLessonsCount >= 5) {
                 try {
                   const { checkAndCreateTestimonialRequest } = await import('../../utils/checkAndCreateTestimonialRequest')
-                  await checkAndCreateTestimonialRequest(student.id, pastLessons.length + 1)
+                  await checkAndCreateTestimonialRequest(studentId, currentPastLessonsCount)
                 } catch (err) {
                   logger.error('Error checking testimonial request:', err)
                 }
               }
-              fetchStudentData() // Refresh to get updated status
             }
-          })
-      }
+            // Don't call fetchStudentData here - let the real-time subscription handle updates
+          }
+        })
     })
-  }, [lessons, student, pastLessons.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessons.length]) // Only depend on lessons.length to avoid re-running on every render
 
   // Prepare student data object for tab components
   const studentData = student && profile ? {
@@ -1119,7 +1145,7 @@ export default function StudentDashboard() {
                         <p style={{ whiteSpace: 'pre-wrap', marginTop: '8px' }}>{lesson.coach_feedback}</p>
                       </div>
                     )}
-                    {!lesson.student_learnings && lesson.status === 'completed' && (
+                    {!lesson.student_learnings && lesson.status === 'completed' && !lesson.metadata?.learnings_waived && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -1256,35 +1282,36 @@ export default function StudentDashboard() {
         </div>
       ) : student?.development_plan ? (() => {
         try {
-          logger.debug('=== DEVELOPMENT PLAN DEBUG ===')
-          logger.debug('Student object:', student)
-          logger.debug('Has development_plan?:', student?.development_plan)
-          logger.debug('development_plan type:', typeof student?.development_plan)
+          // Commented out debug logging to prevent console spam
+          // logger.debug('=== DEVELOPMENT PLAN DEBUG ===')
+          // logger.debug('Student object:', student)
+          // logger.debug('Has development_plan?:', student?.development_plan)
+          // logger.debug('development_plan type:', typeof student?.development_plan)
           
           const plan = typeof student.development_plan === 'string' 
             ? safeJsonParse(student.development_plan, student.development_plan)
             : student.development_plan
           
-          logger.debug('Parsed plan:', plan)
-          logger.debug('Plan has section1?:', !!plan?.section1)
-          logger.debug('Plan has section2?:', !!plan?.section2)
-          logger.debug('Plan has skills?:', !!plan?.skills)
-          logger.debug('Plan has goals?:', !!plan?.goals)
+          // logger.debug('Parsed plan:', plan)
+          // logger.debug('Plan has section1?:', !!plan?.section1)
+          // logger.debug('Plan has section2?:', !!plan?.section2)
+          // logger.debug('Plan has skills?:', !!plan?.skills)
+          // logger.debug('Plan has goals?:', !!plan?.goals)
           
           // Check for new structure (section1/section2) or old structure (skills/goals)
           const hasNewStructure = plan?.section1 || plan?.section2
           const hasOldStructure = plan?.skills && plan.skills.length > 0
           
-          logger.debug('Has new structure:', hasNewStructure)
-          logger.debug('Has old structure:', hasOldStructure)
+          // logger.debug('Has new structure:', hasNewStructure)
+          // logger.debug('Has old structure:', hasOldStructure)
           
           if (!plan || (!hasNewStructure && !hasOldStructure)) {
-            logger.debug('Returning null: No valid plan structure found')
+            // logger.debug('Returning null: No valid plan structure found')
             return null
           }
           
-          logger.debug('Rendering development plan')
-          logger.debug('============================')
+          // logger.debug('Rendering development plan')
+          // logger.debug('============================')
 
           return (
             <div className="section">
@@ -1631,7 +1658,7 @@ export default function StudentDashboard() {
       )}
 
       {/* Submit Learnings Modal - Rendered via Portal to ensure visibility */}
-      {selectedLesson && (!selectedLesson.student_learnings || selectedLesson.student_learnings.trim() === '') && createPortal(
+      {selectedLesson && (!selectedLesson.student_learnings || selectedLesson.student_learnings.trim() === '') && !selectedLesson.metadata?.learnings_waived && createPortal(
         <div 
           className="modal-overlay" 
           onClick={handleCloseLearningsModal}

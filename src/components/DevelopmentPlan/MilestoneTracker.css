@@ -1,54 +1,237 @@
-.milestone-board {
-  padding: 24px;
-  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+/* Mountain Journey Container */
+.mountain-journey {
+  background: linear-gradient(to bottom, #FAFAFA 0%, #FFFFFF 100%);
   border-radius: 16px;
-  margin: 20px 0;
-}
-
-.milestone-board h3 {
-  font-size: 24px;
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.milestone-board > p {
-  text-align: center;
-  color: #666;
-  margin-bottom: 32px;
-}
-
-.board-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
+  padding: 24px;
   max-width: 800px;
   margin: 0 auto;
 }
 
-.board-row {
+/* Mountain Header */
+.mountain-header {
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #E5E7EB;
+}
+
+.mountain-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mountain-icon {
+    animation: float 3s ease-in-out infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.mountain-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1F2937;
+  margin-bottom: 8px;
+}
+
+.journey-subtitle {
+  font-size: 16px;
+  color: #6B7280;
+  font-weight: 500;
+}
+
+/* Camps Container */
+.camps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* More space between camp sections on mobile */
+}
+
+/* Camp Section - Premium SaaS Look */
+.camp-section {
+  background: white;
+  border: 1px solid #E5E7EB; /* Softer 1px neutral border */
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.camp-section.locked {
+  opacity: 0.6;
+  background: #F9FAFB;
+}
+
+.camp-section.expanded {
+  border-color: #E5E7EB; /* Keep neutral border */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06); /* Stronger shadow when expanded */
+  /* Optional: Very subtle accent ring */
+  outline: 1px solid rgba(75, 44, 108, 0.1);
+  outline-offset: -1px;
+}
+
+/* Camp Header */
+.camp-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.camp-header:hover:not(.camp-section.locked .camp-header) {
+  background: #F9FAFB;
+}
+
+.camp-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.camp-icon {
+  font-size: 32px;
+}
+
+.camp-info h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1F2937;
+  margin: 0 0 2px 0; /* Tighter spacing */
+  line-height: 1.2;
+}
+
+.camp-info p {
+  font-size: 12px; /* Slightly smaller */
+  color: #9CA3AF; /* Lighter gray for subtitle */
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Camp Status Badges */
+.camp-status {
+  display: flex;
+  align-items: center;
+}
+
+.complete-badge {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.progress-badge {
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.locked-badge {
+  background: #E5E7EB;
+  color: #6B7280;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Camp Progress Bar */
+.camp-progress-bar {
+  height: 8px;
+  background: #E5E7EB;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4B2C6C 0%, #6A4C8C 100%);
+  transition: width 0.5s ease;
+}
+
+/* Camp Milestones Container */
+.camp-milestones-container {
+  padding: 20px;
+  background: linear-gradient(to bottom, 
+    #FAFAFA 0%,
+    #FFFFFF 100%
+  );
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.camp-content-expanded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .camp-milestones-container {
+    transition: opacity 0.1s ease;
+    transform: none;
+  }
+  
+  .camp-content-expanded {
+    transform: none;
+  }
+}
+
+/* Mini Mountain Container */
+.mini-mountain {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px; /* Reduced gap for cleaner scroll */
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Mountain Rows */
+.mountain-row {
+  display: flex;
+  justify-content: center;
   align-items: flex-start;
   gap: 20px;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.board-row::before {
+.mountain-row.reverse {
+  flex-direction: row-reverse;
+}
+
+/* Connecting lines between nodes */
+.mountain-row::before {
   content: '';
   position: absolute;
   top: 30px;
-  left: 30px;
-  right: 30px;
-  height: 3px;
-  background: linear-gradient(90deg, #e5e7eb 0%, #d1d5db 100%);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #E5E7EB 20%, #E5E7EB 80%, transparent 100%);
   z-index: 0;
 }
 
-.board-row.reverse::before {
-  background: linear-gradient(270deg, #e5e7eb 0%, #d1d5db 100%);
-}
-
+/* Milestone Nodes - Original Style */
 .milestone-node {
   position: relative;
   z-index: 1;
@@ -56,13 +239,65 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   cursor: default;
-  flex: 1;
+  flex: 0 0 auto;
+  min-height: 44px; /* Ensure touch target size */
+  min-width: 44px;
 }
 
 .milestone-node.clickable {
   cursor: pointer;
+}
+
+/* Press/tap feedback */
+.milestone-node.pressing {
+  transform: scale(0.98);
+}
+
+.milestone-node.clickable:hover .node-circle {
+  transform: scale(1.1); /* Reduced from 1.15 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: var(--color-primary);
+}
+
+/* Selected state - subtle outline on circle */
+.milestone-node.selected .node-circle {
+  outline: 2px solid rgba(75, 44, 108, 0.2);
+  outline-offset: 2px;
+}
+
+/* Focus-visible for accessibility */
+.milestone-node.clickable:focus-visible .node-circle {
+  outline: 3px solid rgba(75, 44, 108, 0.4);
+  outline-offset: 2px;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .milestone-node {
+    transition: none;
+  }
+  
+  .milestone-node.pressing {
+    transform: none;
+  }
+  
+  .milestone-node.clickable:hover .node-circle {
+    transform: none;
+  }
+  
+  .milestone-node.next-up .node-circle {
+    animation: none;
+  }
+  
+  .milestone-node.target-milestone .node-circle {
+    animation: none;
+  }
+  
+  .milestone-node.target-milestone .target-icon {
+    animation: none;
+  }
 }
 
 .node-circle {
@@ -78,6 +313,14 @@
   transition: all 0.3s ease;
 }
 
+/* Base number color (unachieved should be neutral) */
+.milestone-number {
+  font-size: 18px;
+  font-weight: 700;
+  color: #000000; /* black */
+}
+
+/* Achieved Nodes */
 .milestone-node.achieved .node-circle {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   border-color: #10b981;
@@ -90,17 +333,59 @@
   100% { transform: scale(1); }
 }
 
-.milestone-node.next-up .node-circle {
-  border-color: #fbbf24;
-  animation: pulse 2s infinite;
+.milestone-node.achieved .milestone-number {
+  display: none;
 }
 
+.check-icon {
+  color: white;
+  position: absolute;
+  display: none;  /* Hidden by default */
+}
+
+.milestone-node.achieved .check-icon {
+  display: block;  /* Only show on green achieved nodes */
+}
+
+/* Next Up Node - Tasteful Attention */
+.milestone-node.next-up .node-circle {
+  background: white;
+  border-color: #fbbf24;
+  border-width: 3px;
+}
+
+/* Only the "Up Next" node should be gold */
+.milestone-node.next-up .milestone-number {
+  color: #ffe66d; /* keep your exact gold */
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .milestone-node.next-up .node-circle {
+    animation: pulse 2s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); /* More subtle */
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); /* Smaller pulse */
+  }
+}
+
+/* Target Milestone Node */
 .milestone-node.target-milestone .node-circle {
   background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
   border: 4px solid #4B2C6C;
   box-shadow: 0 0 20px rgba(75, 44, 108, 0.5), 0 0 40px rgba(75, 44, 108, 0.3);
   animation: targetGlow 2s ease-in-out infinite;
   transform: scale(1.1);
+}
+
+.milestone-node.target-milestone .milestone-number {
+  color: white;
+  font-weight: 700;
 }
 
 @keyframes targetGlow {
@@ -112,11 +397,6 @@
   }
 }
 
-.milestone-node.target-milestone .milestone-number {
-  color: white;
-  font-weight: 700;
-}
-
 .milestone-node.target-milestone .target-icon {
   position: absolute;
   top: -6px;
@@ -126,12 +406,17 @@
   border-radius: 50%;
   padding: 2px;
   box-shadow: 0 2px 8px rgba(75, 44, 108, 0.3);
-  animation: targetBounce 1s ease-in-out infinite;
 }
 
 .milestone-node.target-milestone .target-icon.achieved-target {
   color: white;
   background: #4B2C6C;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .milestone-node.target-milestone .target-icon {
+    animation: targetBounce 1s ease-in-out infinite;
+  }
 }
 
 @keyframes targetBounce {
@@ -141,6 +426,59 @@
   50% {
     transform: translateY(-5px) scale(1.1);
   }
+}
+
+/* Milestone Info - Reduced Visual Density */
+.milestone-info {
+  text-align: center;
+  max-width: 200px;
+  min-width: 120px;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+.milestone-name {
+  font-size: 11px; /* Smaller default */
+  font-weight: 400; /* Lighter default */
+  color: #9CA3AF; /* Neutral gray - less prominent */
+  margin-bottom: 3px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Clamp to 2 lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+/* Selected or hover state - more prominent */
+.milestone-node.selected .milestone-name,
+.milestone-node.clickable:hover .milestone-name {
+  color: #374151; /* Darker */
+  font-weight: 500; /* Medium weight */
+}
+
+.milestone-desc {
+  font-size: 9px; /* Smaller */
+  color: #9CA3AF; /* Neutral gray */
+  line-height: 1.3;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Clamp to 2 lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.milestone-node.achieved .milestone-name {
+  color: #059669;
 }
 
 .milestone-node.target-milestone .milestone-info {
@@ -156,66 +494,171 @@
   font-weight: 700;
 }
 
-@keyframes pulse {
+/* Summit Styling (top node special) - Subtle Emphasis */
+.milestone-node.summit-node .node-circle {
+  width: 66px; /* +10% larger (60px * 1.1) */
+  height: 66px;
+  border-width: 3px;
+  /* Subtle glow/ring using theme accent */
+  box-shadow: 0 0 0 2px rgba(75, 44, 108, 0.08), 0 2px 8px rgba(75, 44, 108, 0.1);
+}
+
+.milestone-node.summit-node .milestone-number {
+  font-size: 19px; /* Slightly larger */
+}
+
+/* Ensure summit node doesn't cause overflow on mobile */
+@media (max-width: 768px) {
+  .milestone-node.summit-node .node-circle {
+    width: 55px; /* Adjusted for mobile */
+    height: 55px;
+  }
+  
+  .milestone-node.summit-node .milestone-number {
+    font-size: 15px;
+  }
+}
+
+/* Legacy camp-milestones styles (keep for backwards compatibility) */
+.camp-milestones {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #FAFAFA;
+}
+
+.camp-milestone {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #E5E7EB;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.camp-milestone {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #E5E7EB;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.camp-milestone.clickable {
+  cursor: pointer;
+}
+
+.camp-milestone.clickable:hover {
+  border-color: #4B2C6C;
+  box-shadow: 0 2px 8px rgba(75, 44, 108, 0.1);
+  transform: translateX(4px);
+}
+
+.camp-milestone.achieved {
+  background: #F0FDF4;
+  border-color: #10B981;
+}
+
+.camp-milestone.next-up {
+  background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
+  border: 2px solid #4B2C6C;
+  box-shadow: 0 4px 12px rgba(75, 44, 108, 0.2);
+  animation: nextPulse 2s ease-in-out infinite;
+}
+
+@keyframes nextPulse {
   0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
+    transform: scale(1); 
+    box-shadow: 0 4px 12px rgba(75, 44, 108, 0.2);
   }
   50% { 
-    box-shadow: 0 0 0 10px rgba(251, 191, 36, 0);
+    transform: scale(1.02); 
+    box-shadow: 0 6px 16px rgba(75, 44, 108, 0.3);
   }
 }
 
-.milestone-node.clickable:hover .node-circle {
-  transform: scale(1.15);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  border-color: var(--color-primary);
+.camp-milestone.target {
+  border-color: #4B2C6C;
+  box-shadow: 0 0 0 2px rgba(75, 44, 108, 0.2);
 }
 
-.milestone-node .milestone-number {
-  font-size: 18px;
+/* Milestone Marker */
+.milestone-marker {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 2px solid #E5E7EB;
+  border-radius: 50%;
+}
+
+.camp-milestone.achieved .milestone-marker {
+  background: #10B981;
+  border-color: #10B981;
+}
+
+.milestone-num {
+  font-size: 16px;
   font-weight: 700;
-  color: #374151;
+  color: #6B7280;
 }
 
-.milestone-node.achieved .milestone-number {
-  display: none;
-}
-
-.milestone-node .check-icon {
+.next-badge {
+  background: #4B2C6C;
   color: white;
-  position: absolute;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
 }
 
-.milestone-info {
-  text-align: center;
-  max-width: 120px;
+.next-badge-small {
+  background: #4B2C6C;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
 }
 
-.milestone-name {
-  font-size: 12px;
+/* Milestone Details */
+.milestone-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.milestone-title {
+  font-size: 15px;
   font-weight: 600;
-  color: #374151;
+  color: #1F2937;
   margin-bottom: 4px;
 }
 
-.milestone-desc {
-  font-size: 10px;
-  color: #6b7280;
-  line-height: 1.3;
+.milestone-subtitle {
+  font-size: 13px;
+  color: #6B7280;
+  line-height: 1.4;
 }
 
-.milestone-node.achieved .milestone-name {
-  color: #059669;
-}
-
-.board-legend {
+/* Legend */
+.journey-legend {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 32px;
+  gap: 24px;
   margin-top: 32px;
   padding-top: 24px;
-  border-top: 2px solid #e5e7eb;
+  border-top: 2px solid #E5E7EB;
   flex-wrap: wrap;
 }
 
@@ -223,48 +666,113 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.legend-node {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid #d1d5db;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.legend-node.achieved {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-color: #10b981;
-}
-
-.legend-hint {
   font-size: 14px;
-  color: #666;
-  font-style: italic;
-  margin-left: 16px;
+  color: #6B7280;
+}
+
+/* Loading State */
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6B7280;
+  font-size: 16px;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .board-row {
-    gap: 10px;
+  .mountain-journey {
+    padding: 16px;
+  }
+  
+  .mountain-header h2 {
+    font-size: 24px;
+  }
+  
+  .mountain-icon {
+    font-size: 48px;
+  }
+  
+  .camp-header {
+    padding: 16px;
+  }
+  
+  .camp-icon {
+    font-size: 28px;
+  }
+  
+  .camp-info h3 {
+    font-size: 16px;
+  }
+  
+  .camp-info p {
+    font-size: 12px;
+  }
+  
+  /* More space between camp sections on mobile */
+  .camps-container {
+    gap: 24px;
+  }
+  
+  .camp-milestones-container {
+    padding: 16px 12px; /* Reduced vertical padding */
+  }
+  
+  /* Mobile/PWA: CSS Grid Pyramid Layout */
+  .mini-mountain {
+    display: flex;
+    flex-direction: column;
+    gap: 18px; /* Reduced gap for cleaner scroll */
+    max-width: 100%;
+    width: 100%;
+    align-items: center;
+  }
+  
+  /* Each row uses CSS Grid for centered pyramid layout */
+  .mini-mountain > .mountain-row {
+    display: grid;
+    width: 100%;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  /* Row 1: 1 node centered */
+  .mini-mountain > .mountain-row:first-child {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  
+  /* Row 2: 2 nodes centered */
+  .mini-mountain > .mountain-row:nth-child(2) {
+    grid-template-columns: repeat(2, 1fr);
+    justify-items: center;
+    max-width: 80%;
+  }
+  
+  /* Row 3: 3 nodes */
+  .mini-mountain > .mountain-row:nth-child(3) {
+    grid-template-columns: repeat(3, 1fr);
+    justify-items: center;
+  }
+  
+  /* Hide connecting lines on mobile */
+  .mountain-row::before {
+    display: none;
   }
   
   .node-circle {
     width: 50px;
     height: 50px;
+    min-width: 44px; /* Ensure touch target */
+    min-height: 44px;
   }
   
-  .milestone-node .milestone-number {
+  .milestone-number {
     font-size: 14px;
   }
   
   .milestone-info {
-    max-width: 80px;
+    max-width: 140px; /* Slightly reduced for mobile */
+    min-width: 100px;
   }
   
   .milestone-name {
@@ -272,11 +780,79 @@
   }
   
   .milestone-desc {
+    font-size: 8px;
+    display: block;
+  }
+  
+  .camp-milestones {
+    padding: 12px;
+  }
+  
+  .camp-milestone {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .milestone-marker {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .milestone-title {
+    font-size: 14px;
+  }
+  
+  .milestone-subtitle {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Small mobile: Keep grid pyramid but adjust spacing */
+  .mini-mountain {
+    gap: 16px;
+  }
+  
+  .mini-mountain > .mountain-row {
+    gap: 8px;
+  }
+  
+  /* Row 2: Slightly narrower on very small screens */
+  .mini-mountain > .mountain-row:nth-child(2) {
+    max-width: 75%;
+  }
+  
+  .node-circle {
+    width: 44px; /* Minimum touch target */
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .milestone-number {
+    font-size: 13px;
+  }
+  
+  .milestone-info {
+    max-width: 100px;
+    min-width: 80px;
+  }
+  
+  .milestone-name {
     font-size: 9px;
   }
   
-  .board-row::before {
-    left: 25px;
-    right: 25px;
+  .milestone-desc {
+    font-size: 7px;
+  }
+  
+  /* Ensure summit node doesn't overflow on small mobile */
+  .milestone-node.summit-node .node-circle {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .milestone-node.summit-node .milestone-number {
+    font-size: 14px;
   }
 }

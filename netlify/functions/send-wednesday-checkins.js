@@ -14,7 +14,7 @@ function getNextSunday() {
   return nextSunday
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // This function runs on a schedule: Wednesday at 12pm PST
   // Cron: 0 20 * * 3 (12pm PST = 8pm UTC Wednesday)
   

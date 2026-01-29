@@ -18,8 +18,9 @@ import StudentDetailPage from './components/Coach/StudentDetailPage'
 import CalendarView from './components/Coach/CalendarView'
 import StudentSettings from './components/Settings/StudentSettings'
 import StudentLessonsPage from './components/Dashboard/StudentLessonsPage'
-import FinancialDashboard from './components/Payments/FinancialDashboard'
-import ExpensesPage from './components/Expenses/ExpensesPage'
+import FinancesOverview from './components/Finances/FinancesOverview'
+import HistoricalFinances from './components/Finances/HistoricalFinances'
+import ExpensesPage from './components/Finances/ExpensesPage'
 import ReferralDashboard from './components/Referrals/ReferralDashboard'
 import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
 import TestimonialsManagement from './components/Testimonials/TestimonialsManagement'
@@ -178,9 +179,9 @@ function App() {
   const isCoach = profile?.account_type === 'coach'
 
   return (
-    <ErrorBoundary>
-      <AppUpdateNotice />
-      <Router>
+    <Router>
+      <ErrorBoundary>
+        <AppUpdateNotice />
         {session && <Header user={session.user} isCoach={isCoach} />}
         <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
@@ -218,7 +219,11 @@ function App() {
         />
         <Route 
           path="/coach/finances" 
-          element={session && isCoach ? <CoachLayout><FinancialDashboard /></CoachLayout> : <Navigate to="/login" />} 
+          element={session && isCoach ? <CoachLayout><FinancesOverview /></CoachLayout> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/coach/finances/historical" 
+          element={session && isCoach ? <CoachLayout><HistoricalFinances /></CoachLayout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/coach/expenses" 
@@ -262,8 +267,8 @@ function App() {
             />
             <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
-      </Router>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </Router>
   )
 }
 

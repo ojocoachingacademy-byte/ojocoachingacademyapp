@@ -24,6 +24,8 @@
         "npm:eslint@^9.39.1",
         "npm:gapi-script@^1.2.0",
         "npm:globals@^16.5.0",
+        "npm:googleapis@128",
+        "npm:husky@^9.1.7",
         "npm:jspdf-autotable@^5.0.2",
         "npm:jspdf@^3.0.4",
         "npm:lucide-react@0.562",

@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   console.log('=== SCHEDULED CALENDAR SYNC STARTED ===')
   console.log('Time:', new Date().toISOString())
 

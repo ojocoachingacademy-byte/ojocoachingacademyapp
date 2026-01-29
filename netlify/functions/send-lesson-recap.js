@@ -8,7 +8,7 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // This function can be called:
   // 1. On a schedule (Monday 12pm PST = 8pm UTC) - sends recaps for previous Sunday's lessons
   // 2. Manually triggered after coach submits feedback
@@ -224,12 +224,31 @@ exports.handler = async (event, context) => {
 }
 
 function buildRecapEmailTemplate(name, lessonPlan, coachNotes, practicePlan, practicePlanTime, lessonDate) {
-  const lessonDateFormatted = new Date(lessonDate).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+  // Format lesson date - parse as local date to avoid timezone issues
+  let lessonDateFormatted = 'your lesson'
+  if (lessonDate) {
+    try {
+      // Parse date string directly to avoid timezone conversion
+      // lessonDate could be "YYYY-MM-DD" or ISO string
+      const dateStr = lessonDate.split('T')[0] // Get just the date part if ISO string
+      const [year, month, day] = dateStr.split('-').map(Number)
+      
+      // Create date object using local timezone
+      const date = new Date(year, month - 1, day)
+      
+      // Format using toLocaleDateString with local date object
+      lessonDateFormatted = date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    } catch (error) {
+      console.error('Error formatting lesson date:', error, 'Raw date:', lessonDate)
+      // Fallback to simple string if parsing fails
+      lessonDateFormatted = lessonDate
+    }
+  }
 
   return `
     <!DOCTYPE html>

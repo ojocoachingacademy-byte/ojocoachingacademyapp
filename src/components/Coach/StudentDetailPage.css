@@ -726,7 +726,7 @@
 
 .financial-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -737,6 +737,8 @@
   padding: 20px;
   border: 1px solid #E0E0E0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  min-width: 0; /* Allow flex shrinking */
+  overflow: visible; /* Ensure buttons are visible */
 }
 
 .financial-stat-label {
@@ -769,10 +771,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap; /* Allow wrapping if needed */
+  min-width: 0; /* Allow flex shrinking */
 }
 
 .financial-edit-input {
   flex: 1;
+  min-width: 120px; /* Ensure minimum width for input */
   padding: 8px 12px;
   border: 2px solid #4B2C6C;
   border-radius: 4px;
@@ -780,6 +785,7 @@
   font-weight: 700;
   color: #4B2C6C;
   font-family: inherit;
+  max-width: 100%; /* Prevent overflow */
 }
 
 .financial-edit-input:focus {
@@ -794,6 +800,8 @@
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-width: 32px; /* Prevent button from shrinking */
+  flex-shrink: 0; /* Prevent buttons from shrinking */
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -830,3 +838,18 @@
   margin-bottom: 12px;
 }
 
+/* Desktop-specific fixes for financial section */
+@media (min-width: 769px) {
+  .financial-stat-card {
+    min-height: 120px; /* Ensure enough vertical space for edit controls */
+  }
+  
+  .financial-stat-edit {
+    width: 100%;
+  }
+  
+  .financial-edit-input {
+    font-size: 20px; /* Slightly smaller on desktop to fit better */
+    max-width: calc(100% - 80px); /* Reserve space for buttons */
+  }
+}

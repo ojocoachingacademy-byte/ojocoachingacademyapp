@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
 import { ArrowLeft, Mail, Phone, Award, Calendar, Target, FileText, MessageSquare, Edit2, TrendingUp, CreditCard, Link2, UserCheck, UserX, DollarSign, Check, X, Trash2, Users } from 'lucide-react'
@@ -29,6 +29,7 @@ import './StudentDetailPage.css'
 export default function StudentDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [student, setStudent] = useState(null)
   const [lessons, setLessons] = useState([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +109,20 @@ export default function StudentDetailPage() {
     fetchAllStudents()
     fetchFocusAreas()
   }, [id])
+
+  // Read URL parameters to set active tab and edit mode
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const edit = searchParams.get('edit')
+    
+    if (tab) {
+      setActiveTab(tab)
+    }
+    
+    if (edit === 'true' && tab === 'plan') {
+      setEditingPlan(true)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (student?.referred_by_student_id) {

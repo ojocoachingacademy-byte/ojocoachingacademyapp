@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   const startTime = Date.now()
   console.log('=== PROCESSING SCHEDULED NOTIFICATIONS ===')
   console.log('Time:', new Date().toISOString())

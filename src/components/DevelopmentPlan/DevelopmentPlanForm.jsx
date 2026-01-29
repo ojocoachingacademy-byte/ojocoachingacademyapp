@@ -586,31 +586,6 @@ export default function DevelopmentPlanForm({ student, onSave, onCancel, isStude
         )}
       </div>
 
-      {/* Example Journeys */}
-      <div style={{ marginTop: '40px', padding: '24px', backgroundColor: '#fef3c7', borderRadius: '12px', border: '2px solid #fbbf24' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>📊 Example Journeys</h3>
-        <div style={{ display: 'grid', gap: '12px' }}>
-          <div>
-            <strong>"Start a hobby / Rally with friend"</strong><br/>
-            <span style={{ fontSize: '14px', color: '#666' }}>
-              🎯 Target: Milestones 1-15 | ⏱️ Timeline: 8-12 lessons | 📈 Skill Level: 4/10 in all areas
-            </span>
-          </div>
-          <div>
-            <strong>"Join doubles group"</strong><br/>
-            <span style={{ fontSize: '14px', color: '#666' }}>
-              🎯 Target: Milestones 1-20 | ⏱️ Timeline: 15-20 lessons | 📈 Skill Level: 6/10 in all areas
-            </span>
-          </div>
-          <div>
-            <strong>"Play USTA league/tournament"</strong><br/>
-            <span style={{ fontSize: '14px', color: '#666' }}>
-              🎯 Target: Milestones 1-28+ | ⏱️ Timeline: 25-40 lessons | 📈 Skill Level: 7/10 in all areas
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Milestone Progress Tracker */}
       {student?.id && (
         <div className="form-section" style={{ marginTop: '40px' }}>

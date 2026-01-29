@@ -1,0 +1,469 @@
+.finances-overview {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.finances-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.finances-header h2 {
+  color: #4B2C6C;
+  margin: 0;
+  font-size: 28px;
+}
+
+.view-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.view-mode-selector {
+  display: flex;
+  gap: 4px;
+  background: #F0F0F0;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.view-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-btn:hover {
+  background: rgba(75, 44, 108, 0.1);
+}
+
+.view-btn.active {
+  background: #4B2C6C;
+  color: white;
+}
+
+.period-select {
+  padding: 8px 12px;
+  border: 2px solid #E0E0E0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  background: white;
+}
+
+.period-select:focus {
+  outline: none;
+  border-color: #4B2C6C;
+}
+
+/* Summary Cards */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #E0E0E0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.card-icon {
+  flex-shrink: 0;
+  color: #4B2C6C;
+}
+
+.card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.card-value {
+  font-size: clamp(18px, 4vw, 28px);
+  font-weight: 700;
+  color: #4B2C6C;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.card-change {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.card-change.positive {
+  color: #2D7F6F;
+}
+
+.card-change.negative {
+  color: #D32F2F;
+}
+
+.revenue-card {
+  border-left: 4px solid #2D7F6F;
+}
+
+.lessons-card {
+  border-left: 4px solid #FF9800;
+}
+
+.packages-card {
+  border-left: 4px solid #4B2C6C;
+}
+
+.students-card {
+  border-left: 4px solid #2196F3;
+}
+
+/* Breakdown Tables */
+.weekly-breakdown,
+.monthly-breakdown {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+  border: 1px solid #E0E0E0;
+}
+
+.weekly-breakdown h3,
+.monthly-breakdown h3 {
+  color: #4B2C6C;
+  margin: 0 0 20px 0;
+  font-size: 20px;
+}
+
+.breakdown-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #F8F5FC 0%, #EDE7F6 100%);
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+  color: #4B2C6C;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  padding: 14px 16px;
+  border-bottom: 1px solid #F0F0F0;
+  align-items: center;
+}
+
+.table-row:hover {
+  background: #FAFAFA;
+}
+
+.table-row.clickable {
+  cursor: pointer;
+}
+
+.table-row.clickable:hover {
+  background: #F8F5FC;
+}
+
+.table-row.empty {
+  grid-template-columns: 1fr;
+  text-align: center;
+  color: #999;
+  padding: 40px 20px;
+}
+
+.col-week {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.week-dates {
+  font-size: 12px;
+  color: #666;
+}
+
+.col-revenue {
+  color: #2D7F6F;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.col-lessons,
+.col-packages {
+  text-align: center;
+}
+
+.col-month {
+  font-weight: 600;
+  color: #333;
+}
+
+.col-full {
+  grid-column: 1 / -1;
+}
+
+/* Current Packages Section */
+.current-packages-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+  border: 1px solid #E0E0E0;
+}
+
+.current-packages-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-dark);
+}
+
+.packages-table .table-header {
+  grid-template-columns: 2fr 2fr 2fr 1fr 1fr;
+}
+
+.packages-table .table-row {
+  grid-template-columns: 2fr 2fr 2fr 1fr 1fr;
+}
+
+.table-row.low-credits {
+  background: #FFF3E0;
+  border-left: 4px solid #FF9800;
+}
+
+.col-student {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.warning-icon {
+  color: #FF9800;
+  flex-shrink: 0;
+}
+
+.col-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 13px;
+  color: #666;
+}
+
+.col-remaining span.low {
+  color: #FF9800;
+  font-weight: 700;
+}
+
+/* Deferred Revenue Card */
+.deferred-revenue-card {
+  background: linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 100%);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 2px solid #FFC107;
+  margin-bottom: 24px;
+}
+
+.deferred-revenue-card h3 {
+  color: #4B2C6C;
+  margin: 0 0 16px 0;
+  font-size: 20px;
+}
+
+.deferred-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deferred-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+}
+
+.deferred-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.deferred-value {
+  font-weight: 700;
+  color: #4B2C6C;
+  font-size: 18px;
+}
+
+.deferred-note {
+  margin: 12px 0 0 0;
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #999;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .finances-overview {
+    padding: 16px;
+  }
+
+  .finances-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .finances-header h2 {
+    font-size: 24px;
+  }
+
+  .view-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .view-mode-selector {
+    width: 100%;
+  }
+
+  .view-btn {
+    flex: 1;
+  }
+
+  .period-select {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .summary-card {
+    padding: 16px;
+  }
+
+  .card-value {
+    font-size: 24px;
+  }
+
+  .weekly-breakdown,
+  .monthly-breakdown,
+  .current-packages-section {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .packages-table .table-header,
+  .packages-table .table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .col-week,
+  .col-student,
+  .col-package,
+  .col-progress,
+  .col-remaining,
+  .col-value,
+  .col-month,
+  .col-revenue,
+  .col-lessons,
+  .col-packages {
+    padding: 4px 0;
+  }
+}

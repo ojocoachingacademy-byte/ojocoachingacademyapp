@@ -11,13 +11,18 @@
   schedule = "*/30 * * * *"
 
 [functions."send-wednesday-checkins"]
-  schedule = "0 20 * * 3"  # 12pm PST (8pm UTC) - adjust timezone as needed
+  schedule = "0 20 * * 3"
 
 [functions."send-lesson-recap"]
-  schedule = "0 20 * * 1"  # Monday 12pm PST (8pm UTC) - recaps previous Sunday's lessons
+  schedule = "0 20 * * 1"
 
 [functions."process-scheduled-notifications"]
   schedule = "*/10 * * * *"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
 
 [[redirects]]
   from = "/*"

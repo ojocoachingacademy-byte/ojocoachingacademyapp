@@ -87,7 +87,7 @@ function getMilestoneName(milestoneNumber, playerLevel) {
   return milestone ? milestone.name : 'Unknown'
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {

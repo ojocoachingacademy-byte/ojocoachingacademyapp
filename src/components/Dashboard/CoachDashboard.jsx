@@ -549,13 +549,27 @@ export default function CoachDashboard() {
 
       // Create notification for student if feedback was provided
       if (feedbackText.trim()) {
+        // Format lesson date - parse as local date to avoid timezone issues
+        let formattedDate = 'your lesson'
+        if (lesson.lesson_date) {
+          try {
+            const dateStr = lesson.lesson_date.split('T')[0] // Get just the date part if ISO string
+            const [year, month, day] = dateStr.split('-').map(Number)
+            const date = new Date(year, month - 1, day)
+            formattedDate = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+          } catch (error) {
+            console.error('Error formatting lesson date:', error)
+            formattedDate = lesson.lesson_date
+          }
+        }
+        
         await supabaseAdmin
           .from('notifications')
           .insert({
             user_id: lesson.student_id,
             type: 'feedback_posted',
             title: 'Coach Feedback Posted',
-            body: `Your coach has posted feedback for your lesson on ${new Date(lesson.lesson_date).toLocaleDateString()}`,
+            body: `Your coach has posted feedback for your lesson on ${formattedDate}`,
             link: `/dashboard`,
             read: false
           })
@@ -952,6 +966,9 @@ export default function CoachDashboard() {
           console.log('Not sending notification - not first lesson plan')
         }
       }
+
+      // Close modal after successful save
+      handleCloseLessonPlan()
     } catch (error) {
       console.error('Error saving lesson plan:', error)
       showToast('Error saving lesson plan: ' + error.message, 'error')
@@ -1169,7 +1186,22 @@ export default function CoachDashboard() {
             user_id: selectedFeedbackLesson.student_id,
             type: 'feedback_posted',
             title: 'Coach Feedback Posted',
-            body: `Your coach has posted feedback for your lesson on ${new Date(selectedFeedbackLesson.lesson_date).toLocaleDateString()}`,
+            body: (() => {
+              // Format lesson date - parse as local date to avoid timezone issues
+              let formattedDate = 'your lesson'
+              if (selectedFeedbackLesson.lesson_date) {
+                try {
+                  const dateStr = selectedFeedbackLesson.lesson_date.split('T')[0] // Get just the date part if ISO string
+                  const [year, month, day] = dateStr.split('-').map(Number)
+                  const date = new Date(year, month - 1, day)
+                  formattedDate = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                } catch (error) {
+                  console.error('Error formatting lesson date:', error)
+                  formattedDate = selectedFeedbackLesson.lesson_date
+                }
+              }
+              return `Your coach has posted feedback for your lesson on ${formattedDate}`
+            })(),
             link: `/dashboard`,
             read: false
           })
@@ -2007,36 +2039,6 @@ export default function CoachDashboard() {
             )}
           </div>
           <div className="calendar-navigation-buttons" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'nowrap' }}>
-            {/* Mark All Complete Button - only show for Sunday view with scheduled lessons */}
-            {viewMode === 'sunday' && (() => {
-              const sundayLessons = lessons.filter(l => {
-                const lessonDate = new Date(l.lesson_date)
-                return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
-              })
-              
-              if (sundayLessons.length > 0) {
-                return (
-                <button
-                    className="btn btn-sm"
-                    onClick={handleMarkAllSundayComplete}
-                    disabled={markingAllComplete}
-                  style={{
-                      backgroundColor: '#4CAF50',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                    fontWeight: '600',
-                      cursor: markingAllComplete ? 'wait' : 'pointer',
-                      opacity: markingAllComplete ? 0.6 : 1
-                    }}
-                  >
-                    {markingAllComplete ? '⏳ Marking...' : `✓ Mark All Complete (${sundayLessons.length})`}
-                  </button>
-                )
-              }
-              return null
-            })()}
-            
             {/* Previous and Next buttons */}
             <button 
               className="btn btn-outline btn-sm"
@@ -2374,6 +2376,13 @@ export default function CoachDashboard() {
                             >
                               📋 Full Details
                             </button>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => navigate(`/coach/students/${lesson.student_id}?tab=plan&edit=true`)}
+                            >
+                              <Target size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                              View Development Plan
+                            </button>
                           </div>
                         </div>
                       )}
@@ -2710,6 +2719,13 @@ export default function CoachDashboard() {
                             onClick={() => handleLessonClick(lesson)}
                           >
                             📋 Full Details
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => navigate(`/coach/students/${lesson.student_id}?tab=plan&edit=true`)}
+                          >
+                            <Target size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                            View Development Plan
                           </button>
           </div>
         </div>
@@ -3115,6 +3131,13 @@ export default function CoachDashboard() {
             </div>
 
             <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => {
+                handleCloseLessonDetail()
+                navigate(`/coach/students/${selectedLessonDetail.student_id}?tab=plan&edit=true`)
+              }}>
+                <Target size={16} style={{ marginRight: '6px' }} />
+                View Development Plan
+              </button>
               <button className="btn btn-primary" onClick={() => {
                 handleCloseLessonDetail()
                 navigate(`/coach/students/${selectedLessonDetail.student_id}`)

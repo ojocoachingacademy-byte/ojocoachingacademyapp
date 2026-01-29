@@ -157,7 +157,22 @@ export default function LessonsPage() {
           user_id: selectedLesson.student_id,
           type: 'feedback_posted',
           title: 'Coach Feedback Posted',
-          body: `Your coach has posted feedback for your lesson on ${new Date(selectedLesson.lesson_date).toLocaleDateString()}`,
+          body: (() => {
+            // Format lesson date - parse as local date to avoid timezone issues
+            let formattedDate = 'your lesson'
+            if (selectedLesson.lesson_date) {
+              try {
+                const dateStr = selectedLesson.lesson_date.split('T')[0] // Get just the date part if ISO string
+                const [year, month, day] = dateStr.split('-').map(Number)
+                const date = new Date(year, month - 1, day)
+                formattedDate = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+              } catch (error) {
+                console.error('Error formatting lesson date:', error)
+                formattedDate = selectedLesson.lesson_date
+              }
+            }
+            return `Your coach has posted feedback for your lesson on ${formattedDate}`
+          })(),
           link: `/dashboard`,
           read: false
         })

@@ -1,7 +1,7 @@
 // Netlify Function to send emails via SendGrid or similar service
 // This is a template - you'll need to configure your email service
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // CORS headers for browser requests
   const headers = {
     'Content-Type': 'application/json',
