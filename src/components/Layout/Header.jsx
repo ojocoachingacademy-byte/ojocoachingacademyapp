@@ -28,7 +28,8 @@ export default function Header({ user, isCoach }) {
     '/hitting-partners',
     '/messages',
     '/tennis-resources',
-    '/settings'
+    '/settings',
+    '/notifications'
   ]
   
   // Hide header for coach pages that use bottom navigation

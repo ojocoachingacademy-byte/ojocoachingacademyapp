@@ -120,6 +120,14 @@
   line-height: 1;
 }
 
+/* Same font/size/position as practice plan "X% complete" on Home quick-stats */
+.credits-reup-hint {
+  font-size: 0.65rem;
+  color: #4B2C6C;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
 .credits-warning {
   font-size: 0.9rem;
   color: #FF9800;

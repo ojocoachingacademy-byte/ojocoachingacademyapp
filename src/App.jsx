@@ -27,6 +27,7 @@ import TestimonialsManagement from './components/Testimonials/TestimonialsManage
 import TennisResources from './components/TennisResources/TennisResources'
 import EmailsManagement from './components/Coach/EmailsManagement'
 import CoachLayout from './components/Layout/CoachLayout'
+import StudentPageWrapper from './components/Layout/StudentPageWrapper'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 import ErrorBoundary from './components/shared/ErrorBoundary'
@@ -191,11 +192,11 @@ function App() {
         <Route path="/auth/confirmed" element={<EmailConfirmed />} />
             <Route 
               path="/dashboard" 
-              element={session && !isCoach ? <StudentDashboard /> : <Navigate to="/login" />} 
+              element={session && !isCoach ? <StudentPageWrapper><StudentDashboard /></StudentPageWrapper> : <Navigate to="/login" />} 
             />
             <Route 
               path="/lessons" 
-              element={session && !isCoach ? <StudentLessonsPage /> : <Navigate to="/login" />} 
+              element={session && !isCoach ? <StudentPageWrapper><StudentLessonsPage /></StudentPageWrapper> : <Navigate to="/login" />} 
             />
             <Route 
               path="/coach" 
@@ -247,24 +248,24 @@ function App() {
         />
         <Route 
           path="/hitting-partners" 
-          element={session ? <HittingPartners /> : <Navigate to="/login" />} 
+          element={session ? (!isCoach ? <StudentPageWrapper><HittingPartners /></StudentPageWrapper> : <HittingPartners />) : <Navigate to="/login" />} 
         />
         <Route 
           path="/tennis-resources" 
-          element={session ? <TennisResources /> : <Navigate to="/login" />} 
+          element={session ? (!isCoach ? <StudentPageWrapper><TennisResources /></StudentPageWrapper> : <TennisResources />) : <Navigate to="/login" />} 
         />
         <Route 
           path="/messages" 
-          element={session ? <MessageCenter /> : <Navigate to="/login" />} 
+          element={session ? (!isCoach ? <StudentPageWrapper><MessageCenter /></StudentPageWrapper> : <MessageCenter />) : <Navigate to="/login" />} 
         />
-            <Route 
-              path="/notifications" 
-              element={session ? <NotificationList /> : <Navigate to="/login" />} 
-            />
-            <Route 
-              path="/settings" 
-              element={session && !isCoach ? <StudentSettings /> : <Navigate to="/login" />} 
-            />
+        <Route 
+          path="/notifications" 
+          element={session ? (!isCoach ? <StudentPageWrapper><NotificationList /></StudentPageWrapper> : <NotificationList />) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/settings" 
+          element={session && !isCoach ? <StudentPageWrapper><StudentSettings /></StudentPageWrapper> : <Navigate to="/login" />} 
+        />
             <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </ErrorBoundary>

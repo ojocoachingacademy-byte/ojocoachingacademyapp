@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "check-delete": "node scripts/check-delete-function.js",
+    "backfill-profile-from-auth": "node scripts/backfill-profile-from-auth.js",
     "analyze-schema": "node scripts/analyze-schema.js",
     "generate-delete-function": "node scripts/generate-delete-function.js",
     "generate-service-worker": "node scripts/generate-service-worker.js",

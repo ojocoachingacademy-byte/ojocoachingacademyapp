@@ -68,7 +68,7 @@ export default function EmailConfirmed() {
             if (shouldProcessStudent) {
               console.log('📧 EmailConfirmed: Processing student signup...')
               
-              // Create profile if it doesn't exist
+              // Create or update profile with signup metadata (phone, full_name, etc.)
               if (!existingProfile) {
                 console.log('📧 EmailConfirmed: Creating profile...')
                 const { error: profileError } = await supabase
@@ -85,6 +85,21 @@ export default function EmailConfirmed() {
                   ])
                 if (profileError) {
                   console.error('📧 EmailConfirmed: Error creating profile:', profileError)
+                }
+              } else {
+                // Profile already exists (e.g. created by trigger) – update with signup metadata so phone/name/ntrp are stored
+                console.log('📧 EmailConfirmed: Updating existing profile with signup metadata...')
+                const { error: updateError } = await supabase
+                  .from('profiles')
+                  .update({
+                    full_name: full_name || undefined,
+                    phone: phone || null,
+                    account_type: account_type || 'student',
+                    ntrp_level: ntrp_level || '3.0',
+                  })
+                  .eq('id', session.user.id)
+                if (updateError) {
+                  console.error('📧 EmailConfirmed: Error updating profile:', updateError)
                 }
               }
 

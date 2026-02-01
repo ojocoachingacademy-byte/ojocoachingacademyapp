@@ -142,9 +142,25 @@ const YourWhyScreen = ({
             <ArrowRight size={18} />
           </button>
         </div>
+
+        <div className="onboarding-screen-actions">
+          <button className="btn-onboarding-secondary" onClick={onBack}>
+            <ArrowLeft size={18} />
+            Back
+          </button>
+          <button 
+            className="btn-onboarding-primary"
+            onClick={onNext}
+            disabled={!bigGoal || (bigGoal === 'custom' && !customGoal)}
+          >
+            Next
+            <ArrowRight size={18} />
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
 export default YourWhyScreen
+

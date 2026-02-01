@@ -3,7 +3,7 @@ import { supabase } from '../../../supabaseClient'
 import { trackEvent, EVENTS } from '../../../utils/analytics'
 import { GOAL_OPTIONS } from '../../DevelopmentPlan/MilestonesConstants'
 import DevelopmentPlanDisplay from '../DevelopmentPlanDisplay'
-import ProgressLadder from '../ProgressLadder'
+import MilestoneTracker from '../../DevelopmentPlan/MilestoneTracker'
 import './ProgressTab.css'
 
 const ProgressTab = ({ studentData, onEditPlan }) => {
@@ -216,7 +216,7 @@ const ProgressTab = ({ studentData, onEditPlan }) => {
             <p className="section-description">Your path to achieving your goals</p>
           </div>
         </div>
-        <ProgressLadder 
+        <MilestoneTracker 
           studentId={studentData?.id}
           developmentPlan={studentData?.development_plan}
           playerLevel={studentData?.player_level || 'beginner'}
@@ -267,3 +267,4 @@ const CongratulationsModal = ({ onClose, onSetNewGoal }) => {
 }
 
 export default ProgressTab
+

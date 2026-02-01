@@ -2,7 +2,7 @@
 // Runs every 5 minutes (configure in netlify.toml)
 // Checks for notifications where scheduled_for <= now() and sends them
 
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,

@@ -351,6 +351,11 @@ const HomeTab = ({ studentData, onBookLesson }) => {
           <div className="stat-content">
             <span className="stat-value">{studentData?.lesson_credits || 0}</span>
             <span className="stat-label">Credits</span>
+            {(studentData?.lesson_credits ?? 0) <= 2 && (
+              <span className="stat-progress">
+                {(studentData?.lesson_credits ?? 0) === 0 ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
+              </span>
+            )}
           </div>
         </div>
         <div className="stat-divider"></div>
@@ -638,32 +643,6 @@ const HomeTab = ({ studentData, onBookLesson }) => {
             Book More →
           </button>
         </div>
-      )}
-
-      {/* Zero Credits CTA (not Stage 1) */}
-      {stage?.stageNumber !== 1 && studentData?.lesson_credits === 0 && (
-        <div className="zero-credits-banner">
-          <span className="banner-icon">🎾</span>
-          <div className="banner-content">
-            <strong>Time to reup!</strong>
-            <p>You're out of lesson credits</p>
-          </div>
-          <button 
-            className="btn-primary"
-            onClick={() => window.open('https://ojocoachingacademy.com/booking', '_blank')}
-          >
-            Buy Package →
-          </button>
-        </div>
-      )}
-
-      {/* Lesson Milestone Celebration Modal */}
-      {showMilestoneModal && currentMilestone && (
-        <LessonMilestoneModal
-          milestone={currentMilestone}
-          onClose={() => setShowMilestoneModal(false)}
-          onMarkShown={handleMilestoneShown}
-        />
       )}
 
       {/* Lesson Milestone Celebration Modal */}

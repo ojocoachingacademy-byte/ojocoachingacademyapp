@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -122,33 +122,13 @@ export const handler = async (event) => {
 
     // Create notification for student
     try {
-      // Format date - parse as local date to avoid timezone issues
-      let formattedDateTime = 'your scheduled time'
-      if (startTime) {
-        try {
-          // startTime is an ISO timestamp, extract date and time separately
-          const dateObj = new Date(startTime)
-          const dateStr = startTime.split('T')[0] // Get date part
-          const [year, month, day] = dateStr.split('-').map(Number)
-          const date = new Date(year, month - 1, day)
-          
-          // Get time from the original date object (preserves timezone for time)
-          const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-          const dateFormatted = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-          formattedDateTime = `${dateFormatted} at ${timeStr}`
-        } catch (error) {
-          console.error('Error formatting startTime:', error, 'Raw time:', startTime)
-          formattedDateTime = startTime
-        }
-      }
-      
       await supabase
         .from('notifications')
         .insert([{
           user_id: studentId,
           type: 'lesson_booked',
           title: 'Lesson Booked! 🎾',
-          body: `Your lesson is scheduled for ${formattedDateTime}`,
+          body: `Your lesson is scheduled for ${new Date(startTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
           link: '/dashboard'
         }])
       console.log('Notification created for student')
@@ -175,33 +155,13 @@ export const handler = async (event) => {
         .maybeSingle()
 
       if (coachProfile) {
-        // Format date - parse as local date to avoid timezone issues
-        let formattedDateTime = 'a scheduled time'
-        if (startTime) {
-          try {
-            // startTime is an ISO timestamp, extract date and time separately
-            const dateObj = new Date(startTime)
-            const dateStr = startTime.split('T')[0] // Get date part
-            const [year, month, day] = dateStr.split('-').map(Number)
-            const date = new Date(year, month - 1, day)
-            
-            // Get time from the original date object (preserves timezone for time)
-            const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-            const dateFormatted = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-            formattedDateTime = `${dateFormatted} at ${timeStr}`
-          } catch (error) {
-            console.error('Error formatting startTime:', error, 'Raw time:', startTime)
-            formattedDateTime = startTime
-          }
-        }
-        
         await supabase
           .from('notifications')
           .insert([{
             user_id: coachProfile.id,
             type: 'lesson_booked',
             title: 'New Lesson Booked',
-            body: `${studentProfile?.full_name || 'A student'} has booked a lesson for ${formattedDateTime}`,
+            body: `${studentProfile?.full_name || 'A student'} has booked a lesson for ${new Date(startTime).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
             link: `/coach/lessons`
           }])
         console.log('Notification created for coach')

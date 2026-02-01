@@ -13,12 +13,8 @@
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .onboarding-container {
@@ -26,11 +22,13 @@
   width: 90%;
   max-width: 700px;
   max-height: 90vh;
-  overflow-y: auto;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   position: relative;
   animation: slideUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 @keyframes slideUp {
@@ -44,24 +42,20 @@
   }
 }
 
-/* Progress Bar */
 .onboarding-progress-bar {
   height: 6px;
   background: #E0E0E0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  flex-shrink: 0;
   border-radius: 16px 16px 0 0;
 }
 
 .onboarding-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4B2C6C 0%, #6A4C8C 100%);
+  background: linear-gradient(90deg, #4B2C6C 0%, #6A4C8C 100%);  
   transition: width 0.3s ease;
   border-radius: 16px 0 0 0;
 }
 
-/* Step Indicator */
 .onboarding-step-indicator {
   text-align: center;
   padding: 1rem;
@@ -70,19 +64,18 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  position: sticky;
-  top: 6px;
   background: white;
-  z-index: 9;
   border-bottom: 1px solid #F0F0F0;
+  flex-shrink: 0;
 }
 
-/* Screen */
 .onboarding-screen {
-  min-height: 400px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 100px;
 }
 
-/* Buttons */
 .btn-primary,
 .btn-secondary {
   padding: 1rem 2rem;
@@ -96,7 +89,7 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%); 
   color: white;
   box-shadow: 0 4px 12px rgba(75, 44, 108, 0.3);
 }
@@ -121,22 +114,19 @@
   background: #F3F0FF;
 }
 
-/* Mobile Responsive */
 @media (max-width: 768px) {
   .onboarding-container {
     width: 100%;
     height: 100vh;
-    max-height: none;
+    max-height: 100vh;
     border-radius: 0;
   }
-
+  
   .onboarding-progress-bar {
     border-radius: 0;
   }
-
+  
   .onboarding-progress-fill {
     border-radius: 0;
   }
 }
-
-

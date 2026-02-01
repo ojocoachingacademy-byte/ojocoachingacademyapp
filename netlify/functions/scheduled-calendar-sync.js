@@ -1,5 +1,5 @@
-import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+const { google } = require('googleapis')
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,

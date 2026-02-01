@@ -300,29 +300,34 @@
   }
 }
 
+/* Explicit background/centering so parent/global styles cannot override (fixes gold/wrong inheritance) */
 .node-circle {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: white;
+  background: #ffffff !important; /* explicit: prevent inherited gold/theme override */
   border: 3px solid #d1d5db;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   position: relative;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
-/* Base number color (unachieved should be neutral) */
-.milestone-number {
-  font-size: 18px;
-  font-weight: 700;
-  color: #000000; /* black */
+/* Explicit text color/size for number so parent .text-* or global span cannot override */
+.milestone-node .milestone-number {
+  color: #1f2937 !important; /* explicit default: prevents inheritance issues */
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  margin: 0;
+  padding: 0;
 }
 
 /* Achieved Nodes */
 .milestone-node.achieved .node-circle {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
   border-color: #10b981;
   animation: pop 0.4s ease;
 }
@@ -334,7 +339,7 @@
 }
 
 .milestone-node.achieved .milestone-number {
-  display: none;
+  display: none !important;
 }
 
 .check-icon {
@@ -347,16 +352,17 @@
   display: block;  /* Only show on green achieved nodes */
 }
 
-/* Next Up Node - Tasteful Attention */
+/* Next Up Node - Tasteful Attention (only this state gets gold number) */
 .milestone-node.next-up .node-circle {
-  background: white;
+  background: #ffffff !important;
   border-color: #fbbf24;
   border-width: 3px;
 }
 
-/* Only the "Up Next" node should be gold */
 .milestone-node.next-up .milestone-number {
-  color: #ffe66d; /* keep your exact gold */
+  color: #d97706 !important; /* amber-600: readable gold, explicit so not overridden */
+  font-size: 18px !important;
+  font-weight: 700 !important;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -376,7 +382,7 @@
 
 /* Target Milestone Node */
 .milestone-node.target-milestone .node-circle {
-  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%);
+  background: linear-gradient(135deg, #4B2C6C 0%, #6A4C8C 100%) !important;
   border: 4px solid #4B2C6C;
   box-shadow: 0 0 20px rgba(75, 44, 108, 0.5), 0 0 40px rgba(75, 44, 108, 0.3);
   animation: targetGlow 2s ease-in-out infinite;
@@ -384,8 +390,10 @@
 }
 
 .milestone-node.target-milestone .milestone-number {
-  color: white;
-  font-weight: 700;
+  color: #ffffff !important; /* explicit white so parent/global cannot override */
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
 }
 
 @keyframes targetGlow {
@@ -504,7 +512,8 @@
 }
 
 .milestone-node.summit-node .milestone-number {
-  font-size: 19px; /* Slightly larger */
+  font-size: 19px !important; /* Slightly larger, explicit */
+  color: #1f2937 !important;
 }
 
 /* Ensure summit node doesn't cause overflow on mobile */
@@ -759,15 +768,15 @@
     display: none;
   }
   
-  .node-circle {
+  .milestone-node .node-circle {
     width: 50px;
     height: 50px;
-    min-width: 44px; /* Ensure touch target */
+    min-width: 44px;
     min-height: 44px;
   }
   
-  .milestone-number {
-    font-size: 14px;
+  .milestone-node .milestone-number {
+    font-size: 14px !important;
   }
   
   .milestone-info {
@@ -822,15 +831,15 @@
     max-width: 75%;
   }
   
-  .node-circle {
-    width: 44px; /* Minimum touch target */
+  .milestone-node .node-circle {
+    width: 44px;
     height: 44px;
     min-width: 44px;
     min-height: 44px;
   }
   
-  .milestone-number {
-    font-size: 13px;
+  .milestone-node .milestone-number {
+    font-size: 13px !important;
   }
   
   .milestone-info {

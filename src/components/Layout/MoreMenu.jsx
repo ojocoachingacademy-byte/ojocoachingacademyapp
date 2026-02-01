@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import { Bell, User, LogOut, X, Users } from 'lucide-react'
+import { Bell, User, LogOut, X } from 'lucide-react'
 import './MoreMenu.css'
 
 export default function MoreMenu({ isOpen, onClose, isCoach = false }) {
@@ -91,11 +91,6 @@ export default function MoreMenu({ isOpen, onClose, isCoach = false }) {
     navigate('/notifications')
   }
 
-  const handleCommunityClick = () => {
-    onClose()
-    navigate('/hitting-partners')
-  }
-
   if (!isOpen) {
     return null
   }
@@ -130,20 +125,13 @@ export default function MoreMenu({ isOpen, onClose, isCoach = false }) {
 
           <button 
             className="more-menu-item"
-            onClick={handleCommunityClick}
-          >
-            <Users size={20} className="more-menu-item-icon" />
-            <span className="more-menu-item-label">Community</span>
-          </button>
-
-          <button 
-            className="more-menu-item"
             onClick={handleProfileClick}
           >
             <User size={20} className="more-menu-item-icon" />
             <span className="more-menu-item-label">Profile</span>
           </button>
 
+          {/* More menu: Notifications, Profile, Logout only — do not remove Logout */}
           <button 
             className="more-menu-item more-menu-item-logout"
             onClick={handleLogout}

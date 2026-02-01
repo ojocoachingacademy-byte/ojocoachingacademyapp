@@ -90,7 +90,7 @@
   color: white;
 }
 
-.milestone-modal-content .milestone-number {
+.milestone-number {
   font-size: 3.5rem;
   font-weight: 900;
   margin: 1rem 0;
@@ -154,7 +154,7 @@
     font-size: 1.5rem;
   }
 
-  .milestone-modal-content .milestone-number {
+  .milestone-number {
     font-size: 2.5rem;
   }
 

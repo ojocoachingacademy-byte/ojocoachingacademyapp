@@ -8,7 +8,7 @@
  *   - limit: number (max testimonials to return)
  */
 
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
 
 export const handler = async (event, context) => {
   const headers = {

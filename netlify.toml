@@ -29,3 +29,6 @@
   to = "/index.html"
   status = 200
 
+
+[dev.env]
+  SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqanFoa3NkdWZvdGlmc3llampnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Njk3NzEyMSwiZXhwIjoyMDgyNTUzMTIxfQ.qyVQ87KsYEFqaBrqPp2aNAVUDIPzHca-5BH0qMvzzn8"

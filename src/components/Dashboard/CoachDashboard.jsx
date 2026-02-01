@@ -549,27 +549,13 @@ export default function CoachDashboard() {
 
       // Create notification for student if feedback was provided
       if (feedbackText.trim()) {
-        // Format lesson date - parse as local date to avoid timezone issues
-        let formattedDate = 'your lesson'
-        if (lesson.lesson_date) {
-          try {
-            const dateStr = lesson.lesson_date.split('T')[0] // Get just the date part if ISO string
-            const [year, month, day] = dateStr.split('-').map(Number)
-            const date = new Date(year, month - 1, day)
-            formattedDate = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-          } catch (error) {
-            console.error('Error formatting lesson date:', error)
-            formattedDate = lesson.lesson_date
-          }
-        }
-        
         await supabaseAdmin
           .from('notifications')
           .insert({
             user_id: lesson.student_id,
             type: 'feedback_posted',
             title: 'Coach Feedback Posted',
-            body: `Your coach has posted feedback for your lesson on ${formattedDate}`,
+            body: `Your coach has posted feedback for your lesson on ${new Date(lesson.lesson_date).toLocaleDateString()}`,
             link: `/dashboard`,
             read: false
           })
@@ -1186,22 +1172,7 @@ export default function CoachDashboard() {
             user_id: selectedFeedbackLesson.student_id,
             type: 'feedback_posted',
             title: 'Coach Feedback Posted',
-            body: (() => {
-              // Format lesson date - parse as local date to avoid timezone issues
-              let formattedDate = 'your lesson'
-              if (selectedFeedbackLesson.lesson_date) {
-                try {
-                  const dateStr = selectedFeedbackLesson.lesson_date.split('T')[0] // Get just the date part if ISO string
-                  const [year, month, day] = dateStr.split('-').map(Number)
-                  const date = new Date(year, month - 1, day)
-                  formattedDate = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                } catch (error) {
-                  console.error('Error formatting lesson date:', error)
-                  formattedDate = selectedFeedbackLesson.lesson_date
-                }
-              }
-              return `Your coach has posted feedback for your lesson on ${formattedDate}`
-            })(),
+            body: `Your coach has posted feedback for your lesson on ${new Date(selectedFeedbackLesson.lesson_date).toLocaleDateString()}`,
             link: `/dashboard`,
             read: false
           })

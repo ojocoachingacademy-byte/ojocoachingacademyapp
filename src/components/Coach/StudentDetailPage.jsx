@@ -1654,12 +1654,14 @@ export default function StudentDetailPage() {
                       <span>{student.profiles.email}</span>
                     </div>
                   )}
-                  {student.profiles?.phone && (
-                    <div className="contact-item">
-                      <Phone size={16} />
-                      <span>{student.profiles.phone}</span>
-                    </div>
-                  )}
+                  <div className="contact-item">
+                    <Phone size={16} />
+                    <span>{student.profiles?.phone ? (
+                      <a href={`tel:${student.profiles.phone}`}>{student.profiles.phone}</a>
+                    ) : (
+                      <span style={{ color: '#888' }}>Not set</span>
+                    )}</span>
+                  </div>
                   <div className="contact-item">
                     <Award size={16} />
                     <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>

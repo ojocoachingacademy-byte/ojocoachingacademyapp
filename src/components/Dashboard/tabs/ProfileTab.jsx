@@ -174,6 +174,11 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
           <div className="credits-info">
             <span className="credits-label">Lesson Credits</span>
             <span className="credits-value">{credits}</span>
+            {credits <= 2 && (
+              <span className="credits-reup-hint">
+                {creditsEmpty ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
+              </span>
+            )}
             {creditsLow && !creditsEmpty && (
               <span className="credits-warning">Running low!</span>
             )}

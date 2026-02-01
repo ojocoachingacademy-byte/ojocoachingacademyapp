@@ -4,6 +4,8 @@ import { getMilestonesByLevel } from './MilestonesConstants'
 import { CheckCircle, Target } from 'lucide-react'
 import './MilestoneTracker.css'
 
+
+
 export default function MilestoneTracker({ studentId, isCoach = false, playerLevel = 'beginner', highlightTargetMilestone = null }) {
   const [achievedMilestones, setAchievedMilestones] = useState([])
   const [loading, setLoading] = useState(true)
@@ -12,35 +14,22 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
   
   const milestones = getMilestonesByLevel(playerLevel)
   
-  // Click outside to deselect (but not on milestone nodes or camp headers)
+  // Click outside to deselect
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!containerRef.current) return
-      
-      // Don't deselect if clicking on a milestone node or camp header
-      const target = event.target
-      const isMilestoneNode = target.closest('.milestone-node')
-      const isCampHeader = target.closest('.camp-header')
-      
-      if (isMilestoneNode || isCampHeader) {
-        return // Let the node's own onClick handle it
-      }
-      
-      // Only deselect if clicking truly outside the container
-      if (!containerRef.current.contains(target)) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
         setSelectedMilestoneId(null)
       }
     }
     
     if (selectedMilestoneId !== null) {
-      // Use capture phase to catch events before they bubble
-      document.addEventListener('mousedown', handleClickOutside, true)
-      document.addEventListener('touchstart', handleClickOutside, true)
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
     }
     
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside, true)
-      document.removeEventListener('touchstart', handleClickOutside, true)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
     }
   }, [selectedMilestoneId])
 
@@ -135,16 +124,14 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
     return achievedMilestones.some(m => m.milestone_number === milestoneNumber)
   }
 
-  // Helper function to determine camp status
+  // Helper function to determine camp status (no isLocked – lock is based on previous camp completion)
   const getCampProgress = (campStart, campEnd) => {
     const campMilestones = milestones.slice(campStart - 1, campEnd)
     const achieved = campMilestones.filter(m => isAchieved(m.number)).length
     const total = campMilestones.length
     const isComplete = achieved === total
     const isCurrent = achieved > 0 && !isComplete
-    const isLocked = achieved === 0
-    
-    return { achieved, total, isComplete, isCurrent, isLocked }
+    return { achieved, total, isComplete, isCurrent }
   }
 
   // Define 5 camps
@@ -154,17 +141,22 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
   const advancedCampProgress = getCampProgress(19, 24)
   const eliteCampProgress = getCampProgress(25, 30)
 
-  // Find which camp the user is currently on (has progress but not complete)
+  // Lock based on previous camp completion (Rookie is always unlocked)
+  const learnerLocked = !rookieCampProgress.isComplete
+  const competitorLocked = !learnerCampProgress.isComplete
+  const advancedLocked = !competitorCampProgress.isComplete
+  const eliteLocked = !advancedCampProgress.isComplete
+
+  // Next milestone: first not achieved (reliable even if completed out of order)
+  const nextMilestoneNumber = milestones.find(m => !isAchieved(m.number))?.number ?? 30
+
+  // Find which camp the user is currently on (has progress but not complete, or contains next milestone)
   const getCurrentCamp = () => {
-    // Check if any camp has progress but isn't complete
     if (eliteCampProgress.isCurrent) return 'elite'
     if (advancedCampProgress.isCurrent) return 'advanced'
     if (competitorCampProgress.isCurrent) return 'competitor'
     if (learnerCampProgress.isCurrent) return 'learner'
     if (rookieCampProgress.isCurrent) return 'rookie'
-    
-    // If no camp has progress, check which camp contains the next milestone
-    const nextMilestoneNumber = achievedMilestones.length + 1
     if (nextMilestoneNumber >= 25 && nextMilestoneNumber <= 30) return 'elite'
     if (nextMilestoneNumber >= 19 && nextMilestoneNumber <= 24) return 'advanced'
     if (nextMilestoneNumber >= 13 && nextMilestoneNumber <= 18) return 'competitor'
@@ -176,20 +168,14 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
     return getCurrentCamp()
   })
 
-  // Update expanded camp when achievements change (but preserve user's manual selection)
+  // Update expanded camp when achievements change (current camp from nextMilestoneNumber)
   useEffect(() => {
-    if (!loading && achievedMilestones.length > 0) {
-      // Only auto-expand if no camp is currently expanded, or if user hasn't manually selected one
-      // This prevents jumping camps when user is viewing a specific camp
+    if (!loading) {
       const currentCamp = getCurrentCamp()
-      // Only update if expandedCamp is null or matches the calculated current camp
-      // This way, if user manually expanded a different camp, we don't force-switch them
-      if (expandedCamp === null || expandedCamp === currentCamp) {
-        setExpandedCamp(currentCamp)
-      }
+      setExpandedCamp(currentCamp)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, achievedMilestones.length])
+  }, [loading, achievedMilestones])
 
   // Pyramid layout: 1-2-3 structure (6 nodes total)
   //     6
@@ -217,7 +203,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
             <div key={rowIndex} className={`mountain-row ${isReverse ? 'reverse' : ''}`}>
               {rowMilestonesToRender.map(milestone => {
                 const achieved = isAchieved(milestone.number)
-                const nextToAchieve = !achieved && achievedMilestones.length + 1 === milestone.number
+                const nextToAchieve = !achieved && milestone.number === nextMilestoneNumber
                 const isTarget = highlightTargetMilestone && milestone.number === highlightTargetMilestone
                 const isSelected = selectedMilestoneId === milestone.number
                 const isTopNode = rowIndex === 0
@@ -227,26 +213,29 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                     key={milestone.number}
                     className={`milestone-node ${achieved ? 'achieved' : ''} ${nextToAchieve ? 'next-up' : ''} ${isTarget ? 'target-milestone' : ''} ${isCoach ? 'clickable' : ''} ${isSelected ? 'selected' : ''} ${isTopNode ? 'summit-node' : ''}`}
                     onClick={(e) => {
-                      e.stopPropagation() // Prevent camp header toggle
-                      e.preventDefault() // Prevent any default behavior
+                      e.stopPropagation() // stopPropagation prevents section collapse on node click (event bubbling)
+                      e.preventDefault()
                       if (isCoach) {
                         handleToggleMilestone(milestone)
                       } else {
-                        // Toggle selection for non-coaches (viewing only)
                         setSelectedMilestoneId(isSelected ? null : milestone.number)
                       }
                     }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation() // Prevent accordion/section from toggling on mousedown
+                      if (isCoach) {
+                        e.currentTarget.classList.add('pressing')
+                      }
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation() // Prevent section toggle on pointerdown
+                    }}
                     onTouchStart={(e) => {
-                      // Mobile tap feedback
+                      e.stopPropagation()
                       e.currentTarget.classList.add('pressing')
                     }}
                     onTouchEnd={(e) => {
                       e.currentTarget.classList.remove('pressing')
-                    }}
-                    onMouseDown={(e) => {
-                      if (isCoach) {
-                        e.currentTarget.classList.add('pressing')
-                      }
                     }}
                     onMouseUp={(e) => {
                       e.currentTarget.classList.remove('pressing')
@@ -255,6 +244,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                       e.currentTarget.classList.remove('pressing')
                     }}
                   >
+                    {/* Explicit node-circle + milestone-number styling in CSS prevents inheritance/gold override */}
                     <div className="node-circle">
                       <div className="milestone-number">{milestone.number}</div>
                       {achieved && <CheckCircle className="check-icon" size={24} />}
@@ -294,10 +284,10 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
           <div className="camps-container">
             
             {/* ELITE CAMP (25-30) */}
-            <div className={`camp-section elite ${eliteCampProgress.isLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'elite' ? 'expanded' : ''}`}>
+            <div className={`camp-section elite ${eliteLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'elite' ? 'expanded' : ''}`}>
               <div 
                 className="camp-header"
-                onClick={() => (!eliteCampProgress.isLocked || isCoach) && setExpandedCamp(expandedCamp === 'elite' ? null : 'elite')}
+                onClick={() => (!eliteLocked || isCoach) && setExpandedCamp(expandedCamp === 'elite' ? null : 'elite')}
               >
                 <div className="camp-info">
                   <div className="camp-icon">👑</div>
@@ -307,7 +297,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                   </div>
                 </div>
                 <div className="camp-status">
-                  {eliteCampProgress.isLocked && !isCoach ? (
+                  {eliteLocked && !isCoach ? (
                     <div className="locked-badge">🔒 Locked</div>
                   ) : eliteCampProgress.isComplete ? (
                     <div className="complete-badge">✓ Complete</div>
@@ -319,7 +309,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                 </div>
               </div>
               
-              {(!eliteCampProgress.isLocked || isCoach) && (
+              {(!eliteLocked || isCoach) && (
                 <>
                   <div className="camp-progress-bar">
                     <div 
@@ -338,10 +328,10 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
             </div>
 
             {/* ADVANCED CAMP (19-24) */}
-            <div className={`camp-section advanced ${advancedCampProgress.isLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'advanced' ? 'expanded' : ''}`}>
+            <div className={`camp-section advanced ${advancedLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'advanced' ? 'expanded' : ''}`}>
               <div 
                 className="camp-header"
-                onClick={() => (!advancedCampProgress.isLocked || isCoach) && setExpandedCamp(expandedCamp === 'advanced' ? null : 'advanced')}
+                onClick={() => (!advancedLocked || isCoach) && setExpandedCamp(expandedCamp === 'advanced' ? null : 'advanced')}
               >
                 <div className="camp-info">
                   <div className="camp-icon">💎</div>
@@ -351,7 +341,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                   </div>
                 </div>
                 <div className="camp-status">
-                  {advancedCampProgress.isLocked && !isCoach ? (
+                  {advancedLocked && !isCoach ? (
                     <div className="locked-badge">🔒 Locked</div>
                   ) : advancedCampProgress.isComplete ? (
                     <div className="complete-badge">✓ Complete</div>
@@ -363,7 +353,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                 </div>
               </div>
               
-              {(!advancedCampProgress.isLocked || isCoach) && (
+              {(!advancedLocked || isCoach) && (
                 <>
                   <div className="camp-progress-bar">
                     <div 
@@ -382,10 +372,10 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
             </div>
 
             {/* COMPETITOR CAMP (13-18) */}
-            <div className={`camp-section competitor ${competitorCampProgress.isLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'competitor' ? 'expanded' : ''}`}>
+            <div className={`camp-section competitor ${competitorLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'competitor' ? 'expanded' : ''}`}>
               <div 
                 className="camp-header"
-                onClick={() => (!competitorCampProgress.isLocked || isCoach) && setExpandedCamp(expandedCamp === 'competitor' ? null : 'competitor')}
+                onClick={() => (!competitorLocked || isCoach) && setExpandedCamp(expandedCamp === 'competitor' ? null : 'competitor')}
               >
                 <div className="camp-info">
                   <div className="camp-icon">🎯</div>
@@ -395,7 +385,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                   </div>
                 </div>
                 <div className="camp-status">
-                  {competitorCampProgress.isLocked && !isCoach ? (
+                  {competitorLocked && !isCoach ? (
                     <div className="locked-badge">🔒 Locked</div>
                   ) : competitorCampProgress.isComplete ? (
                     <div className="complete-badge">✓ Complete</div>
@@ -407,7 +397,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                 </div>
               </div>
               
-              {(!competitorCampProgress.isLocked || isCoach) && (
+              {(!competitorLocked || isCoach) && (
                 <>
                   <div className="camp-progress-bar">
                     <div 
@@ -426,10 +416,10 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
             </div>
 
             {/* LEARNER CAMP (7-12) */}
-            <div className={`camp-section learner ${learnerCampProgress.isLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'learner' ? 'expanded' : ''}`}>
+            <div className={`camp-section learner ${learnerLocked && !isCoach ? 'locked' : ''} ${expandedCamp === 'learner' ? 'expanded' : ''}`}>
               <div 
                 className="camp-header"
-                onClick={() => (!learnerCampProgress.isLocked || isCoach) && setExpandedCamp(expandedCamp === 'learner' ? null : 'learner')}
+                onClick={() => (!learnerLocked || isCoach) && setExpandedCamp(expandedCamp === 'learner' ? null : 'learner')}
               >
                 <div className="camp-info">
                   <div className="camp-icon">📚</div>
@@ -439,7 +429,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                   </div>
                 </div>
                 <div className="camp-status">
-                  {learnerCampProgress.isLocked && !isCoach ? (
+                  {learnerLocked && !isCoach ? (
                     <div className="locked-badge">🔒 Locked</div>
                   ) : learnerCampProgress.isComplete ? (
                     <div className="complete-badge">✓ Complete</div>
@@ -451,7 +441,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
                 </div>
               </div>
               
-              {(!learnerCampProgress.isLocked || isCoach) && (
+              {(!learnerLocked || isCoach) && (
                 <>
                   <div className="camp-progress-bar">
                     <div 
@@ -531,5 +521,7 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
     </div>
   )
 }
+
+
 
 

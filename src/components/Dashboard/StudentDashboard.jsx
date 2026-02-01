@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../../supabaseClient'
-import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Award, Target, Edit2, TrendingUp, MessageSquare } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Calendar, Target, Edit2, TrendingUp } from 'lucide-react'
 import { trackEvent, EVENTS } from '../../utils/analytics'
 import './StudentDashboard.css'
 import '../shared/Modal.css'
@@ -13,14 +13,11 @@ import MilestoneTracker from '../DevelopmentPlan/MilestoneTracker'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import GettingStartedChecklist from './GettingStartedChecklist'
 import PracticePlanCard from './PracticePlanCard'
-import StudentTabs from './StudentTabs'
 import HomeTab from './tabs/HomeTab'
 import ProgressTab from './tabs/ProgressTab'
-import LessonsTab from './tabs/LessonsTab'
 import ProfileTab from './tabs/ProfileTab'
 import OnboardingFlow from '../Onboarding/OnboardingFlow'
 import LessonPlanReadyScreen from '../Onboarding/screens/LessonPlanReadyScreen'
-import MoreMenu from '../Layout/MoreMenu'
 import { MILESTONES, GOAL_OPTIONS } from '../DevelopmentPlan/MilestonesConstants'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
@@ -51,14 +48,20 @@ export default function StudentDashboard() {
   const [showLessonPlanWelcome, setShowLessonPlanWelcome] = useState(false)
   const [firstLessonWithPlan, setFirstLessonWithPlan] = useState(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const { toasts, showToast, removeToast } = useToast()
+  const location = useLocation()
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmModalConfig, setConfirmModalConfig] = useState(null)
   const developmentPlanRef = useRef(null)
   const promptedLessonsRef = useRef(new Set())
   const componentMountTimeRef = useRef(new Date()) // Track when component mounted
   const navigate = useNavigate()
+
+  // Sync active tab from route state (bottom nav is in StudentPageWrapper)
+  useEffect(() => {
+    const tab = location.state?.tab === 'progress' ? 'progress' : 'home'
+    setActiveTab(tab)
+  }, [location.pathname, location.state?.tab])
 
   // Clear prompted lessons on mount - start fresh each time component mounts
   // This ensures we only prompt for lessons completed AFTER the component loads
@@ -573,56 +576,34 @@ export default function StudentDashboard() {
   
   // Update past scheduled lessons to completed in database
   useEffect(() => {
-    if (!lessons || lessons.length === 0) return
-    
-    const now = new Date()
-    // Find lessons that need to be updated (scheduled but past date)
-    const lessonsToUpdate = lessons.filter(lesson => {
+    lessons.forEach(lesson => {
       const lessonDate = new Date(lesson.lesson_date)
-      return lesson.status === 'scheduled' && lessonDate < now
-    })
-    
-    if (lessonsToUpdate.length === 0) return
-    
-    // Process updates
-    lessonsToUpdate.forEach(lesson => {
-      supabase
-        .from('lessons')
-        .update({ status: 'completed' })
-        .eq('id', lesson.id)
-        .then(async ({ error }) => {
-          if (error) {
-            logger.error('Error updating lesson status:', error)
-          } else {
-            // Check if testimonial request should be created
-            // The database trigger will create it, but we can also check client-side
-            // and send email notification
-            const studentId = student?.id
-            if (studentId) {
-              // Fetch updated lessons count after update
-              const { data: updatedLessons } = await supabase
-                .from('lessons')
-                .select('id, status, lesson_date')
-                .eq('student_id', studentId)
-                .eq('status', 'completed')
-              
-              const currentPastLessonsCount = updatedLessons?.length || 0
-              
-              if (currentPastLessonsCount >= 5) {
+      if (lesson.status === 'scheduled' && lessonDate < now) {
+        supabase
+          .from('lessons')
+          .update({ status: 'completed' })
+          .eq('id', lesson.id)
+          .then(async ({ error }) => {
+            if (error) {
+              logger.error('Error updating lesson status:', error)
+            } else {
+              // Check if testimonial request should be created
+              // The database trigger will create it, but we can also check client-side
+              // and send email notification
+              if (student && pastLessons.length + 1 >= 5) {
                 try {
                   const { checkAndCreateTestimonialRequest } = await import('../../utils/checkAndCreateTestimonialRequest')
-                  await checkAndCreateTestimonialRequest(studentId, currentPastLessonsCount)
+                  await checkAndCreateTestimonialRequest(student.id, pastLessons.length + 1)
                 } catch (err) {
                   logger.error('Error checking testimonial request:', err)
                 }
               }
+              fetchStudentData() // Refresh to get updated status
             }
-            // Don't call fetchStudentData here - let the real-time subscription handle updates
-          }
-        })
+          })
+      }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessons.length]) // Only depend on lessons.length to avoid re-running on every render
+  }, [lessons, student, pastLessons.length])
 
   // Prepare student data object for tab components
   const studentData = student && profile ? {
@@ -652,47 +633,6 @@ export default function StudentDashboard() {
               }, 100)
             }}
           />
-        )
-      case 'lessons':
-        return (
-          <LessonsTab 
-            studentData={studentData} 
-            onBookLesson={() => setShowBookingModal(true)}
-          />
-        )
-      case 'community':
-        return (
-          <div className="community-tab-content">
-            <div className="community-section">
-              <h2>Community</h2>
-              <div className="community-options">
-                <button 
-                  className="community-option-card"
-                  onClick={() => navigate('/hitting-partners')}
-                >
-                  <Users size={24} />
-                  <h3>Hitting Partners</h3>
-                  <p>Find players to practice with</p>
-                </button>
-                <button 
-                  className="community-option-card"
-                  onClick={() => navigate('/tennis-resources')}
-                >
-                  <Award size={24} />
-                  <h3>Tennis Resources</h3>
-                  <p>Helpful guides and information</p>
-                </button>
-                <button 
-                  className="community-option-card"
-                  onClick={() => navigate('/messages')}
-                >
-                  <MessageSquare size={24} />
-                  <h3>Messages</h3>
-                  <p>Chat with your coach and partners</p>
-                </button>
-              </div>
-            </div>
-          </div>
         )
       default:
         return <HomeTab 
@@ -777,17 +717,6 @@ export default function StudentDashboard() {
 
   return (
     <div className="student-dashboard-wrapper">
-      <StudentTabs 
-        activeTab={isMoreMenuOpen ? 'more' : activeTab} 
-        setActiveTab={setActiveTab}
-        showCommunity={Boolean(student?.onboarding_completed)}
-        onMoreClick={() => setIsMoreMenuOpen(true)}
-      />
-      <MoreMenu 
-        isOpen={isMoreMenuOpen} 
-        onClose={() => setIsMoreMenuOpen(false)} 
-      />
-      
       <div className="student-dashboard-content">
         {renderTabContent()}
         
@@ -1282,36 +1211,35 @@ export default function StudentDashboard() {
         </div>
       ) : student?.development_plan ? (() => {
         try {
-          // Commented out debug logging to prevent console spam
-          // logger.debug('=== DEVELOPMENT PLAN DEBUG ===')
-          // logger.debug('Student object:', student)
-          // logger.debug('Has development_plan?:', student?.development_plan)
-          // logger.debug('development_plan type:', typeof student?.development_plan)
+          logger.debug('=== DEVELOPMENT PLAN DEBUG ===')
+          logger.debug('Student object:', student)
+          logger.debug('Has development_plan?:', student?.development_plan)
+          logger.debug('development_plan type:', typeof student?.development_plan)
           
           const plan = typeof student.development_plan === 'string' 
             ? safeJsonParse(student.development_plan, student.development_plan)
             : student.development_plan
           
-          // logger.debug('Parsed plan:', plan)
-          // logger.debug('Plan has section1?:', !!plan?.section1)
-          // logger.debug('Plan has section2?:', !!plan?.section2)
-          // logger.debug('Plan has skills?:', !!plan?.skills)
-          // logger.debug('Plan has goals?:', !!plan?.goals)
+          logger.debug('Parsed plan:', plan)
+          logger.debug('Plan has section1?:', !!plan?.section1)
+          logger.debug('Plan has section2?:', !!plan?.section2)
+          logger.debug('Plan has skills?:', !!plan?.skills)
+          logger.debug('Plan has goals?:', !!plan?.goals)
           
           // Check for new structure (section1/section2) or old structure (skills/goals)
           const hasNewStructure = plan?.section1 || plan?.section2
           const hasOldStructure = plan?.skills && plan.skills.length > 0
           
-          // logger.debug('Has new structure:', hasNewStructure)
-          // logger.debug('Has old structure:', hasOldStructure)
+          logger.debug('Has new structure:', hasNewStructure)
+          logger.debug('Has old structure:', hasOldStructure)
           
           if (!plan || (!hasNewStructure && !hasOldStructure)) {
-            // logger.debug('Returning null: No valid plan structure found')
+            logger.debug('Returning null: No valid plan structure found')
             return null
           }
           
-          // logger.debug('Rendering development plan')
-          // logger.debug('============================')
+          logger.debug('Rendering development plan')
+          logger.debug('============================')
 
           return (
             <div className="section">

@@ -1,7 +1,7 @@
 // Netlify Function to schedule delayed onboarding notification (30 minutes after signup)
 // Stores notification in database to be processed by scheduled function
 
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,

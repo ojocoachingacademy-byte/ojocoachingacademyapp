@@ -12,14 +12,33 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+const rootDir = join(__dirname, '..')
 
-// Load environment variables
+// Load .env from project root so SUPABASE_* / VITE_SUPABASE_* are available
+function loadEnv() {
+  const envPath = join(rootDir, '.env')
+  if (!existsSync(envPath)) return
+  const content = readFileSync(envPath, 'utf-8')
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed && !trimmed.startsWith('#')) {
+      const i = trimmed.indexOf('=')
+      if (i > 0) {
+        const key = trimmed.slice(0, i).trim()
+        let value = trimmed.slice(i + 1).trim().replace(/^["']|["']$/g, '')
+        process.env[key] = value
+      }
+    }
+  }
+}
+loadEnv()
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 

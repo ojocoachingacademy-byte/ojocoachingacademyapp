@@ -335,7 +335,7 @@ export default function StudentsPage() {
               </div>
               <div className="student-info">
                 <h3 className="student-name">{student.profiles?.full_name || 'Unknown Student'}</h3>
-                <div className="student-details">
+                <div className="student-details-row">
                   <div className="detail-item">
                     <Award size={16} />
                     <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>
@@ -379,17 +379,22 @@ export default function StudentsPage() {
                     )}
                   </div>
                 </div>
+                {student.lead_source && (
+                  <div className="lead-source-row">
+                    <span className="lead-source-label">Lead Source:</span>
+                    <span className="lead-source-badge">{student.lead_source}</span>
+                  </div>
+                )}
                 {student.profiles?.email && (
                   <div className="student-email">{student.profiles.email}</div>
                 )}
-                {student.lead_source && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '12px', color: '#666', fontWeight: '600', flexShrink: 0 }}>Lead Source:</span>
-                    <span className="lead-source-badge" style={{ flex: '1 1 auto', minWidth: 0 }}>
-                      {student.lead_source}
-                    </span>
-                  </div>
-                )}
+                <div className="student-phone">
+                  {student.profiles?.phone ? (
+                    <a href={`tel:${student.profiles.phone}`}>{student.profiles.phone}</a>
+                  ) : (
+                    <span className="student-phone-empty">No phone</span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
