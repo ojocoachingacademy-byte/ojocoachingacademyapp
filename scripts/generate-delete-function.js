@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { analyzeSchema } from './analyze-schema.js'
 import fs from 'fs'
 import path from 'path'
@@ -99,7 +100,7 @@ function generateDeleteBlock(table, column) {
 }
 
 function generateDeleteBlockMultiple(table, columns) {
-  const orConditions = columns.map(col => `${col}.eq.${userId}`).join(',')
+  const orConditions = columns.map(col => `${col}.eq.$\${userId}`).join(',')
   return `    try {
       const { error } = await supabaseAdmin
         .from('${table}')
@@ -292,3 +293,5 @@ run().catch(error => {
   console.error('Error:', error)
   process.exit(1)
 })
+
+
