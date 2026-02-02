@@ -1,170 +1,213 @@
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * SIMPLIFIED DELETE STUDENT FUNCTION
+ * DELETE STUDENT FUNCTION - AUTO-GENERATED
  * 
- * With CASCADE foreign keys properly configured, this function only needs to:
- * 1. Clear self-referencing relationships (referred_by, paired_with)
- * 2. Delete the auth user
- * 3. Everything else cascades automatically!
+ * ⚠️ THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY
  * 
- * If you add a new table with a foreign key to students/profiles/auth.users,
- * just add CASCADE to the foreign key and it will automatically be cleaned up.
+ * To regenerate:
+ *   npm run generate-delete-function
+ * 
+ * Or it will regenerate automatically on git commit if schema changed.
  */
 
-export const handler = async (event, context) => {
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
+
+export const handler = async (event) => {
+  // CORS headers
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  }
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    }
+  }
+
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) }
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method Not Allowed' })
+    }
   }
 
   try {
-    const { userId } = JSON.parse(event.body)
+    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body
+    const { userId } = body
 
     if (!userId) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) }
-    }
-
-    // Validate environment variables
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error('Missing required environment variables')
       return {
-        statusCode: 500,
-        body: JSON.stringify({ 
-          error: 'Server configuration error', 
-          details: 'Supabase credentials not configured'
-        })
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'userId is required' })
       }
     }
 
     console.log('Deleting user:', userId)
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    // AUTO-GENERATED - DO NOT EDIT MANUALLY
+    // Regenerate with: npm run generate-delete-function
+    // Or automatically on git commit
 
-    // STEP 1: Clear self-referencing foreign keys (these can't CASCADE)
-    console.log('Clearing self-referencing relationships...')
-    
-    const { error: referralUpdateError } = await supabaseAdmin
-      .from('students')
-      .update({ referred_by_student_id: null })
-      .eq('referred_by_student_id', userId)
-    
-    if (referralUpdateError) {
-      console.warn('Error clearing referrals:', referralUpdateError.message)
-    } else {
-      console.log('? Referral references cleared')
-    }
+    console.log("Deleting related records for user:", userId)
 
-    const { error: pairingUpdateError } = await supabaseAdmin
-      .from('students')
-      .update({ 
-        paired_with_id: null,
-        is_primary_for_pair: false
-      })
-      .eq('paired_with_id', userId)
-    
-    if (pairingUpdateError) {
-      console.warn('Error clearing pairings:', pairingUpdateError.message)
-    } else {
-      console.log('? Pairing references cleared')
-    }
-
-    // STEP 2: Delete auth user (CASCADE handles everything else)
-    console.log('Deleting auth user (CASCADE will handle all related records)...')
-    
-    // Check if user exists first
-    const { data: userData, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
-    
-    if (getUserError?.message?.includes('not found')) {
-      console.warn('Auth user already deleted')
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ 
-          success: true, 
-          message: 'User already deleted'
-        })
+    // Step 1: Delete records referencing auth.users
+    try {
+      const { error } = await supabaseAdmin
+        .from('messages')
+        .delete()
+        .or('sender_id.eq.$${userId},receiver_id.eq.$${userId}')
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from messages:', error.message)
+      } else {
+        console.log('✓ Deleted from messages')
       }
+    } catch (error) {
+      console.error('Error deleting from messages:', error.message)
+    }
+    try {
+      const { error } = await supabaseAdmin
+        .from('conversations')
+        .delete()
+        .or('participant_1_id.eq.$${userId},participant_2_id.eq.$${userId}')
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from conversations:', error.message)
+      } else {
+        console.log('✓ Deleted from conversations')
+      }
+    } catch (error) {
+      console.error('Error deleting from conversations:', error.message)
+    }
+    try {
+      const { error } = await supabaseAdmin
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from notifications:', error.message)
+      } else {
+        console.log('✓ Deleted from notifications')
+      }
+    } catch (error) {
+      console.error('Error deleting from notifications:', error.message)
+    }
+    try {
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from profiles:', error.message)
+      } else {
+        console.log('✓ Deleted from profiles')
+      }
+    } catch (error) {
+      console.error('Error deleting from profiles:', error.message)
     }
 
-    // Try API deletion
-    const { error: apiDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-    
-    if (apiDeleteError) {
-      console.log('?? API deletion failed, using SQL fallback...')
+    // Step 3: Clear self-referencing fields in students table
+
+    // Step 4: Delete main records
+    try {
+      const { error } = await supabaseAdmin
+        .from('students')
+        .delete()
+        .eq('id', userId)
       
-      // Fallback to SQL function
-      const { error: sqlError } = await supabaseAdmin.rpc('force_delete_auth_user', {
-        user_id: userId
-      })
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from students:', error.message)
+      } else {
+        console.log('✓ Deleted from students')
+      }
+    } catch (error) {
+      console.error('Error deleting from students:', error.message)
+    }
+    try {
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
       
-      if (sqlError) {
-        console.error('? SQL deletion failed:', sqlError)
-        
-        // Last resort: try deleting profile first
-        console.log('Trying profile deletion first...')
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .delete()
-          .eq('id', userId)
-        
-        if (!profileError) {
-          // Retry auth deletion
-          const { error: retryError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-          if (!retryError) {
-            console.log('? User deleted after profile removal')
-            return {
-              statusCode: 200,
-              body: JSON.stringify({ 
-                success: true, 
-                message: 'User deleted successfully'
-              })
-            }
-          }
-        }
-        
-        // If we get here, all methods failed
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from profiles:', error.message)
+      } else {
+        console.log('✓ Deleted from profiles')
+      }
+    } catch (error) {
+      console.error('Error deleting from profiles:', error.message)
+    }
+
+
+    // Finally delete auth user
+    console.log('Deleting auth user...')
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+    if (authError) {
+      console.error('Auth deletion error:', authError)
+      // Return partial success if all app data is deleted
+      const { count: studentCount } = await supabaseAdmin
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('id', userId)
+      
+      const { count: profileCount } = await supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('id', userId)
+
+      if (studentCount === 0 && profileCount === 0) {
         return {
-          statusCode: 500,
-          body: JSON.stringify({ 
-            error: 'Failed to delete auth user',
-            details: sqlError.message,
-            code: sqlError.code
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            partial: true,
+            message: 'All app data deleted, but auth user deletion failed',
+            warning: 'Auth user may need to be deleted manually from Supabase dashboard'
           })
         }
       }
-      
-      console.log('? User deleted via SQL fallback')
-    } else {
-      console.log('? User deleted via API')
+
+      throw new Error(`Auth deletion failed: ${authError.message}`)
     }
 
-    // Verify deletion worked
-    const { data: verifyUser } = await supabaseAdmin.auth.admin
-      .getUserById(userId)
-      .catch(() => ({ data: null }))
-    
-    if (verifyUser?.user) {
-      throw new Error('User still exists after deletion!')
-    }
+    console.log('✅ User deleted successfully')
 
-    console.log('? User and all related records deleted successfully')
-    
     return {
       statusCode: 200,
-      body: JSON.stringify({ 
-        success: true, 
-        message: 'User and all related records deleted successfully via CASCADE'
+      headers,
+      body: JSON.stringify({
+        success: true,
+        message: 'User deleted successfully'
       })
     }
-
   } catch (error) {
-    console.error('Unhandled error:', error)
+    console.error('Error deleting user:', error)
     return {
       statusCode: 500,
-      body: JSON.stringify({ 
-        error: 'Internal server error', 
+      headers,
+      body: JSON.stringify({
+        error: 'Failed to delete user',
         details: error.message
       })
     }

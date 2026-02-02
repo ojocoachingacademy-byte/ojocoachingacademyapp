@@ -143,8 +143,65 @@
     border-radius: 0;
   }
 
-  .lessons-table {
-    min-width: 900px;
+  /* Hide table on mobile */
+  .table-container {
+    overflow: visible;
+  }
+  
+  .lessons-table thead {
+    display: none;
+  }
+  
+  .lessons-table,
+  .lessons-table tbody {
+    display: block;
+    width: 100%;
+  }
+  
+  .lessons-table tbody tr {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .lessons-table tbody tr:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  }
+  
+  .lessons-table td {
+    display: block;
+    padding: 6px 0;
+    text-align: right;
+    border: none;
+    overflow: auto; /* Creates new block formatting context */
+  }
+  
+  .lessons-table tbody td::before {
+    content: attr(data-label) ": " !important;
+    float: left !important;
+    font-weight: 600;
+    color: #666;
+    position: static !important;
+    width: auto !important;
+    text-transform: none !important;
+    padding-right: 0 !important;
+    white-space: normal !important;
+  }
+  
+  .lessons-table tbody td {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    padding-left: 0 !important;
+  }
+  
+  .lessons-table td:last-child {
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 12px;
   }
 
   .lessons-table thead th {

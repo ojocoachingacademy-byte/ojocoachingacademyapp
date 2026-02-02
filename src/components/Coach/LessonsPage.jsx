@@ -371,31 +371,31 @@ export default function LessonsPage() {
                     setFeedbackText('')
                   }}
                 >
-                  <td>{new Date(lesson.lesson_date).toLocaleDateString()}</td>
-                  <td>{new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td>{lesson.students?.profiles?.full_name || 'Unknown'}</td>
-                  <td>{lesson.location || '-'}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <td data-label="Date">{new Date(lesson.lesson_date).toLocaleDateString()}</td>
+                  <td data-label="Time">{new Date(lesson.lesson_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td data-label="Student">{lesson.students?.profiles?.full_name || 'Unknown'}</td>
+                  <td data-label="Location">{lesson.location || '-'}</td>
+                  <td data-label="Status">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       {getStatusIcon(getActualStatus(lesson))}
                       <span style={{ textTransform: 'capitalize' }}>{getActualStatus(lesson)}</span>
-                    </div>
+                    </span>
                   </td>
-                  <td>
+                  <td data-label="Plan">
                     {lesson.lesson_plan ? (
                       <FileText size={16} style={{ color: 'var(--color-success)' }} />
                     ) : (
                       <span style={{ color: '#999' }}>-</span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Learnings">
                     {lesson.student_learnings ? (
                       <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
                     ) : (
                       <span style={{ color: '#999' }}>-</span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Feedback">
                     {lesson.coach_feedback ? (
                       <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
                     ) : (

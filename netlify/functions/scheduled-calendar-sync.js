@@ -23,8 +23,8 @@ export const handler = async (event, context) => {
     const calendar = google.calendar({ version: 'v3', auth })
 
     // Fetch events from next 6 weeks (42 days)
-    const timeMin = new Date().toISOString()
-    const timeMax = new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString()
+    const timeMin = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()  // 7 days ago
+    const timeMax = new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString()  // 6 weeks ahead
 
     const response = await calendar.events.list({
       calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',

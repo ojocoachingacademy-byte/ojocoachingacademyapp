@@ -1,5 +1,3 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 # Run Node.js pre-commit script (cross-platform, handles .env properly)
 node scripts/pre-commit.js
