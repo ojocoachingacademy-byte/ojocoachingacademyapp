@@ -181,7 +181,7 @@ export default function PlayersLanding() {
             }}
           >
             Join Free - Find Your Match
-            <span className="cta-subtitle">Takes 30 seconds • No credit card</span>
+            <span className="cta-subtitle">Takes 30 seconds</span>
           </button>
         </div>
       </div>
