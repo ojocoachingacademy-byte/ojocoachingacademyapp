@@ -67,138 +67,96 @@ export const handler = async (event) => {
 
     console.log("Deleting related records for user:", userId)
 
-    // Delete child tables first (referencing students/profiles)
-
+    // Step 1: Delete records referencing auth.users
     try {
       const { error } = await supabaseAdmin
-        .from('hitting_partner_interactions')
+        .from('messages')
         .delete()
-        .or(`requester_id.eq.${userId},partner_id.eq.${userId}`)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting hitting_partner_interactions:', error.message)
-      else console.log('✓ Deleted from hitting_partner_interactions')
-    } catch (error) { console.error('Error:', error.message) }
-
+        .or('sender_id.eq.$${userId},receiver_id.eq.$${userId}')
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from messages:', error.message)
+      } else {
+        console.log('✓ Deleted from messages')
+      }
+    } catch (error) {
+      console.error('Error deleting from messages:', error.message)
+    }
     try {
-      const { error } = await supabaseAdmin.from('lesson_homework').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting lesson_homework:', error.message)
-      else console.log('✓ Deleted from lesson_homework')
-    } catch (error) { console.error('Error:', error.message) }
-
+      const { error } = await supabaseAdmin
+        .from('conversations')
+        .delete()
+        .or('participant_1_id.eq.$${userId},participant_2_id.eq.$${userId}')
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from conversations:', error.message)
+      } else {
+        console.log('✓ Deleted from conversations')
+      }
+    } catch (error) {
+      console.error('Error deleting from conversations:', error.message)
+    }
     try {
-      const { error } = await supabaseAdmin.from('student_milestones').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting student_milestones:', error.message)
-      else console.log('✓ Deleted from student_milestones')
-    } catch (error) { console.error('Error:', error.message) }
-
+      const { error } = await supabaseAdmin
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from notifications:', error.message)
+      } else {
+        console.log('✓ Deleted from notifications')
+      }
+    } catch (error) {
+      console.error('Error deleting from notifications:', error.message)
+    }
     try {
-      const { error } = await supabaseAdmin.from('student_focus_areas').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting student_focus_areas:', error.message)
-      else console.log('✓ Deleted from student_focus_areas')
-    } catch (error) { console.error('Error:', error.message) }
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from profiles:', error.message)
+      } else {
+        console.log('✓ Deleted from profiles')
+      }
+    } catch (error) {
+      console.error('Error deleting from profiles:', error.message)
+    }
 
+    // Step 3: Clear self-referencing fields in students table
+
+    // Step 4: Delete main records
     try {
-      const { error } = await supabaseAdmin.from('skill_assessments').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting skill_assessments:', error.message)
-      else console.log('✓ Deleted from skill_assessments')
-    } catch (error) { console.error('Error:', error.message) }
-
+      const { error } = await supabaseAdmin
+        .from('students')
+        .delete()
+        .eq('id', userId)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from students:', error.message)
+      } else {
+        console.log('✓ Deleted from students')
+      }
+    } catch (error) {
+      console.error('Error deleting from students:', error.message)
+    }
     try {
-      const { error } = await supabaseAdmin.from('skill_progress_snapshots').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting skill_progress_snapshots:', error.message)
-      else console.log('✓ Deleted from skill_progress_snapshots')
-    } catch (error) { console.error('Error:', error.message) }
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error deleting from profiles:', error.message)
+      } else {
+        console.log('✓ Deleted from profiles')
+      }
+    } catch (error) {
+      console.error('Error deleting from profiles:', error.message)
+    }
 
-    try {
-      const { error } = await supabaseAdmin.from('testimonial_requests').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting testimonial_requests:', error.message)
-      else console.log('✓ Deleted from testimonial_requests')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('testimonials').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting testimonials:', error.message)
-      else console.log('✓ Deleted from testimonials')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('public_testimonials').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting public_testimonials:', error.message)
-      else console.log('✓ Deleted from public_testimonials')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('lesson_transactions').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting lesson_transactions:', error.message)
-      else console.log('✓ Deleted from lesson_transactions')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('payment_transactions').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting payment_transactions:', error.message)
-      else console.log('✓ Deleted from payment_transactions')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('student_packages').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting student_packages:', error.message)
-      else console.log('✓ Deleted from student_packages')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('lessons').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting lessons:', error.message)
-      else console.log('✓ Deleted from lessons')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('lessons_archive').delete().eq('student_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting lessons_archive:', error.message)
-      else console.log('✓ Deleted from lessons_archive')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('messages').delete().eq('sender_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting messages:', error.message)
-      else console.log('✓ Deleted from messages')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('conversations').delete().or(`participant_1_id.eq.${userId},participant_2_id.eq.${userId}`)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting conversations:', error.message)
-      else console.log('✓ Deleted from conversations')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('notifications').delete().eq('user_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting notifications:', error.message)
-      else console.log('✓ Deleted from notifications')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('analytics_events').delete().eq('user_id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting analytics_events:', error.message)
-      else console.log('✓ Deleted from analytics_events')
-    } catch (error) { console.error('Error:', error.message) }
-
-    // Delete parent tables
-
-    try {
-      const { error } = await supabaseAdmin.from('hitting_partners').delete().eq('id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting hitting_partners:', error.message)
-      else console.log('✓ Deleted from hitting_partners')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('students').delete().eq('id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting students:', error.message)
-      else console.log('✓ Deleted from students')
-    } catch (error) { console.error('Error:', error.message) }
-
-    try {
-      const { error } = await supabaseAdmin.from('profiles').delete().eq('id', userId)
-      if (error && error.code !== 'PGRST116') console.error('Error deleting profiles:', error.message)
-      else console.log('✓ Deleted from profiles')
-    } catch (error) { console.error('Error:', error.message) }
 
     // Finally delete auth user
     console.log('Deleting auth user...')

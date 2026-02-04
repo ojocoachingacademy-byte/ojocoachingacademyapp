@@ -118,42 +118,22 @@ export default function PlayersLanding() {
             Connect with players at your level for FREE. Practice more, improve faster.
           </p>
 
-          {/* Condensed How It Works */}
-          <div style={{
-            marginTop: '32px',
-            marginBottom: '32px',
-            padding: '16px 24px',
+          {/* 3. Ultra-condensed How It Works (~40px on mobile) */}
+          <div className="hero-how-it-works" style={{
+            marginTop: '20px',
+            marginBottom: '20px',
+            padding: '10px 16px',
             background: 'rgba(255,255,255,0.15)',
-            borderRadius: '12px',
-            border: '1px solid rgba(255,255,255,0.3)'
+            borderRadius: '8px',
+            fontSize: '12px',
+            fontWeight: 500,
+            opacity: 0.95,
+            textAlign: 'center'
           }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-around',
-              alignItems: 'center',
-              gap: '24px',
-              fontSize: '13px',
-              fontWeight: 500,
-              opacity: 0.95,
-              flexWrap: 'wrap'
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '24px', marginBottom: '4px' }}>1️⃣</div>
-                <div>Join (30 sec)</div>
-              </div>
-              <div style={{ fontSize: '20px', opacity: 0.5 }}>→</div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '24px', marginBottom: '4px' }}>2️⃣</div>
-                <div>See Matches</div>
-              </div>
-              <div style={{ fontSize: '20px', opacity: 0.5 }}>→</div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '24px', marginBottom: '4px' }}>3️⃣</div>
-                <div>Text & Play</div>
-              </div>
-            </div>
+            Join (30s) → See Matches → Text & Play
           </div>
 
+          {/* 4. Stats cards */}
           <div className="hero-stats" style={{ marginBottom: '16px' }}>
             <div className="stat-item">
               <div className="stat-number">{loading ? '...' : (totalCount || '0')}</div>
@@ -165,17 +145,34 @@ export default function PlayersLanding() {
             </div>
           </div>
 
-          <p style={{
-            fontSize: '14px',
+          {/* 5. Compact info (urgency + level breakdown) (~50px on mobile) */}
+          <div className="hero-compact-info" style={{
+            marginTop: '12px',
+            marginBottom: '16px',
+            padding: '12px',
+            background: 'rgba(255,255,255,0.15)',
+            borderRadius: '8px',
+            fontSize: '11px',
             opacity: 0.9,
-            marginTop: '24px',
-            fontWeight: 600
+            textAlign: 'center',
+            lineHeight: 1.6
           }}>
-            🔥 3 new players joined this week
-          </p>
+            <div style={{ fontWeight: 600, marginBottom: '6px' }}>
+              🔥 3 new players this week
+            </div>
+            <div>
+              {players.filter(p => parseFloat(p.profiles?.ntrp_level || '0') <= 2.5).length} Beginners • {' '}
+              {players.filter(p => {
+                const l = parseFloat(p.profiles?.ntrp_level || '0')
+                return l >= 3.0 && l <= 3.5
+              }).length} Intermediate • {' '}
+              {players.filter(p => parseFloat(p.profiles?.ntrp_level || '0') >= 4.0).length} Advanced
+            </div>
+          </div>
 
+          {/* 6. CTA - must be visible */}
           <button
-            className="cta-button"
+            className="cta-button hero-cta"
             onClick={handleSignUp}
             style={{
               fontSize: '20px',
@@ -186,34 +183,6 @@ export default function PlayersLanding() {
             Join Free - Find Your Match
             <span className="cta-subtitle">Takes 30 seconds • No credit card</span>
           </button>
-
-          <div style={{
-            marginTop: '16px',
-            marginBottom: '24px',
-            padding: '12px 16px',
-            background: 'rgba(255,255,255,0.15)',
-            borderRadius: '12px',
-            fontSize: '12px',
-            opacity: 0.9,
-            textAlign: 'center',
-            lineHeight: 1.6
-          }}>
-            <div>
-              <strong>Players:</strong> {' '}
-              {players.filter(p => parseFloat(p.profiles?.ntrp_level || '0') <= 2.5).length} Beginners • {' '}
-              {players.filter(p => {
-                const l = parseFloat(p.profiles?.ntrp_level || '0')
-                return l >= 3.0 && l <= 3.5
-              }).length} Intermediate • {' '}
-              {players.filter(p => parseFloat(p.profiles?.ntrp_level || '0') >= 4.0).length} Advanced
-            </div>
-            <div style={{ marginTop: '4px' }}>
-              <strong>Areas:</strong> {' '}
-              {[...new Set(players.map(p => p.location_area).filter(Boolean))]
-                .slice(0, 4)
-                .join(', ')}
-            </div>
-          </div>
         </div>
       </div>
 
