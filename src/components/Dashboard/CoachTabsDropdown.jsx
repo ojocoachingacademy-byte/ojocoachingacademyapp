@@ -89,6 +89,12 @@ const CoachTabsDropdown = ({
         path: '/coach/emails', 
         icon: Mail,
         active: isActive('/coach/emails')
+      },
+      { 
+        label: 'Hitting Partners Admin', 
+        path: '/coach/hitting-partners-admin', 
+        icon: Users,
+        active: isActive('/coach/hitting-partners-admin')
       }
     ],
     finances: [
@@ -123,6 +129,12 @@ const CoachTabsDropdown = ({
         path: '/coach/referrals', 
         icon: Gift,
         active: isActive('/coach/referrals')
+      },
+      { 
+        label: 'Hitting Partners', 
+        path: '/hitting-partners', 
+        icon: Users,
+        active: isActive('/hitting-partners')
       }
     ]
   }

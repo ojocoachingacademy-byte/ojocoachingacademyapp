@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
+import { NTRP_OPTIONS } from '../../utils/ntrpLabels'
 import './Signup.css'
 
 export default function Signup() {
@@ -288,14 +289,9 @@ export default function Signup() {
                 value={ntrpLevel}
                 onChange={(e) => setNtrpLevel(e.target.value)}
               >
-                <option value="1.5">1.5 - Beginner</option>
-                <option value="2.0">2.0 - Beginner</option>
-                <option value="2.5">2.5 - Beginner+</option>
-                <option value="3.0">3.0 - Intermediate</option>
-                <option value="3.5">3.5 - Intermediate+</option>
-                <option value="4.0">4.0 - Advanced</option>
-                <option value="4.5">4.5 - Advanced+</option>
-                <option value="5.0+">5.0+ - Expert</option>
+                {NTRP_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
             {error && (

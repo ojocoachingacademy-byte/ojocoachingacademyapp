@@ -10,12 +10,12 @@ const StudentTabs = ({ activeTab, setActiveTab, showCommunity = false, onMoreCli
     { id: 'lessons', label: 'Lessons', icon: Calendar }
   ]
 
-  const communityTab = { id: 'community', label: 'Community', icon: Users }
+  const hittingPartnersTab = { id: 'hitting-partners', label: 'Hitting Partners', icon: Users }
   const moreTab = { id: 'more', label: 'More', icon: MoreHorizontal }
   
   // Always show More tab - onMoreClick is optional
   const tabs = showCommunity 
-    ? [...baseTabs, communityTab, moreTab]
+    ? [...baseTabs, hittingPartnersTab, moreTab]
     : [...baseTabs, moreTab]
 
   const handleTabChange = (tabId, event) => {

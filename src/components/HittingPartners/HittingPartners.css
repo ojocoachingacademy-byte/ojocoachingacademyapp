@@ -260,5 +260,124 @@
   }
 }
 
+/* Welcome Screen */
+.welcome-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 200px);
+  padding: 32px 16px;
+}
+
+.welcome-content {
+  max-width: 600px;
+  text-align: center;
+}
+
+.welcome-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 16px;
+}
+
+.welcome-subtitle {
+  font-size: 18px;
+  color: var(--color-dark);
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.welcome-benefits {
+  background: var(--color-light);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 16px;
+  color: var(--color-dark);
+}
+
+.benefit-item:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.benefit-check {
+  color: var(--color-success);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.welcome-social-proof {
+  font-size: 16px;
+  font-style: italic;
+  color: #666;
+  margin-bottom: 32px;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-large {
+  padding: 16px 32px;
+  font-size: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .welcome-icon {
+    font-size: 48px;
+  }
+  
+  .welcome-title {
+    font-size: 24px;
+  }
+  
+  .welcome-subtitle {
+    font-size: 16px;
+  }
+}
+
+/* Match score badges */
+.match-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.great-match {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.good-match {
+  background: #dbeafe;
+  color: #2563eb;
+}
 
 

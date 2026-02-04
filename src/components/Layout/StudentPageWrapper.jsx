@@ -18,9 +18,9 @@ export default function StudentPageWrapper({ children }) {
     const path = pathname || location.pathname
     if (path === '/dashboard' || path.startsWith('/dashboard')) return location.state?.tab === 'progress' ? 'progress' : 'home'
     if (path === '/lessons' || path.startsWith('/lessons')) return 'lessons'
-    if (path === '/hitting-partners' || path.startsWith('/hitting-partners')) return 'community'
-    if (path === '/messages' || path.startsWith('/messages')) return 'community'
-    if (path === '/tennis-resources' || path.startsWith('/tennis-resources')) return 'community'
+    if (path === '/hitting-partners' || path.startsWith('/hitting-partners')) return 'hitting-partners'
+    if (path === '/messages' || path.startsWith('/messages')) return 'hitting-partners'
+    if (path === '/tennis-resources' || path.startsWith('/tennis-resources')) return 'hitting-partners'
     if (path === '/settings' || path.startsWith('/settings')) return 'home'
     if (path === '/notifications' || path.startsWith('/notifications')) return 'more'
     return 'home'
@@ -50,8 +50,8 @@ export default function StudentPageWrapper({ children }) {
       case 'lessons':
         navigate('/lessons')
         break
-      case 'community':
-        // Default to hitting partners for community
+      case 'hitting-partners':
+        // Default to hitting partners when tab is selected
         if (location.pathname !== '/hitting-partners' && 
             location.pathname !== '/messages' && 
             location.pathname !== '/tennis-resources') {

@@ -15,11 +15,11 @@ export default function CoachLayout({ children }) {
     const path = location.pathname
     let newTab = 'dashboard'
     
-    if (path.startsWith('/coach/students') || path.startsWith('/coach/lessons') || path.startsWith('/coach/calendar') || path.startsWith('/coach/emails')) {
+    if (path.startsWith('/coach/students') || path.startsWith('/coach/lessons') || path.startsWith('/coach/calendar') || path.startsWith('/coach/emails') || path.startsWith('/coach/hitting-partners-admin')) {
       newTab = 'manage'
     } else if (path.startsWith('/coach/finances') || path.startsWith('/coach/expenses')) {
       newTab = 'finances'
-    } else if (path.startsWith('/coach/testimonials') || path.startsWith('/coach/referrals')) {
+    } else if (path.startsWith('/coach/testimonials') || path.startsWith('/coach/referrals') || path === '/hitting-partners' || path.startsWith('/hitting-partners')) {
       newTab = 'community'
     } else if (path === '/coach' || path.startsWith('/coach/dashboard')) {
       newTab = 'dashboard'

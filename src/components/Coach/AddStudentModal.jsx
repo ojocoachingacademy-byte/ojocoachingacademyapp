@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { NTRP_OPTIONS } from '../../utils/ntrpLabels'
 import './AddStudentModal.css'
 
 export default function AddStudentModal({ onClose, onSuccess, onReferralCelebration }) {
@@ -237,14 +238,9 @@ export default function AddStudentModal({ onClose, onSuccess, onReferralCelebrat
                 value={formData.ntrpLevel}
                 onChange={(e) => setFormData({...formData, ntrpLevel: e.target.value})}
               >
-                <option value="1.5">1.5 - Beginner</option>
-                <option value="2.0">2.0 - Beginner</option>
-                <option value="2.5">2.5 - Beginner+</option>
-                <option value="3.0">3.0 - Intermediate</option>
-                <option value="3.5">3.5 - Intermediate+</option>
-                <option value="4.0">4.0 - Advanced</option>
-                <option value="4.5">4.5 - Advanced+</option>
-                <option value="5.0+">5.0+ - Expert</option>
+                {NTRP_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
           </div>

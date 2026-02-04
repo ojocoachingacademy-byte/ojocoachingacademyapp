@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Search, Users, MapPin, Clock, Calendar, User, Edit2, Send, X } from 'lucide-react'
+import { Search, Users, User, Edit2, Send, X } from 'lucide-react'
 import StudentPageWrapper from '../Layout/StudentPageWrapper'
 import './HittingPartners.css'
 import '../shared/Modal.css'
 
-export default function HittingPartners() {
+export default function HittingPartners({ isCoach = false }) {
   const [partners, setPartners] = useState([])
   const [filteredPartners, setFilteredPartners] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,23 +21,29 @@ export default function HittingPartners() {
   // Modals
   const [showSetupModal, setShowSetupModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
-  const [showRequestModal, setShowRequestModal] = useState(false)
-  const [selectedPartner, setSelectedPartner] = useState(null)
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(false)
   
   // Form states
   const [availabilityDays, setAvailabilityDays] = useState([])
   const [availabilityTimes, setAvailabilityTimes] = useState([])
   const [preferredLocations, setPreferredLocations] = useState('')
-  const [bio, setBio] = useState('')
-  const [contactPreference, setContactPreference] = useState('in-app')
-  const [isActive, setIsActive] = useState(true)
-  
-  // Request message
-  const [requestMessage, setRequestMessage] = useState('')
+  const [locationArea, setLocationArea] = useState('')
   
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const times = ['Morning', 'Afternoon', 'Evening']
-  const ntrpLevels = ['All', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0+']
+  const ntrpLevelOptions = [
+    { value: 'All', label: 'All' },
+    { value: '1.0', label: '1.0 - Beginner' },
+    { value: '1.5', label: '1.5 - Limited Experience' },
+    { value: '2.0', label: '2.0 - Can Play Sets' },
+    { value: '2.5', label: '2.5 - Could Play on a League Team' },
+    { value: '3.0', label: '3.0 - Could Play a Tournament' },
+    { value: '3.5', label: '3.5 - Experienced Player' },
+    { value: '4.0', label: '4.0 - Equivalent to Junior College Level' },
+    { value: '4.5', label: '4.5 - Equivalent to D3 Level' },
+    { value: '5.0', label: '5.0 - Equivalent D2-D1 Level' },
+    { value: '5.5+', label: '5.5+ - D1+' }
+  ]
 
   useEffect(() => {
     fetchPartners()
@@ -113,31 +119,97 @@ export default function HittingPartners() {
 
       if (partnerData) {
         setUserPartnerProfile(partnerData)
-        setAvailabilityDays(partnerData.availability_days || [])
-        setAvailabilityTimes(partnerData.availability_times || [])
-        // Convert array back to comma-separated string for display in textarea
-        const locationsStr = Array.isArray(partnerData.preferred_locations) 
-          ? partnerData.preferred_locations.join(', ')
-          : (partnerData.preferred_locations || '')
-        setPreferredLocations(locationsStr)
-        setBio(partnerData.bio || '')
-        // Map database value back to form value (in_app -> in-app)
-        const contactPref = partnerData.contact_preference || 'in_app'
-        const contactPrefReverseMap = {
-          'in_app': 'in-app',
-          'in-app': 'in-app', // Handle both formats
-          'phone': 'phone',
-          'email': 'email'
+        
+        // Check if profile is incomplete (no availability set)
+        if (!partnerData.availability_days || partnerData.availability_days.length === 0) {
+          // Incomplete profile, show welcome screen
+          setShowWelcomeScreen(true)
+        } else {
+          // Complete profile, load existing data
+          setAvailabilityDays(partnerData.availability_days || [])
+          setAvailabilityTimes(partnerData.availability_times || [])
+          const locationsStr = Array.isArray(partnerData.preferred_locations) 
+            ? partnerData.preferred_locations.join(', ')
+            : (partnerData.preferred_locations || '')
+          setPreferredLocations(locationsStr)
+          setLocationArea(partnerData.location_area || '')
         }
-        setContactPreference(contactPrefReverseMap[contactPref] || 'in-app')
-        setIsActive(partnerData.is_active !== false)
       } else {
-        // No profile yet, show setup
+        // No record at all (shouldn't happen anymore), show setup
         setShowSetupModal(true)
       }
     } catch (error) {
       console.error('Error fetching user profile:', error)
     }
+  }
+
+  const getMatchScore = (partner) => {
+    if (!userProfile || !userPartnerProfile) return 0
+
+    let score = 0
+
+    // 1. NTRP Level Proximity (50 points max) - 50 only when same level
+    const userLevel = parseFloat(userProfile.ntrp_level || '0')
+    const partnerLevel = parseFloat(partner.profiles?.ntrp_level || '0')
+    const levelDiff = Math.abs(userLevel - partnerLevel)
+
+    if (levelDiff === 0) score += 50
+    else if (levelDiff <= 0.5) score += 30
+    else if (levelDiff <= 1.0) score += 15
+    else if (levelDiff <= 1.5) score += 5
+    else score += 0
+
+    // 2. Overlapping Days (30 points max - 10 per day)
+    const userDays = userPartnerProfile.availability_days || []
+    const partnerDays = partner.availability_days || []
+    const commonDays = userDays.filter(day => partnerDays.includes(day))
+    score += Math.min(commonDays.length * 10, 30)
+
+    // 3. Overlapping Times (10 points max - 5 per time)
+    const userTimes = userPartnerProfile.availability_times || []
+    const partnerTimes = partner.availability_times || []
+    const commonTimes = userTimes.filter(time => partnerTimes.includes(time))
+    score += Math.min(commonTimes.length * 5, 10)
+
+    // 4. Location Match (10 points max)
+    if (userPartnerProfile.location_area &&
+        partner.location_area &&
+        userPartnerProfile.location_area.toLowerCase() === partner.location_area.toLowerCase()) {
+      score += 10
+    }
+
+    return score
+  }
+
+  const logInteraction = async (partnerId, interactionType) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      await supabase
+        .from('hitting_partner_interactions')
+        .insert({
+          requester_id: user.id,
+          partner_id: partnerId,
+          interaction_type: interactionType
+        })
+    } catch (error) {
+      console.error('Error logging interaction:', error)
+    }
+  }
+
+  const handleContact = (partner) => {
+    // Log the interaction
+    logInteraction(partner.id, 'click_contact')
+    
+    const phone = partner.profiles?.phone
+    if (!phone) {
+      alert('Phone number not available. Ask Coach Tobi for an introduction.')
+      return
+    }
+    
+    const message = `Hi ${partner.profiles?.full_name}, I'm ${userProfile?.full_name || 'a fellow player'} from Ojo Coaching Academy. I saw your profile in the hitting partner directory and would love to hit sometime! Are you available this week?`
+    window.open(`sms:${phone}${/iPhone|iPad|iPod/.test(navigator.userAgent) ? '&' : '?'}body=${encodeURIComponent(message)}`, '_self')
   }
 
   const applyFilters = () => {
@@ -152,7 +224,11 @@ export default function HittingPartners() {
 
     // Filter by NTRP
     if (filterNtrp !== 'All') {
-      filtered = filtered.filter(p => p.profiles?.ntrp_level === filterNtrp)
+      if (filterNtrp === '5.5+') {
+        filtered = filtered.filter(p => ['5.5+', '5.0+', '5.5', '6.0+'].includes(p.profiles?.ntrp_level))
+      } else {
+        filtered = filtered.filter(p => p.profiles?.ntrp_level === filterNtrp)
+      }
     }
 
     // Filter by days
@@ -170,6 +246,25 @@ export default function HittingPartners() {
         return filterTimes.some(time => partnerTimes.includes(time))
       })
     }
+
+    // Sort: (1) top matches first, (2) same NTRP, (3) everyone else by proximity (match score)
+    const userLevel = userProfile ? parseFloat(String(userProfile.ntrp_level || '0').replace(/\+$/, '')) || 0 : 0
+    const getTier = (partner) => {
+      const score = getMatchScore(partner)
+      const raw = partner.profiles?.ntrp_level || '0'
+      const partnerLevel = parseFloat(String(raw).replace(/\+$/, '')) || 0
+      const levelDiff = Math.abs(userLevel - partnerLevel)
+      const sameNtrp = levelDiff === 0
+      if (score >= 70) return 0 // top matches
+      if (sameNtrp) return 1 // same NTRP, not top match
+      return 2 // everyone else
+    }
+    filtered.sort((a, b) => {
+      const tierA = getTier(a)
+      const tierB = getTier(b)
+      if (tierA !== tierB) return tierA - tierB
+      return getMatchScore(b) - getMatchScore(a)
+    })
 
     setFilteredPartners(filtered)
   }
@@ -207,53 +302,15 @@ export default function HittingPartners() {
         ? preferredLocations.split(',').map(loc => loc.trim()).filter(loc => loc.length > 0)
         : []
 
-      // Map contact preference values to match database constraint
-      // The constraint likely expects: 'in_app', 'phone', or 'email' (with underscores)
-      const contactPrefMap = {
-        'in-app': 'in_app',
-        'phone': 'phone',
-        'email': 'email',
-        'in_app': 'in_app' // Handle if already in correct format
-      }
-      
-      let mappedContactPreference = contactPrefMap[contactPreference] || contactPreference
-      
-      // Validate the mapped value is one of the expected values
-      const validValues = ['in_app', 'phone', 'email']
-      if (!validValues.includes(mappedContactPreference)) {
-        console.warn(`Invalid contact preference: ${mappedContactPreference}, defaulting to 'in_app'`)
-        mappedContactPreference = 'in_app'
-      }
-
-      console.log('Contact preference mapping:', {
-        original: contactPreference,
-        mapped: mappedContactPreference,
-        validValues: validValues
-      })
-
-      // Ensure contact_preference is never null or empty
-      if (!mappedContactPreference || mappedContactPreference.trim() === '') {
-        console.warn('Contact preference is empty, defaulting to in_app')
-        mappedContactPreference = 'in_app'
-      }
-
       const partnerData = {
         id: user.id,
         availability_days: availabilityDays.length > 0 ? availabilityDays : null,
         availability_times: availabilityTimes.length > 0 ? availabilityTimes : null,
         preferred_locations: locationsArray.length > 0 ? locationsArray : null,
-        bio: bio.trim().substring(0, 500) || null,
-        contact_preference: mappedContactPreference, // Ensure this is never null
-        is_active: isActive !== undefined ? isActive : true
+        location_area: locationArea.trim() || null,
+        is_active: true,  // Always active after setup
+        contact_preference: 'in_app'  // Always in_app (we use SMS regardless)
       }
-
-      console.log('Saving partner data:', {
-        ...partnerData,
-        availability_days: partnerData.availability_days,
-        availability_times: partnerData.availability_times,
-        preferred_locations: partnerData.preferred_locations,
-        contact_preference: partnerData.contact_preference
-      })
 
       const { error } = await supabase
         .from('hitting_partners')
@@ -267,105 +324,17 @@ export default function HittingPartners() {
           code: error.code,
           fullError: error
         })
-        
-        // More helpful error message
-        let errorMsg = error.message
-        if (error.message.includes('contact_preference_check')) {
-          errorMsg = `Invalid contact preference value. The database expects one of: 'in_app', 'phone', or 'email'. We tried to send: '${mappedContactPreference}'. Please check the database constraint.`
-        }
-        
-        throw new Error(errorMsg)
+        throw new Error(error.message)
       }
 
       setShowSetupModal(false)
       setShowProfileModal(false)
       fetchPartners()
       fetchUserProfile()
+      alert('✓ Profile Complete! You\'re now visible in the directory with full details.')
     } catch (error) {
       console.error('Error saving profile:', error)
       alert('Error saving profile: ' + error.message)
-    }
-  }
-
-  const handleRequestToHit = (partner) => {
-    setSelectedPartner(partner)
-    
-    // Generate pre-filled message
-    const userDays = userPartnerProfile?.availability_days || []
-    const userTimes = userPartnerProfile?.availability_times || []
-    const message = `Hi ${partner.profiles?.full_name}, I'd like to hit with you! I'm available ${userDays.join(', ')} at ${userTimes.join(', ')}. Let me know if you're interested.`
-    
-    setRequestMessage(message)
-    setShowRequestModal(true)
-  }
-
-  const handleSendRequest = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !selectedPartner) return
-
-      // Ensure consistent ordering (smaller UUID first)
-      const participant1 = user.id < selectedPartner.id ? user.id : selectedPartner.id
-      const participant2 = user.id < selectedPartner.id ? selectedPartner.id : user.id
-      
-      // Try to find existing conversation
-      const { data: existingConv } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('participant_1_id', participant1)
-        .eq('participant_2_id', participant2)
-        .single()
-
-      let convId = existingConv?.id
-
-      if (!convId) {
-        // Create new conversation
-        const { data: newConv, error: createError } = await supabase
-          .from('conversations')
-          .insert({
-            participant_1_id: participant1,
-            participant_2_id: participant2
-          })
-          .select()
-          .single()
-
-        if (createError) throw createError
-        convId = newConv.id
-      }
-
-      // Insert message
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: convId,
-          sender_id: user.id,
-          receiver_id: selectedPartner.id,
-          content: requestMessage.trim(),
-          message_type: 'hitting_partner_request'
-        })
-
-      if (error) throw error
-
-      // Create notification
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: selectedPartner.id,
-          type: 'hitting_partner_request',
-          title: 'New Hitting Partner Request',
-          body: `${userProfile?.full_name || 'Someone'} wants to hit with you!`,
-          link: '/messages',
-          read: false
-        })
-
-      // Show success toast
-      alert('Request sent!')
-      setShowRequestModal(false)
-      setRequestMessage('')
-      setSelectedPartner(null)
-    } catch (error) {
-      console.error('Error sending request:', error)
-      alert('Error sending request: ' + error.message)
     }
   }
 
@@ -377,35 +346,54 @@ export default function HittingPartners() {
   }
 
   if (loading) {
+    const loadingContent = (
+      <div className="hitting-partners-page">
+        <div className="spinner"></div>
+        <p className="text-center" style={{ color: '#666' }}>Loading...</p>
+      </div>
+    )
+    return isCoach ? loadingContent : <StudentPageWrapper>{loadingContent}</StudentPageWrapper>
+  }
+
+  if (showWelcomeScreen) {
     return (
       <StudentPageWrapper>
-        <div className="hitting-partners-page">
-          <div className="spinner"></div>
-          <p className="text-center" style={{ color: '#666' }}>Loading...</p>
-        </div>
+        <WelcomeScreen 
+          onSetup={() => {
+            setShowWelcomeScreen(false)
+            setShowSetupModal(true)
+          }}
+          onBrowse={() => {
+            setShowWelcomeScreen(false)
+            // Let them browse with incomplete profile
+          }}
+          activePlayerCount={partners.filter(p => p.is_active).length}
+        />
       </StudentPageWrapper>
     )
   }
 
-  return (
-    <StudentPageWrapper>
-      <div className="hitting-partners-page">
-        {/* Header */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Hitting Partner Directory</h1>
-          <p className="page-subtitle">Find players to practice with</p>
+  const mainContent = (
+    <div className="hitting-partners-page">
+        {!isCoach && (
+      <>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Hitting Partner Directory</h1>
+            <p className="page-subtitle">Find players to practice with</p>
+          </div>
+          {userPartnerProfile && (
+            <button 
+              className="btn btn-outline"
+              onClick={() => setShowProfileModal(true)}
+            >
+              <User size={18} />
+              My Profile
+            </button>
+          )}
         </div>
-        {userPartnerProfile && (
-          <button 
-            className="btn btn-outline"
-            onClick={() => setShowProfileModal(true)}
-          >
-            <User size={18} />
-            My Profile
-          </button>
+      </>
         )}
-      </div>
 
       {/* Search and Filters */}
       <div className="filters-section">
@@ -428,8 +416,8 @@ export default function HittingPartners() {
               value={filterNtrp}
               onChange={(e) => setFilterNtrp(e.target.value)}
             >
-              {ntrpLevels.map(level => (
-                <option key={level} value={level}>{level}</option>
+              {ntrpLevelOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </div>
@@ -494,7 +482,8 @@ export default function HittingPartners() {
               key={partner.id}
               partner={partner}
               index={index}
-              onRequest={() => handleRequestToHit(partner)}
+              matchScore={getMatchScore(partner)}
+              onRequest={() => handleContact(partner)}
             />
           ))
         )}
@@ -509,12 +498,8 @@ export default function HittingPartners() {
           setAvailabilityTimes={setAvailabilityTimes}
           preferredLocations={preferredLocations}
           setPreferredLocations={setPreferredLocations}
-          bio={bio}
-          setBio={setBio}
-          contactPreference={contactPreference}
-          setContactPreference={setContactPreference}
-          isActive={isActive}
-          setIsActive={setIsActive}
+          locationArea={locationArea}
+          setLocationArea={setLocationArea}
           onSave={handleSaveProfile}
           onClose={() => setShowSetupModal(false)}
           days={days}
@@ -531,12 +516,8 @@ export default function HittingPartners() {
           setAvailabilityTimes={setAvailabilityTimes}
           preferredLocations={preferredLocations}
           setPreferredLocations={setPreferredLocations}
-          bio={bio}
-          setBio={setBio}
-          contactPreference={contactPreference}
-          setContactPreference={setContactPreference}
-          isActive={isActive}
-          setIsActive={setIsActive}
+          locationArea={locationArea}
+          setLocationArea={setLocationArea}
           onSave={handleSaveProfile}
           onClose={() => setShowProfileModal(false)}
           days={days}
@@ -545,45 +526,56 @@ export default function HittingPartners() {
         />
       )}
 
-      {/* Request Modal */}
-      {showRequestModal && selectedPartner && (
-        <div className="modal-overlay" onClick={() => setShowRequestModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Request to Hit</h2>
-              <button className="modal-close" onClick={() => setShowRequestModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '16px', color: '#666' }}>
-                Send a message to <strong>{selectedPartner.profiles?.full_name}</strong>
-              </p>
-              <label className="label">Message</label>
-              <textarea
-                className="input"
-                value={requestMessage}
-                onChange={(e) => setRequestMessage(e.target.value)}
-                placeholder="Customize your message..."
-                rows={6}
-              />
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowRequestModal(false)}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={handleSendRequest}>
-                <Send size={18} />
-                Send Request
-              </button>
-            </div>
+      </div>
+  )
+
+  return isCoach ? mainContent : <StudentPageWrapper>{mainContent}</StudentPageWrapper>
+}
+
+function WelcomeScreen({ onSetup, onBrowse, activePlayerCount }) {
+  return (
+    <div className="welcome-screen">
+      <div className="welcome-content">
+        <div className="welcome-icon">🎾</div>
+        <h1 className="welcome-title">Ojo Hitting Partner Network</h1>
+        <p className="welcome-subtitle">
+          Find tennis players at your level to practice with in San Diego
+        </p>
+        
+        <div className="welcome-benefits">
+          <div className="benefit-item">
+            <span className="benefit-check">✓</span>
+            <span>{activePlayerCount} active players looking to hit</span>
+          </div>
+          <div className="benefit-item">
+            <span className="benefit-check">✓</span>
+            <span>All skill levels (1.0 - 5.0+)</span>
+          </div>
+          <div className="benefit-item">
+            <span className="benefit-check">✓</span>
+            <span>Same courts you use</span>
           </div>
         </div>
-      )}
+
+        <p className="welcome-social-proof">
+          Most players get 2-3 new hitting partners in their first week
+        </p>
+
+        <div className="welcome-actions">
+          <button className="btn btn-primary btn-large" onClick={onSetup}>
+            Set Up My Profile
+            <span className="btn-subtitle">Takes 30 seconds</span>
+          </button>
+          <button className="btn btn-outline" onClick={onBrowse}>
+            Browse Players First
+          </button>
+        </div>
       </div>
-    </StudentPageWrapper>
+    </div>
   )
 }
 
-function PartnerCard({ partner, index, onRequest }) {
+function PartnerCard({ partner, index, matchScore, onRequest }) {
   const [expandedBio, setExpandedBio] = useState(false)
   const bio = partner.bio || ''
   const shouldTruncate = bio.length > 100
@@ -597,14 +589,28 @@ function PartnerCard({ partner, index, onRequest }) {
         <div className="partner-info">
           <h3 className="partner-name">{partner.profiles?.full_name || 'Unknown'}</h3>
           <span className="ntrp-badge">{partner.profiles?.ntrp_level || 'N/A'}</span>
+          {matchScore >= 70 && (
+            <span className="match-badge great-match">Great Match!</span>
+          )}
+          {matchScore >= 50 && matchScore < 70 && (
+            <span className="match-badge good-match">Good Match</span>
+          )}
         </div>
       </div>
+
+      {partner.location_area && (
+        <div className="partner-section">
+          <div className="section-label">
+            📍 Location
+          </div>
+          <p className="partner-text">{partner.location_area}</p>
+        </div>
+      )}
 
       {partner.availability_days && partner.availability_days.length > 0 && (
         <div className="partner-section">
           <div className="section-label">
-            <Calendar size={16} />
-            Available Days
+            📅 Available Days
           </div>
           <div className="badge-group">
             {partner.availability_days.map(day => (
@@ -617,8 +623,7 @@ function PartnerCard({ partner, index, onRequest }) {
       {partner.availability_times && partner.availability_times.length > 0 && (
         <div className="partner-section">
           <div className="section-label">
-            <Clock size={16} />
-            Available Times
+            ⏰ Available Times
           </div>
           <div className="badge-group">
             {partner.availability_times.map(time => (
@@ -631,8 +636,7 @@ function PartnerCard({ partner, index, onRequest }) {
       {partner.preferred_locations && (
         <div className="partner-section">
           <div className="section-label">
-            <MapPin size={16} />
-            Preferred Locations
+            🎾 Preferred Courts
           </div>
           <p className="partner-text">
             {Array.isArray(partner.preferred_locations) 
@@ -659,9 +663,13 @@ function PartnerCard({ partner, index, onRequest }) {
         </div>
       )}
 
-      <button className="btn btn-primary" onClick={onRequest} style={{ width: '100%', marginTop: '16px' }}>
+      <button 
+        className="btn btn-primary" 
+        onClick={onRequest} 
+        style={{ width: '100%', marginTop: '16px' }}
+      >
         <Send size={18} />
-        Request to Hit
+        Text {partner.profiles?.full_name?.split(' ')[0] || 'Player'}
       </button>
     </div>
   )
@@ -674,12 +682,8 @@ function ProfileSetupModal({
   setAvailabilityTimes,
   preferredLocations,
   setPreferredLocations,
-  bio,
-  setBio,
-  contactPreference,
-  setContactPreference,
-  isActive,
-  setIsActive,
+  locationArea,
+  setLocationArea,
   onSave,
   onClose,
   days,
@@ -700,7 +704,7 @@ function ProfileSetupModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
         <div className="modal-header">
           <h2 className="modal-title">{isEdit ? 'Edit My Profile' : 'Set Up Your Hitting Partner Profile'}</h2>
           <button className="modal-close" onClick={onClose}>×</button>
@@ -739,7 +743,21 @@ function ProfileSetupModal({
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label className="label">Preferred Locations (comma separated)</label>
+            <label className="label">Your Location</label>
+            <input
+              type="text"
+              className="input"
+              value={locationArea}
+              onChange={(e) => setLocationArea(e.target.value)}
+              placeholder="e.g., Pacific Beach, La Jolla, North Park"
+            />
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+              Neighborhood or area you're based in
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label className="label">Preferred Tennis Courts</label>
             <textarea
               className="input"
               value={preferredLocations}
@@ -747,47 +765,6 @@ function ProfileSetupModal({
               placeholder="Colina Del Sol Park, Balboa Park, etc."
               rows={3}
             />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label className="label">Bio (max 500 characters)</label>
-            <textarea
-              className="input"
-              value={bio}
-              onChange={(e) => setBio(e.target.value.substring(0, 500))}
-              placeholder="Tell others about yourself..."
-              rows={4}
-              maxLength={500}
-            />
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-              {bio.length}/500 characters
-            </p>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label className="label">Contact Preference</label>
-            <select
-              className="input"
-              value={contactPreference}
-              onChange={(e) => setContactPreference(e.target.value)}
-            >
-              <option value="in-app">In-app message</option>
-              <option value="phone">Phone</option>
-              <option value="email">Email</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-            />
-            <label htmlFor="isActive" style={{ cursor: 'pointer', fontWeight: 500 }}>
-              Active in directory (uncheck to hide your profile)
-            </label>
           </div>
         </div>
         <div className="modal-footer">

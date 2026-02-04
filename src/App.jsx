@@ -26,12 +26,14 @@ import ReferralIntegrationTest from './components/Test/ReferralIntegrationTest'
 import TestimonialsManagement from './components/Testimonials/TestimonialsManagement'
 import TennisResources from './components/TennisResources/TennisResources'
 import EmailsManagement from './components/Coach/EmailsManagement'
+import HittingPartnersAdmin from './components/Coach/HittingPartnersAdmin'
 import CoachLayout from './components/Layout/CoachLayout'
 import StudentPageWrapper from './components/Layout/StudentPageWrapper'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import { ToastContainer, useToast } from './components/shared/Toast'
 import ErrorBoundary from './components/shared/ErrorBoundary'
 import AppUpdateNotice from './components/shared/AppUpdateNotice'
+import PlayersLanding from './components/Public/PlayersLanding'
 import { trackEvent, EVENTS } from './utils/analytics'
 
 function App() {
@@ -185,6 +187,7 @@ function App() {
         <AppUpdateNotice />
         {session && <Header user={session.user} isCoach={isCoach} />}
         <Routes>
+        <Route path="/players" element={<PlayersLanding />} />
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
         <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
@@ -247,8 +250,12 @@ function App() {
           element={session && isCoach ? <EmailsManagement /> : <Navigate to="/login" />} 
         />
         <Route 
+          path="/coach/hitting-partners-admin" 
+          element={session && isCoach ? <CoachLayout><HittingPartnersAdmin /></CoachLayout> : <Navigate to="/login" />} 
+        />
+        <Route 
           path="/hitting-partners" 
-          element={session ? (!isCoach ? <StudentPageWrapper><HittingPartners /></StudentPageWrapper> : <HittingPartners />) : <Navigate to="/login" />} 
+          element={session ? (!isCoach ? <StudentPageWrapper><HittingPartners /></StudentPageWrapper> : <CoachLayout><HittingPartners isCoach /></CoachLayout>) : <Navigate to="/login" />} 
         />
         <Route 
           path="/tennis-resources" 

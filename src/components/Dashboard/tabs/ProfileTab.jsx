@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../supabaseClient'
 import { trackEvent, EVENTS } from '../../../utils/analytics'
 import { GOAL_OPTIONS } from '../../DevelopmentPlan/MilestonesConstants'
+import { NTRP_OPTIONS, getNtrpLabel } from '../../../utils/ntrpLabels'
 import { Edit2, X } from 'lucide-react'
 import './ProfileTab.css'
 
@@ -261,7 +262,7 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
           {studentData?.profiles?.ntrp_level && (
             <div className="info-item">
               <span className="info-label">Skill Level</span>
-              <span className="info-value">NTRP {studentData.profiles.ntrp_level}</span>
+              <span className="info-value">{getNtrpLabel(studentData.profiles.ntrp_level)}</span>
             </div>
           )}
         </div>
@@ -324,14 +325,9 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
                   value={profileFormData.ntrp_level}
                   onChange={(e) => setProfileFormData({ ...profileFormData, ntrp_level: e.target.value })}
                 >
-                  <option value="1.5">1.5 - Beginner</option>
-                  <option value="2.0">2.0 - Beginner</option>
-                  <option value="2.5">2.5 - Beginner+</option>
-                  <option value="3.0">3.0 - Intermediate</option>
-                  <option value="3.5">3.5 - Intermediate+</option>
-                  <option value="4.0">4.0 - Advanced</option>
-                  <option value="4.5">4.5 - Advanced+</option>
-                  <option value="5.0+">5.0+ - Expert</option>
+                  {NTRP_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="edit-profile-modal-actions">

@@ -37,7 +37,8 @@ export default function Header({ user, isCoach }) {
     '/coach',
     '/coach/students',
     '/coach/lessons',
-    '/coach/calendar'
+    '/coach/calendar',
+    '/hitting-partners'
   ]
   
   const shouldHideHeader = (!isCoach && studentPagesWithBottomNav.some(page => 
@@ -168,6 +169,16 @@ export default function Header({ user, isCoach }) {
                     >
                       <Mail size={16} className="icon" />
                       Emails
+                    </button>
+                    <button 
+                      className={`dropdown-menu-item ${isActive('/coach/hitting-partners-admin') ? 'active' : ''}`}
+                      onClick={() => {
+                        navigate('/coach/hitting-partners-admin')
+                        closeMobileMenu()
+                      }}
+                    >
+                      <Users size={16} className="icon" />
+                      Hitting Partners Admin
                     </button>
                   </DropdownNav>
 

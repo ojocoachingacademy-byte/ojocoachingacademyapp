@@ -7,6 +7,7 @@ import { detectNewMilestone } from '../../../utils/lessonMilestones'
 import PracticePlanCard from '../PracticePlanCard'
 import LessonMilestoneModal from '../LessonMilestoneModal'
 import RecentWins from '../RecentWins'
+import HittingPartnerSuggestion from '../../Student/HittingPartnerSuggestion'
 // import ProgressReportCard from '../ProgressReportCard' // Commented out - may add back later
 import '../../shared/Modal.css'
 import './HomeTab.css'
@@ -610,6 +611,11 @@ const HomeTab = ({ studentData, onBookLesson }) => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Hitting Partner Suggestion */}
+          {studentData?.id && (
+            <HittingPartnerSuggestion userId={studentData.id} />
           )}
 
           {/* 5. Recent Wins - Progress/Celebration */}

@@ -3,6 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Search, Award, Calendar, User, Edit2, Check, X, UserPlus } from 'lucide-react'
+import { getNtrpLabel } from '../../utils/ntrpLabels'
 import AddStudentModal from './AddStudentModal'
 import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 import CoachLayout from '../Layout/CoachLayout'
@@ -107,9 +108,14 @@ export default function StudentsPage() {
         return false
       }
 
-      // Level filter
-      if (levelFilter !== 'all' && student.profiles?.ntrp_level !== levelFilter) {
-        return false
+      // Level filter (5.5+ includes legacy 5.0+, 5.5, 6.0+)
+      if (levelFilter !== 'all') {
+        const level = student.profiles?.ntrp_level
+        if (levelFilter === '5.5+') {
+          if (!['5.5+', '5.0+', '5.5', '6.0+'].includes(level)) return false
+        } else if (level !== levelFilter) {
+          return false
+        }
       }
 
       // Date filter (based on start_date)
@@ -278,7 +284,7 @@ export default function StudentsPage() {
           <option value="3.5">3.5</option>
           <option value="4.0">4.0</option>
           <option value="4.5">4.5</option>
-          <option value="5.0+">5.0+</option>
+          <option value="5.5+">5.5+ - D1+</option>
         </select>
         <select
           className="input"
@@ -338,7 +344,7 @@ export default function StudentsPage() {
                 <div className="student-details-row">
                   <div className="detail-item">
                     <Award size={16} />
-                    <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>
+                    <span>{getNtrpLabel(student.profiles?.ntrp_level)}</span>
                   </div>
                   <div className="detail-item credits-item">
                     <Calendar size={16} />

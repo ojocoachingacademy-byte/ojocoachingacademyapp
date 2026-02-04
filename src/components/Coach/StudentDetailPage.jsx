@@ -16,6 +16,7 @@ import SelectProfileModal from './SelectProfileModal'
 import BookLessonModal from '../Calendar/BookLessonModal'
 import CreateLessonModal from '../Calendar/CreateLessonModal'
 import { MILESTONES, GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
+import { NTRP_OPTIONS, getNtrpLabel } from '../../utils/ntrpLabels'
 import { safeJsonParse } from '../../utils/safeJsonParse'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
@@ -78,6 +79,7 @@ export default function StudentDetailPage() {
   const [confirmModalConfig, setConfirmModalConfig] = useState(null)
   const [showLinkPartnerModal, setShowLinkPartnerModal] = useState(false)
   const [pairedPartner, setPairedPartner] = useState(null)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
   const [editingLesson, setEditingLesson] = useState(false)
   const [lessonEditForm, setLessonEditForm] = useState({
     lesson_date: '',
@@ -1446,14 +1448,9 @@ export default function StudentDetailPage() {
                       onChange={(e) => setProfileFormData({ ...profileFormData, ntrp_level: e.target.value })}
                       style={{ width: '100%' }}
                     >
-                      <option value="1.5">1.5 - Beginner</option>
-                      <option value="2.0">2.0 - Beginner</option>
-                      <option value="2.5">2.5 - Beginner+</option>
-                      <option value="3.0">3.0 - Intermediate</option>
-                      <option value="3.5">3.5 - Intermediate+</option>
-                      <option value="4.0">4.0 - Advanced</option>
-                      <option value="4.5">4.5 - Advanced+</option>
-                      <option value="5.0+">5.0+ - Expert</option>
+                      {NTRP_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -1519,7 +1516,7 @@ export default function StudentDetailPage() {
                       </span>
                     </h1>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <button 
                       onClick={toggleActiveStatus}
                       style={{ 
@@ -1539,111 +1536,208 @@ export default function StudentDetailPage() {
                       {student.is_active !== false ? <UserX size={18} /> : <UserCheck size={18} />}
                       {student.is_active !== false ? 'Mark Inactive' : 'Mark Active'}
                     </button>
-                    <button 
-                      className="btn btn-success btn-sm"
-                      onClick={() => setShowAddPackage(true)}
-                      style={{ 
-                        background: '#2D7F6F',
-                        color: 'white',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <CreditCard size={18} />
-                      Add Package
-                    </button>
-                    {(student.total_lessons_purchased || 0) === 0 && (
+                    <div style={{ position: 'relative', marginBottom: '24px', flex: 1, minWidth: '200px' }}>
                       <button 
-                        onClick={() => setShowMergeModal(true)}
-                        style={{ 
-                          background: '#FF9800',
-                          color: 'white',
-                          border: 'none',
-                          padding: '8px 16px',
-                          borderRadius: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          cursor: 'pointer',
-                          fontSize: '14px'
-                        }}
+                        className="btn btn-primary"
+                        onClick={() => setShowActionsMenu(!showActionsMenu)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                       >
-                        <Link2 size={18} />
-                        Link History
+                        Actions
+                        <span style={{ fontSize: '12px' }}>▼</span>
                       </button>
-                    )}
-                    <button 
-                      onClick={() => setShowMergeProfilesModal(true)}
-                      style={{ 
-                        background: '#9C27B0',
-                        color: 'white',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px'
-                      }}
-                    >
-                      <Link2 size={18} />
-                      Merge Profiles
-                    </button>
-                    <button 
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setEditingProfile(true)}
-                    >
-                      <Edit2 size={18} />
-                      Edit Profile
-                    </button>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <button 
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          // Primary action: Open Cal.com link directly
-                          window.open('https://cal.com/tobi-ojo-jg8ane/60min', '_blank')
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <Calendar size={18} />
-                        Create Lesson
-                      </button>
-                      <button 
-                        className="btn btn-outline btn-sm"
-                        onClick={() => setShowCreateLesson(true)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <Calendar size={18} />
-                        Book Directly
-                      </button>
-                      <button 
-                        className="btn btn-outline btn-sm"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          color: '#dc3545',
-                          borderColor: '#dc3545'
-                        }}
-                      >
-                        <Trash2 size={18} />
-                        Delete Profile
-                      </button>
+
+                      {showActionsMenu && (
+                        <>
+                          <div 
+                            style={{
+                              position: 'fixed',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              zIndex: 998
+                            }}
+                            onClick={() => setShowActionsMenu(false)}
+                          />
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              marginTop: '4px',
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              zIndex: 999,
+                              overflow: 'hidden'
+                            }}
+                          >
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                setShowAddPackage(true)
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}
+                            >
+                              📦 Add Package
+                            </button>
+
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                window.open('https://cal.com/tobi-ojo-jg8ane/60min', '_blank')
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderTop: '1px solid #f0f0f0'
+                              }}
+                            >
+                              📅 Create Lesson
+                            </button>
+
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                setShowCreateLesson(true)
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderTop: '1px solid #f0f0f0'
+                              }}
+                            >
+                              🗓️ Book Directly
+                            </button>
+
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                setEditingProfile(true)
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderTop: '1px solid #f0f0f0'
+                              }}
+                            >
+                              ✏️ Edit Profile
+                            </button>
+
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                setShowLinkPartnerModal(true)
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderTop: '1px solid #f0f0f0'
+                              }}
+                            >
+                              🤝 Link Semi-Private Partner
+                            </button>
+
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                setShowMergeProfilesModal(true)
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderTop: '1px solid #f0f0f0'
+                              }}
+                            >
+                              🔗 Merge Profiles
+                            </button>
+
+                            <div style={{ height: '1px', backgroundColor: '#e0e0e0', margin: '4px 0' }} />
+
+                            <button
+                              className="dropdown-action-item"
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                setShowDeleteConfirm(true)
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                border: 'none',
+                                background: 'white',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                color: '#dc2626'
+                              }}
+                            >
+                              🗑️ Delete Profile
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1664,7 +1758,7 @@ export default function StudentDetailPage() {
                   </div>
                   <div className="contact-item">
                     <Award size={16} />
-                    <span>NTRP {student.profiles?.ntrp_level || 'N/A'}</span>
+                    <span>{getNtrpLabel(student.profiles?.ntrp_level)}</span>
                   </div>
                   <div className="contact-item">
                     <Calendar size={16} />
