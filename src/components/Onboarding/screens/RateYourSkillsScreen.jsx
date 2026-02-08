@@ -1,5 +1,4 @@
 import React from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { SKILL_AREAS } from '../../DevelopmentPlan/MilestonesConstants'
 import './OnboardingScreens.css'
 
@@ -105,20 +104,7 @@ const RateYourSkillsScreen = ({
           })}
         </div>
 
-        <div className="onboarding-screen-actions">
-          <button className="btn-onboarding-secondary" onClick={onBack}>
-            <ArrowLeft size={18} />
-            Back
-          </button>
-          <button 
-            className="btn-onboarding-primary"
-            onClick={onNext}
-            disabled={!allSkillsRated}
-          >
-            Next
-            <ArrowRight size={18} />
-          </button>
-        </div>
+        {/* Buttons rendered by OnboardingFlow fixed bar */}
       </div>
     </div>
   )

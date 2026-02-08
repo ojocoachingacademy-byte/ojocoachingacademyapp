@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { NTRP_OPTIONS } from '../../utils/ntrpLabels'
+import '../shared/Modal.css'
 import './AddStudentModal.css'
 
 export default function AddStudentModal({ onClose, onSuccess, onReferralCelebration }) {
@@ -185,7 +186,7 @@ export default function AddStudentModal({ onClose, onSuccess, onReferralCelebrat
   ]
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="add-student-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>➕ Add New Student</h2>

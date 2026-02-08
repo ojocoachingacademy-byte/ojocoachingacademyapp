@@ -26,7 +26,7 @@ export default function HittingPartners({ isCoach = false }) {
   // Form states
   const [availabilityDays, setAvailabilityDays] = useState([])
   const [availabilityTimes, setAvailabilityTimes] = useState([])
-  const [preferredLocations, setPreferredLocations] = useState('')
+  const [preferredLocations, setPreferredLocations] = useState([])
   const [locationArea, setLocationArea] = useState('')
   
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -74,9 +74,12 @@ export default function HittingPartners({ isCoach = false }) {
         .eq('is_active', true)
 
       if (error) throw error
-      
+
+      // Exclude current user — don't show your own profile as a hitting partner
+      const others = (data || []).filter((p) => p.id !== user.id)
+
       // Sort by NTRP level (handle nulls and 5.0+)
-      const sorted = (data || []).sort((a, b) => {
+      const sorted = others.sort((a, b) => {
         const levelAStr = a.profiles?.ntrp_level || '0'
         const levelBStr = b.profiles?.ntrp_level || '0'
         
@@ -128,10 +131,10 @@ export default function HittingPartners({ isCoach = false }) {
           // Complete profile, load existing data
           setAvailabilityDays(partnerData.availability_days || [])
           setAvailabilityTimes(partnerData.availability_times || [])
-          const locationsStr = Array.isArray(partnerData.preferred_locations) 
-            ? partnerData.preferred_locations.join(', ')
-            : (partnerData.preferred_locations || '')
-          setPreferredLocations(locationsStr)
+          const locationsArray = Array.isArray(partnerData.preferred_locations)
+            ? partnerData.preferred_locations
+            : (partnerData.preferred_locations ? [partnerData.preferred_locations] : [])
+          setPreferredLocations(locationsArray)
           setLocationArea(partnerData.location_area || '')
         }
       } else {
@@ -297,16 +300,13 @@ export default function HittingPartners({ isCoach = false }) {
         return
       }
 
-      // Convert preferred_locations string to array (split by comma and trim)
-      const locationsArray = preferredLocations
-        ? preferredLocations.split(',').map(loc => loc.trim()).filter(loc => loc.length > 0)
-        : []
+      const locationsArray = preferredLocations.length > 0 ? preferredLocations : null
 
       const partnerData = {
         id: user.id,
         availability_days: availabilityDays.length > 0 ? availabilityDays : null,
         availability_times: availabilityTimes.length > 0 ? availabilityTimes : null,
-        preferred_locations: locationsArray.length > 0 ? locationsArray : null,
+        preferred_locations: locationsArray,
         location_area: locationArea.trim() || null,
         is_active: true,  // Always active after setup
         contact_preference: 'in_app'  // Always in_app (we use SMS regardless)
@@ -534,43 +534,94 @@ export default function HittingPartners({ isCoach = false }) {
 
 function WelcomeScreen({ onSetup, onBrowse, activePlayerCount }) {
   return (
-    <div className="welcome-screen">
-      <div className="welcome-content">
-        <div className="welcome-icon">🎾</div>
-        <h1 className="welcome-title">Ojo Hitting Partner Network</h1>
-        <p className="welcome-subtitle">
-          Find tennis players at your level to practice with in San Diego
-        </p>
-        
-        <div className="welcome-benefits">
-          <div className="benefit-item">
-            <span className="benefit-check">✓</span>
-            <span>{activePlayerCount} active players looking to hit</span>
-          </div>
-          <div className="benefit-item">
-            <span className="benefit-check">✓</span>
-            <span>All skill levels (1.0 - 5.0+)</span>
-          </div>
-          <div className="benefit-item">
-            <span className="benefit-check">✓</span>
-            <span>Same courts you use</span>
-          </div>
-        </div>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px 20px',
+      textAlign: 'center',
+      minHeight: '100vh',
+      background: 'white'
+    }}>
+      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎾</div>
 
-        <p className="welcome-social-proof">
-          Most players get 2-3 new hitting partners in their first week
-        </p>
+      <h2 style={{
+        fontSize: '24px',
+        fontWeight: 700,
+        margin: '0 0 8px 0',
+        color: '#1f2937'
+      }}>
+        Ojo Hitting Partner Network
+      </h2>
 
-        <div className="welcome-actions">
-          <button className="btn btn-primary btn-large" onClick={onSetup}>
-            Set Up My Profile
-            <span className="btn-subtitle">Takes 30 seconds</span>
-          </button>
-          <button className="btn btn-outline" onClick={onBrowse}>
-            Browse Players First
-          </button>
-        </div>
+      <p style={{
+        fontSize: '14px',
+        color: '#6b7280',
+        margin: '0 0 20px 0',
+        lineHeight: 1.4
+      }}>
+        Find tennis players at your level to practice with in San Diego
+      </p>
+
+      <div style={{
+        width: '100%',
+        maxWidth: '300px',
+        marginBottom: '20px',
+        fontSize: '13px',
+        color: '#374151',
+        textAlign: 'left'
+      }}>
+        <div style={{ marginBottom: '8px' }}>✓ {activePlayerCount} active players looking to hit</div>
+        <div style={{ marginBottom: '8px' }}>✓ All skill levels (1.0 - 5.0+)</div>
+        <div style={{ marginBottom: '8px' }}>✓ Same courts you use</div>
       </div>
+
+      <p style={{
+        fontSize: '12px',
+        color: '#6b7280',
+        margin: '0 0 24px 0',
+        fontStyle: 'italic'
+      }}>
+        Most players get 2-3 new hitting partners in their first week
+      </p>
+
+      <button
+        onClick={onSetup}
+        style={{
+          width: '100%',
+          maxWidth: '300px',
+          padding: '14px 24px',
+          background: '#6366f1',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: 600,
+          cursor: 'pointer',
+          marginBottom: '12px'
+        }}
+      >
+        Set Up My Profile
+        <div style={{ fontSize: '11px', fontWeight: 400, marginTop: '2px' }}>
+          Takes 30 seconds
+        </div>
+      </button>
+
+      <button
+        onClick={onBrowse}
+        style={{
+          background: 'transparent',
+          color: '#6366f1',
+          border: 'none',
+          fontSize: '14px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          textDecoration: 'underline'
+        }}
+      >
+        Browse Players First
+      </button>
     </div>
   )
 }
@@ -703,7 +754,7 @@ function ProfileSetupModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
         <div className="modal-header">
           <h2 className="modal-title">{isEdit ? 'Edit My Profile' : 'Set Up Your Hitting Partner Profile'}</h2>
@@ -760,8 +811,10 @@ function ProfileSetupModal({
             <label className="label">Preferred Tennis Courts</label>
             <textarea
               className="input"
-              value={preferredLocations}
-              onChange={(e) => setPreferredLocations(e.target.value)}
+              value={preferredLocations.join(', ')}
+              onChange={(e) => setPreferredLocations(
+                e.target.value.split(',').map(loc => loc.trim()).filter(loc => loc.length > 0)
+              )}
               placeholder="Colina Del Sol Park, Balboa Park, etc."
               rows={3}
             />

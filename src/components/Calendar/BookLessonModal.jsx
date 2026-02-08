@@ -40,7 +40,7 @@ export default function BookLessonModal({ isOpen, onClose, studentId, studentEma
   if (!isOpen) return null
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content cal-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>

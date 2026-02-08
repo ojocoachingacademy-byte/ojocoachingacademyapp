@@ -2868,7 +2868,7 @@ export default function StudentDetailPage() {
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <div className="modal-overlay" onClick={() => {
+        <div className="modal-overlay modal-above-tabs" onClick={() => {
           setSelectedLesson(null)
           setEditingLesson(false)
         }}>
@@ -3300,7 +3300,7 @@ export default function StudentDetailPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div 
-          className="modal-overlay" 
+          className="modal-overlay modal-above-tabs" 
           onClick={() => !deletingStudent && setShowDeleteConfirm(false)}
           style={{
             position: 'fixed',

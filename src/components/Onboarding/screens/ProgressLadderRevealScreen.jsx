@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { GOAL_OPTIONS } from '../../DevelopmentPlan/MilestonesConstants'
 import ProgressLadder from '../../Dashboard/ProgressLadder'
 import './OnboardingScreens.css'
@@ -45,18 +44,7 @@ const ProgressLadderRevealScreen = ({
           />
         </div>
 
-        <div className="onboarding-screen-actions">
-          <button className="btn-onboarding-secondary" onClick={onBack}>
-            <ArrowLeft size={18} />
-            Back
-          </button>
-          <button 
-            className="btn-onboarding-primary btn-complete"
-            onClick={onComplete}
-          >
-            Let's Play! 🎾
-          </button>
-        </div>
+        {/* Buttons rendered by OnboardingFlow fixed bar */}
       </div>
     </div>
   )

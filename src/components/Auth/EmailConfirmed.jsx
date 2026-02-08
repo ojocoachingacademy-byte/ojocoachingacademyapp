@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { createCoachNotification } from '../../utils/notifications'
 import './EmailConfirmed.css'
 
 export default function EmailConfirmed() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectParam = searchParams.get('redirect')
   const [countdown, setCountdown] = useState(3)
   const [verified, setVerified] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -107,6 +109,7 @@ export default function EmailConfirmed() {
               let studentData = existingStudent
               let studentError = null
               
+              const isNetworkOnly = redirectParam === '/hitting-partners'
               if (!existingStudent) {
                 console.log('📧 EmailConfirmed: Creating student record...')
                 const result = await supabase
@@ -115,7 +118,7 @@ export default function EmailConfirmed() {
                     {
                       id: session.user.id,
                       start_date: new Date().toISOString(),
-                      is_active: true, // Auto-set new students as active
+                      is_active: !isNetworkOnly, // Network-only (from landing) → false
                     },
                   ])
                   .select()
@@ -123,6 +126,12 @@ export default function EmailConfirmed() {
                 studentData = result.data
                 studentError = result.error
               } else {
+                if (isNetworkOnly) {
+                  await supabase
+                    .from('students')
+                    .update({ is_active: false })
+                    .eq('id', session.user.id)
+                }
                 console.log('📧 EmailConfirmed: Student record already exists (possibly created by trigger)')
               }
 
@@ -186,8 +195,10 @@ export default function EmailConfirmed() {
             }
           }
           
-          // Sign out the auto-created session for security (force manual login)
-          await supabase.auth.signOut()
+          // Sign out and redirect to login unless coming from landing (network-only)
+          if (redirectParam !== '/hitting-partners') {
+            await supabase.auth.signOut()
+          }
         } else {
           // Not confirmed or no session, redirect to login
           setLoading(false)
@@ -205,6 +216,7 @@ export default function EmailConfirmed() {
   }, [navigate])
 
   // Handle countdown and redirect separately
+  const redirectTo = redirectParam === '/hitting-partners' ? '/hitting-partners' : '/login'
   useEffect(() => {
     if (!verified || loading) return
 
@@ -212,8 +224,7 @@ export default function EmailConfirmed() {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timer)
-          // Navigate after state update completes
-          setTimeout(() => navigate('/login'), 100)
+          setTimeout(() => navigate(redirectTo), 100)
           return 0
         }
         return prev - 1
@@ -221,7 +232,7 @@ export default function EmailConfirmed() {
     }, 1000)
     
     return () => clearInterval(timer)
-  }, [verified, loading, navigate])
+  }, [verified, loading, navigate, redirectTo])
 
   if (loading) {
     return (
@@ -242,12 +253,12 @@ export default function EmailConfirmed() {
         <div className="success-icon">✅</div>
         <h1>Email Confirmed!</h1>
         <p>Your account is now verified and ready to use.</p>
-        <p className="countdown">Redirecting to login in {countdown} seconds...</p>
+        <p className="countdown">Redirecting in {countdown} seconds...</p>
         <button 
           className="btn btn-primary"
-          onClick={() => navigate('/login')}
+          onClick={() => navigate(redirectTo)}
         >
-          Log In Now
+          {redirectTo === '/hitting-partners' ? 'Go to Hitting Partners' : 'Log In Now'}
         </button>
       </div>
     </div>

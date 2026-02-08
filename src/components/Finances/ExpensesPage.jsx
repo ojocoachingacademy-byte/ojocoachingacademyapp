@@ -465,7 +465,7 @@ export default function ExpensesPage() {
 
       {/* Add/Edit Modal */}
       {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <div className="modal-overlay modal-above-tabs" onClick={() => setShowAddModal(false)}>
           <div className="expense-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingExpense ? 'Edit Expense' : 'Add Expense'}</h2>

@@ -23,7 +23,7 @@ export default function Login() {
 
     if (error) {
       const errorMsg = error.message.toLowerCase()
-      if (errorMsg.includes('email not confirmed') || 
+      if (errorMsg.includes('email not confirmed') ||
           errorMsg.includes('not verified') ||
           errorMsg.includes('email not verified')) {
         setError('Please confirm your email first. Check your inbox for the confirmation link.')
@@ -31,6 +31,18 @@ export default function Login() {
       } else {
         setError(error.message)
       }
+      return
+    }
+
+    // Check student status to determine redirect
+    const { data: student } = await supabase
+      .from('students')
+      .select('is_active')
+      .eq('id', data.user.id)
+      .single()
+
+    if (student?.is_active === false) {
+      navigate('/hitting-partners')
     } else {
       navigate('/dashboard')
     }

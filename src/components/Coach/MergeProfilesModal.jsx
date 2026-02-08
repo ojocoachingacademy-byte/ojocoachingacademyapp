@@ -224,7 +224,7 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
 
   if (loading) {
     return (
-      <div className="modal-overlay">
+      <div className="modal-overlay modal-above-tabs">
         <div className="modal-content merge-modal">
           <div style={{ padding: '40px', textAlign: 'center' }}>Loading profiles...</div>
         </div>
@@ -234,7 +234,7 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
 
   if (!oldProfile || !newProfile || !oldStudent || !newStudent) {
     return (
-      <div className="modal-overlay">
+      <div className="modal-overlay modal-above-tabs">
         <div className="modal-content merge-modal">
           <div style={{ padding: '40px', textAlign: 'center', color: '#d32f2f' }}>
             Error: Could not load profiles
@@ -289,7 +289,7 @@ export default function MergeProfilesModal({ oldProfileId, newProfileId, onClose
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content merge-modal" onClick={(e) => e.stopPropagation()}>
         <div className="merge-modal-header">
           <h2>Merge Profiles</h2>

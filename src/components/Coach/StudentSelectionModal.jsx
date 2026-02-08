@@ -84,7 +84,7 @@ export default function StudentSelectionModal({ isOpen, onClose, onConfirm, titl
   if (!isOpen) return null
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content student-selection-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>

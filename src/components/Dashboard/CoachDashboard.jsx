@@ -149,6 +149,7 @@ export default function CoachDashboard() {
   const [lessonPlan, setLessonPlan] = useState('') // Coach plan (what coach sees and saves)
   const [studentPlan, setStudentPlan] = useState('') // Student plan (for student view)
   const [generatingPlan, setGeneratingPlan] = useState(false)
+  const [generatingAll, setGeneratingAll] = useState(false)
   const [selectedFeedbackLesson, setSelectedFeedbackLesson] = useState(null)
   const [coachFeedback, setCoachFeedback] = useState('')
   const [practicePlan, setPracticePlan] = useState('')
@@ -843,6 +844,182 @@ export default function CoachDashboard() {
       showToast('Error generating lesson plan: ' + error.message + '. Make sure the Netlify function is properly configured.', 'error')
     } finally {
       setGeneratingPlan(false)
+    }
+  }
+
+  /** Generate lesson plan for a single lesson by ID and save to DB. Used by "Generate All" and can be reused elsewhere. */
+  const generateLessonPlanWithAI = async (lessonId) => {
+    const { data: lessonRow, error: lessonError } = await supabaseAdmin
+      .from('lessons')
+      .select('id, student_id')
+      .eq('id', lessonId)
+      .single()
+    if (lessonError || !lessonRow) throw new Error('Lesson not found')
+    const studentId = lessonRow.student_id
+
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from('students')
+      .select('*')
+      .eq('id', studentId)
+      .single()
+    if (studentError) throw studentError
+
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', studentId)
+      .single()
+    const studentData = { ...student, profiles: profile }
+    const studentName = profile?.full_name || 'Student'
+    const playerLevel = studentData.player_level || 'beginner'
+
+    let developmentPlan = null
+    if (studentData.development_plan) {
+      try {
+        developmentPlan = typeof studentData.development_plan === 'string'
+          ? JSON.parse(studentData.development_plan)
+          : studentData.development_plan
+      } catch (e) {
+        console.error('Error parsing development plan:', e)
+      }
+    }
+
+    const milestones = getMilestonesByLevel(playerLevel)
+    const { data: achievedMilestonesData, error: milestonesError } = await supabaseAdmin
+      .from('student_milestones')
+      .select('milestone_number, milestone_name, achieved_at')
+      .eq('student_id', studentId)
+      .eq('milestone_level', playerLevel)
+      .order('milestone_number', { ascending: true })
+    if (milestonesError) throw milestonesError
+    const achievedMilestones = achievedMilestonesData || []
+    const achievedMilestoneNumbers = achievedMilestones.map(m => m.milestone_number)
+
+    let nextMilestone = null
+    let targetMilestoneForGoal = 30
+    if (developmentPlan?.section1?.bigGoal) {
+      const goal = GOAL_OPTIONS.find(g => g.value === developmentPlan.section1.bigGoal)
+      if (goal) targetMilestoneForGoal = goal.targetMilestone
+    }
+    for (const milestone of milestones) {
+      if (!achievedMilestoneNumbers.includes(milestone.number)) {
+        nextMilestone = {
+          number: milestone.number,
+          name: milestone.name,
+          description: milestone.description,
+          targetForGoal: targetMilestoneForGoal
+        }
+        break
+      }
+    }
+    if (!nextMilestone && milestones.length > 0) {
+      const last = milestones[milestones.length - 1]
+      nextMilestone = { number: last.number, name: last.name, description: last.description, targetForGoal: targetMilestoneForGoal }
+    }
+
+    const { data: lastLessonData } = await supabaseAdmin
+      .from('lessons')
+      .select('student_learnings')
+      .eq('student_id', studentId)
+      .eq('status', 'completed')
+      .order('lesson_date', { ascending: false })
+      .limit(1)
+      .single()
+    const lastLessonLearnings = lastLessonData?.student_learnings || null
+
+    const { data: recentLessonsData } = await supabaseAdmin
+      .from('lessons')
+      .select('lesson_plan')
+      .eq('student_id', studentId)
+      .eq('status', 'completed')
+      .not('lesson_plan', 'is', null)
+      .order('lesson_date', { ascending: false })
+      .limit(2)
+    const pastLessonPlans = (recentLessonsData || []).map(l => l.lesson_plan).filter(Boolean)
+
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const functionUrl = isLocalhost
+      ? '/.netlify/functions/generate-lesson-plan?test=true'
+      : '/.netlify/functions/generate-lesson-plan'
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentName,
+        playerLevel,
+        developmentPlan,
+        currentMilestones: achievedMilestoneNumbers,
+        nextMilestone,
+        lastLessonLearnings,
+        pastLessonPlans
+      })
+    })
+    if (!response.ok) {
+      let errMsg = `HTTP ${response.status}`
+      try {
+        const errData = await response.json()
+        if (errData?.error) errMsg = typeof errData.error === 'string' ? errData.error : (errData.error?.message || JSON.stringify(errData.error))
+      } catch (_) {}
+      throw new Error(errMsg)
+    }
+    const { studentPlan: generatedStudentPlan, coachPlan: generatedCoachPlan } = await response.json()
+    const planToSave = stripMarkdown(generatedCoachPlan || generatedStudentPlan)
+    const studentPlanToSave = stripMarkdown(generatedStudentPlan || generatedCoachPlan)
+
+    const updateData = { lesson_plan: planToSave, updated_at: new Date().toISOString() }
+    try {
+      updateData.student_lesson_plan = studentPlanToSave
+    } catch (_) {}
+
+    const { error: updateError } = await supabaseAdmin
+      .from('lessons')
+      .update(updateData)
+      .eq('id', lessonId)
+    if (updateError) throw updateError
+    return { lessonPlan: planToSave, studentPlan: studentPlanToSave }
+  }
+
+  const handleGenerateAllLessonPlans = async () => {
+    const lessonsOnPage =
+      viewMode === 'sunday'
+        ? lessons.filter(l => {
+            const lessonDate = new Date(l.lesson_date)
+            return isSameDay(lessonDate, currentSunday) && l.status === 'scheduled'
+          })
+        : lessons
+            .filter(l => {
+              const lessonDate = new Date(l.lesson_date)
+              const dayOfWeek = lessonDate.getDay()
+              return dayOfWeek !== 0 && l.status === 'scheduled' && lessonDate > new Date()
+            })
+            .sort((a, b) => new Date(a.lesson_date) - new Date(b.lesson_date))
+
+    if (!lessonsOnPage || lessonsOnPage.length === 0) {
+      alert('No lessons to generate plans for')
+      return
+    }
+    const confirm = window.confirm(
+      `Generate AI lesson plans for all ${lessonsOnPage.length} lessons on this page? This may take a few minutes.`
+    )
+    if (!confirm) return
+
+    setGeneratingAll(true)
+    try {
+      for (let i = 0; i < lessonsOnPage.length; i++) {
+        const lesson = lessonsOnPage[i]
+        console.log(`Generating lesson plan ${i + 1}/${lessonsOnPage.length} for ${lesson.students?.profiles?.full_name || lesson.student_id}`)
+        await generateLessonPlanWithAI(lesson.id)
+        if (i < lessonsOnPage.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+      alert(`Successfully generated ${lessonsOnPage.length} lesson plans!`)
+      fetchCoachData()
+    } catch (error) {
+      console.error('Error generating lesson plans:', error)
+      alert('Error generating lesson plans: ' + error.message)
+    } finally {
+      setGeneratingAll(false)
     }
   }
 
@@ -1939,7 +2116,7 @@ export default function CoachDashboard() {
               {viewMode === 'nonSunday' ? 'Upcoming Lessons' : 'Sunday'}
             </h2>
             {viewMode === 'sunday' ? (
-              <div style={{ 
+              <div className="date-info" style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '12px',
@@ -1976,7 +2153,7 @@ export default function CoachDashboard() {
                 </span>
               </div>
             ) : (
-              <div style={{ 
+              <div className="date-info" style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '12px',
@@ -2009,23 +2186,84 @@ export default function CoachDashboard() {
               </div>
             )}
           </div>
-          <div className="calendar-navigation-buttons" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'nowrap' }}>
-            {/* Previous and Next buttons */}
-            <button 
-              className="btn btn-outline btn-sm"
-              onClick={handlePreviousWeek}
-              style={{ padding: '8px 16px' }}
+          <div
+            className="calendar-navigation-buttons nav-buttons"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              padding: '12px 16px',
+              marginBottom: '16px'
+            }}
+          >
+            {/* Row 1: Previous and Next navigation */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={handlePreviousWeek}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  background: 'white',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                ← Previous
+              </button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={handleNextWeek}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  background: 'white',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Next →
+              </button>
+            </div>
+
+            {/* Row 2: Generate All action button */}
+            <button
+              className="generate-all-button"
+              onClick={handleGenerateAllLessonPlans}
+              disabled={generatingAll || lessons.length === 0}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '14px',
+                fontWeight: 600,
+                background: '#6366f1',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: (generatingAll || lessons.length === 0) ? 'not-allowed' : 'pointer',
+                opacity: (generatingAll || lessons.length === 0) ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
             >
-              ← Previous
+              <span>✨</span>
+              <span>{generatingAll ? 'Generating All Plans...' : 'Generate All Lesson Plans'}</span>
             </button>
-            <button 
-              className="btn btn-outline btn-sm"
-              onClick={handleNextWeek}
-              style={{ padding: '8px 16px' }}
-            >
-              Next →
-                </button>
-              </div>
+          </div>
       </div>
 
         {viewMode === 'nonSunday' ? (
@@ -2070,12 +2308,16 @@ export default function CoachDashboard() {
                   return (
                     <div 
                       key={lesson.id}
+                      className="lesson-card"
                       style={{ 
                         border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius-sm)',
                         overflow: 'hidden',
                         transition: 'all 0.3s ease',
-                        boxShadow: 'var(--shadow-sm)'
+                        boxShadow: 'var(--shadow-sm)',
+                        width: '100%',
+                        maxWidth: '100%',
+                        boxSizing: 'border-box'
                       }}
                     >
                       {/* Collapsed View - COMPACT */}
@@ -2089,7 +2331,9 @@ export default function CoachDashboard() {
                           backgroundColor: 'white',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0'
+                          borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0',
+                          gap: '12px',
+                          flexWrap: 'wrap'
                         }}
                         onMouseEnter={(e) => {
                           if (!isExpanded) e.currentTarget.style.backgroundColor = '#f9f9f9'
@@ -2102,16 +2346,21 @@ export default function CoachDashboard() {
                           display: 'flex', 
                           alignItems: 'center', 
                           gap: '16px',
-                          flex: 1 
+                          flex: 1,
+                          minWidth: 0
                         }}>
                           {/* Time */}
-                          <div style={{ 
-                            fontSize: '15px',
-                            fontWeight: '700', 
-                            color: 'var(--color-primary)',
-                            minWidth: '70px',
-                            fontFamily: 'monospace'
-                          }}>
+                          <div
+                            className="lesson-time"
+                            style={{ 
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              color: 'var(--color-primary)',
+                              minWidth: '65px',
+                              flexShrink: 0,
+                              fontFamily: 'monospace'
+                            }}
+                          >
                             {lessonTime}
                           </div>
                           
@@ -2119,7 +2368,8 @@ export default function CoachDashboard() {
                           <div style={{
                             width: '1px',
                             height: '24px',
-                            backgroundColor: '#e0e0e0'
+                            backgroundColor: '#e0e0e0',
+                            flexShrink: 0
                           }} />
                           
                           {/* Student Name with Stage Tag and Credits */}
@@ -2129,13 +2379,21 @@ export default function CoachDashboard() {
                             alignItems: 'center',
                             gap: '8px',
                             flex: 1,
-                            flexWrap: 'wrap'
+                            flexWrap: 'wrap',
+                            minWidth: 0
                           }} className="student-info-row">
-                            <div style={{ 
-                              fontSize: '15px',
-                              fontWeight: '600',
-                              color: 'var(--color-dark)'
-                            }}>
+                            <div
+                              className="student-name"
+                              style={{ 
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                color: 'var(--color-dark)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginBottom: '4px'
+                              }}
+                            >
                               {studentName}
                             </div>
                             <div style={{ fontSize: '13px', color: '#666' }}>
@@ -2164,15 +2422,18 @@ export default function CoachDashboard() {
                                     }}>
                                       {stage.label}
                                     </span>
-                                    <span style={{
-                                      fontSize: '11px',
-                                      padding: '2px 8px',
-                                      borderRadius: '12px',
-                                      backgroundColor: credits <= 2 ? '#FF9800' : '#f0f0f0',
-                                      color: credits <= 2 ? 'white' : '#666',
-                                      fontWeight: '600',
-                                      whiteSpace: 'nowrap'
-                                    }}>
+                                    <span
+                                      className="credits-badge"
+                                      style={{
+                                        fontSize: '11px',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        backgroundColor: credits <= 2 ? '#FF9800' : '#f0f0f0',
+                                        color: credits <= 2 ? 'white' : '#666',
+                                        fontWeight: '600',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
                                       {credits} credit{credits !== 1 ? 's' : ''}
                                     </span>
                                   </>
@@ -2197,29 +2458,46 @@ export default function CoachDashboard() {
                             ${getLessonRevenue(lesson.students)}
                           </div>
                           {lesson.lesson_plan ? (
-                            <span style={{
-                              padding: '4px 10px',
-                              backgroundColor: '#E8F5E9',
-                              color: '#2D7F6F',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
-                              📝 <span>Ready</span>
+                            <span
+                              className="lesson-status-badge"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                borderRadius: '4px',
+                                backgroundColor: '#E8F5E9',
+                                color: '#2D7F6F',
+                                fontWeight: '600',
+                                maxWidth: '80px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              ✓ <span className="status-text">Ready</span>
                             </span>
                           ) : (
-                            <span style={{
-                              padding: '4px 10px',
-                              backgroundColor: '#FFF3E0',
-                              color: '#FF9800',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              No Plan
+                            <span
+                              className="lesson-status-badge"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                borderRadius: '4px',
+                                backgroundColor: '#FFF3E0',
+                                color: '#FF9800',
+                                fontWeight: '600',
+                                maxWidth: '80px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              ○ <span className="status-text">No Plan</span>
                             </span>
                           )}
                           <span style={{ 
@@ -2407,14 +2685,20 @@ export default function CoachDashboard() {
                 return (
             <div 
               key={lesson.id}
+              className="lesson-card"
               style={{ 
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-sm)',
-                      overflow: 'hidden',
-                      transition: 'all 0.3s ease',
-                      boxShadow: 'var(--shadow-sm)'
-                    }}
-                  >
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'hidden',
+                transition: 'all 0.3s ease',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box'
+              }}
+            >
                     {/* Collapsed View - COMPACT */}
                     <div 
                       onClick={() => handleToggleLessonExpansion(lesson.id)}
@@ -2424,9 +2708,11 @@ export default function CoachDashboard() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         backgroundColor: 'white',
-                cursor: 'pointer',
+                        cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0'
+                        borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0',
+                        gap: '12px',
+                        flexWrap: 'wrap'
                       }}
                       onMouseEnter={(e) => {
                         if (!isExpanded) e.currentTarget.style.backgroundColor = '#f9f9f9'
@@ -2439,24 +2725,30 @@ export default function CoachDashboard() {
                         display: 'flex', 
                         alignItems: 'center', 
                         gap: '16px',
-                        flex: 1 
+                        flex: 1,
+                        minWidth: 0
                       }}>
                         {/* Time */}
-                        <div style={{ 
-                          fontSize: '15px',
-                          fontWeight: '700', 
-                          color: 'var(--color-primary)',
-                          minWidth: '70px',
-                          fontFamily: 'monospace'
-                        }}>
+                        <div
+                          className="lesson-time"
+                          style={{ 
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: 'var(--color-primary)',
+                            minWidth: '65px',
+                            flexShrink: 0,
+                            fontFamily: 'monospace'
+                          }}
+                        >
                           {lessonTime}
-            </div>
+                        </div>
                         
                         {/* Vertical separator */}
                         <div style={{
                           width: '1px',
                           height: '24px',
-                          backgroundColor: '#e0e0e0'
+                          backgroundColor: '#e0e0e0',
+                          flexShrink: 0
                         }} />
                         
                         {/* Student Name with Stage Tag and Credits */}
@@ -2466,13 +2758,21 @@ export default function CoachDashboard() {
                           alignItems: 'center',
                           gap: '8px',
                           flex: 1,
-                          flexWrap: 'wrap'
+                          flexWrap: 'wrap',
+                          minWidth: 0
                         }} className="student-info-row">
-                          <div style={{ 
-                            fontSize: '15px',
-                            fontWeight: '600',
-                            color: 'var(--color-dark)'
-                          }}>
+                          <div
+                            className="student-name"
+                            style={{ 
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              color: 'var(--color-dark)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              marginBottom: '4px'
+                            }}
+                          >
                             {studentName}
                           </div>
                           <div style={{
@@ -2499,15 +2799,18 @@ export default function CoachDashboard() {
                                   }}>
                                     {stage.label}
                                   </span>
-                                  <span style={{
-                                    fontSize: '11px',
-                                    padding: '2px 8px',
-                                    borderRadius: '12px',
-                                    backgroundColor: credits <= 2 ? '#FF9800' : '#f0f0f0',
-                                    color: credits <= 2 ? 'white' : '#666',
-                                    fontWeight: '600',
-                                    whiteSpace: 'nowrap'
-                                  }}>
+                                  <span
+                                    className="credits-badge"
+                                    style={{
+                                      fontSize: '11px',
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      backgroundColor: credits <= 2 ? '#FF9800' : '#f0f0f0',
+                                      color: credits <= 2 ? 'white' : '#666',
+                                      fontWeight: '600',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
                                     {credits} credit{credits !== 1 ? 's' : ''}
                                   </span>
                                 </>
@@ -2541,29 +2844,46 @@ export default function CoachDashboard() {
                         marginLeft: '16px'
                       }}>
                         {lesson.lesson_plan ? (
-                          <span style={{
-                            padding: '4px 10px',
-                            backgroundColor: '#E8F5E9',
-                            color: '#2D7F6F',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            📝 <span>Ready</span>
+                          <span
+                            className="lesson-status-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              borderRadius: '4px',
+                              backgroundColor: '#E8F5E9',
+                              color: '#2D7F6F',
+                              fontWeight: '600',
+                              maxWidth: '80px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            ✓ <span className="status-text">Ready</span>
                           </span>
                         ) : (
-                          <span style={{
-                            padding: '4px 10px',
-                            backgroundColor: '#FFF3E0',
-                            color: '#FF9800',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>
-                            No Plan
+                          <span
+                            className="lesson-status-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              borderRadius: '4px',
+                              backgroundColor: '#FFF3E0',
+                              color: '#FF9800',
+                              fontWeight: '600',
+                              maxWidth: '80px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            ○ <span className="status-text">No Plan</span>
                           </span>
                         )}
                         <span style={{ 
@@ -2711,9 +3031,9 @@ export default function CoachDashboard() {
       </div>
 
 
-      {/* Lesson Plan Modal */}
+      {/* Lesson Plan Modal - use higher z-index so footer buttons appear above bottom nav */}
       {selectedLesson && (
-        <div className="modal-overlay" onClick={handleCloseLessonPlan}>
+        <div className="modal-overlay lesson-plan-modal-overlay" onClick={handleCloseLessonPlan}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px' }}>
             <div className="modal-header">
               <h2 className="modal-title">Lesson Plan - {selectedLesson.students?.profiles?.full_name || 'Student'}</h2>
@@ -2881,7 +3201,7 @@ export default function CoachDashboard() {
 
       {/* Templates Modal */}
       {showTemplates && (
-        <div className="modal-overlay" onClick={() => setShowTemplates(false)}>
+        <div className="modal-overlay lesson-plan-modal-overlay" onClick={() => setShowTemplates(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '900px', margin: '20px' }}>
             <LessonTemplates 
               onSelectTemplate={(content) => {
@@ -2897,7 +3217,7 @@ export default function CoachDashboard() {
 
       {/* Lesson Detail Modal */}
       {selectedLessonDetail && (
-        <div className="modal-overlay" onClick={handleCloseLessonDetail}>
+        <div className="modal-overlay lesson-plan-modal-overlay" onClick={handleCloseLessonDetail}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
             <div className="modal-header">
               <h2 className="modal-title">
@@ -3123,7 +3443,7 @@ export default function CoachDashboard() {
         </div>
       )}
 
-      {/* Coach Feedback Modal */}
+      {/* Coach Feedback Modal - above bottom nav */}
       {selectedFeedbackLesson && (
         <div 
           style={{
@@ -3136,7 +3456,7 @@ export default function CoachDashboard() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000
+            zIndex: 10050
           }}
           onClick={handleCloseFeedbackModal}
         >

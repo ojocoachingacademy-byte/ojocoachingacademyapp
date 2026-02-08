@@ -535,6 +535,11 @@ textarea.input {
   }
 }
 
+/* Modals on tabbed layouts (student/coach bottom nav z-index: 9999) - use this class so footer buttons stay clickable on mobile */
+.modal-above-tabs {
+  z-index: 10050 !important;
+}
+
 /* Utility Classes */
 .text-center {
   text-align: center;

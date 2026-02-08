@@ -411,7 +411,7 @@ export default function LessonsPage() {
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <div className="modal-overlay" onClick={() => {
+        <div className="modal-overlay modal-above-tabs" onClick={() => {
           setSelectedLesson(null)
           setEditingPlan(false)
           setLessonPlanText('')

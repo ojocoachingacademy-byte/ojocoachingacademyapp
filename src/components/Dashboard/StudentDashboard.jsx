@@ -744,6 +744,7 @@ export default function StudentDashboard() {
                     fetchStudentData()
                     setShowProfileModal(false)
                   }}
+                  onClose={() => setShowProfileModal(false)}
                 />
               </div>
             </div>
@@ -1532,7 +1533,7 @@ export default function StudentDashboard() {
 
       {/* Lesson Detail Modal */}
       {selectedLessonForDetails && (
-        <div className="modal-overlay" onClick={() => setSelectedLessonForDetails(null)}>
+        <div className="modal-overlay modal-above-tabs" onClick={() => setSelectedLessonForDetails(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
             <div className="modal-header">
               <h2 className="modal-title">Lesson Details</h2>

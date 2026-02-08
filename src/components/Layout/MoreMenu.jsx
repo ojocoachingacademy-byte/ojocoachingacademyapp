@@ -78,10 +78,8 @@ export default function MoreMenu({ isOpen, onClose, isCoach = false }) {
   const handleProfileClick = () => {
     onClose()
     if (isCoach) {
-      // For coach, could navigate to settings or profile page
       navigate('/coach')
     } else {
-      // Trigger profile modal in StudentDashboard
       window.dispatchEvent(new CustomEvent('openProfileModal'))
     }
   }

@@ -7,7 +7,7 @@ import { NTRP_OPTIONS, getNtrpLabel } from '../../../utils/ntrpLabels'
 import { Edit2, X } from 'lucide-react'
 import './ProfileTab.css'
 
-const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
+const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHittingPartnersOnly = false }) => {
   const navigate = useNavigate()
   const [accountStats, setAccountStats] = useState({
     totalLessons: 0,
@@ -168,71 +168,75 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
         </div>
       </div>
 
-      {/* Credits Card - Most Important */}
-      <div className={`credits-card ${creditsLow ? 'low' : ''} ${creditsEmpty ? 'empty' : ''}`}>
-        <div className="credits-content">
-          <div className="credits-icon">🎾</div>
-          <div className="credits-info">
-            <span className="credits-label">Lesson Credits</span>
-            <span className="credits-value">{credits}</span>
-            {credits <= 2 && (
-              <span className="credits-reup-hint">
-                {creditsEmpty ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
-              </span>
-            )}
-            {creditsLow && !creditsEmpty && (
-              <span className="credits-warning">Running low!</span>
-            )}
-            {creditsEmpty && (
-              <span className="credits-warning empty">No credits remaining</span>
-            )}
+      {/* Credits Card - Most Important (hidden for hitting-partners-only profile) */}
+      {!isHittingPartnersOnly && (
+        <div className={`credits-card ${creditsLow ? 'low' : ''} ${creditsEmpty ? 'empty' : ''}`}>
+          <div className="credits-content">
+            <div className="credits-icon">🎾</div>
+            <div className="credits-info">
+              <span className="credits-label">Lesson Credits</span>
+              <span className="credits-value">{credits}</span>
+              {credits <= 2 && (
+                <span className="credits-reup-hint">
+                  {creditsEmpty ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
+                </span>
+              )}
+              {creditsLow && !creditsEmpty && (
+                <span className="credits-warning">Running low!</span>
+              )}
+              {creditsEmpty && (
+                <span className="credits-warning empty">No credits remaining</span>
+              )}
+            </div>
+          </div>
+          <button 
+            className={`btn-credits ${creditsEmpty ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={handleBookLessons}
+          >
+            {creditsEmpty ? 'Buy Package' : 'Book More Lessons'}
+          </button>
+        </div>
+      )}
+
+      {/* Account Stats (hidden for hitting-partners-only profile) */}
+      {!isHittingPartnersOnly && (
+        <div className="account-stats">
+          <h3>Your Stats</h3>
+          <div className="stats-grid">
+            <div className="stat-item">
+              <span className="stat-icon">🎾</span>
+              <div className="stat-content">
+                <span className="stat-value">{accountStats.totalLessons}</span>
+                <span className="stat-label">Total Lessons</span>
+              </div>
+            </div>
+
+            <div className="stat-item">
+              <span className="stat-icon">✅</span>
+              <div className="stat-content">
+                <span className="stat-value">{accountStats.completedPractice}</span>
+                <span className="stat-label">Practice Completed</span>
+              </div>
+            </div>
+
+            <div className="stat-item">
+              <span className="stat-icon">📅</span>
+              <div className="stat-content">
+                <span className="stat-value">
+                  {accountStats.joinedDate 
+                    ? new Date(accountStats.joinedDate).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        year: 'numeric' 
+                      })
+                    : 'N/A'
+                  }
+                </span>
+                <span className="stat-label">Member Since</span>
+              </div>
+            </div>
           </div>
         </div>
-        <button 
-          className={`btn-credits ${creditsEmpty ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={handleBookLessons}
-        >
-          {creditsEmpty ? 'Buy Package' : 'Book More Lessons'}
-        </button>
-      </div>
-
-      {/* Account Stats */}
-      <div className="account-stats">
-        <h3>Your Stats</h3>
-        <div className="stats-grid">
-          <div className="stat-item">
-            <span className="stat-icon">🎾</span>
-            <div className="stat-content">
-              <span className="stat-value">{accountStats.totalLessons}</span>
-              <span className="stat-label">Total Lessons</span>
-            </div>
-          </div>
-
-          <div className="stat-item">
-            <span className="stat-icon">✅</span>
-            <div className="stat-content">
-              <span className="stat-value">{accountStats.completedPractice}</span>
-              <span className="stat-label">Practice Completed</span>
-            </div>
-          </div>
-
-          <div className="stat-item">
-            <span className="stat-icon">📅</span>
-            <div className="stat-content">
-              <span className="stat-value">
-                {accountStats.joinedDate 
-                  ? new Date(accountStats.joinedDate).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      year: 'numeric' 
-                    })
-                  : 'N/A'
-                }
-              </span>
-              <span className="stat-label">Member Since</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Personal Information */}
       <div className="profile-section">
@@ -390,7 +394,9 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
         <div className="actions-list">
           <button className="action-button" onClick={handleBookLessons}>
             <span className="action-icon">📅</span>
-            <span className="action-text">Book More Lessons</span>
+            <span className="action-text">
+              {isHittingPartnersOnly ? 'Book a Lesson with Coach Tobi' : 'Book More Lessons'}
+            </span>
             <span className="action-arrow">→</span>
           </button>
 
@@ -431,11 +437,47 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate }) => {
 
       {/* Logout */}
       <div className="profile-section logout-section">
-        <button className="btn-logout" onClick={handleLogout}>
-          <span>Logout</span>
-          <span className="logout-icon">🚪</span>
-        </button>
+        <div className="profile-actions-row">
+          <button className="btn-logout" onClick={handleLogout}>
+            <span>Logout</span>
+            <span className="logout-icon">🚪</span>
+          </button>
+        </div>
       </div>
+
+      {/* Close (when in modal) - sticky at bottom */}
+      {onClose && (
+        <div
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '16px',
+            background: 'white',
+            borderTop: '1px solid #e5e7eb',
+            zIndex: 1000
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => onClose()}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#6b7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Close
+          </button>
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="profile-footer">

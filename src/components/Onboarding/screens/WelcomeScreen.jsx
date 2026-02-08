@@ -1,5 +1,4 @@
 import React from 'react'
-import { ArrowRight } from 'lucide-react'
 import './OnboardingScreens.css'
 
 const WelcomeScreen = ({ studentName, onNext }) => {
@@ -13,13 +12,7 @@ const WelcomeScreen = ({ studentName, onNext }) => {
         <p className="welcome-subtitle">
           Ready to accomplish your goals? Let's go!
         </p>
-        <button 
-          className="btn-onboarding-primary"
-          onClick={onNext}
-        >
-          Get Started
-          <ArrowRight size={20} />
-        </button>
+        {/* Buttons rendered by OnboardingFlow fixed bar */}
       </div>
     </div>
   )

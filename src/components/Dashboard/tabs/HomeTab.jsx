@@ -662,7 +662,7 @@ const HomeTab = ({ studentData, onBookLesson }) => {
 
       {/* Lesson Plan Modal */}
       {selectedLessonForPlan && (
-        <div className="modal-overlay" onClick={() => setSelectedLessonForPlan(null)}>
+        <div className="modal-overlay modal-above-tabs" onClick={() => setSelectedLessonForPlan(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <h2 className="modal-title">Lesson Plan</h2>

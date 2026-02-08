@@ -166,7 +166,7 @@ export default function LinkPartnerModal({ student, onClose, onSuccess }) {
   const selectedPartner = students.find(s => s.id === selectedPartnerId)
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()}

@@ -479,7 +479,7 @@ export default function CalendarView() {
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <div className="modal-overlay" onClick={() => setSelectedLesson(null)}>
+        <div className="modal-overlay modal-above-tabs" onClick={() => setSelectedLesson(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <h2 className="modal-title">Lesson Details</h2>

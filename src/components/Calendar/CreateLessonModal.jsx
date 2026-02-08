@@ -82,7 +82,7 @@ export default function CreateLessonModal({ isOpen, onClose, studentId, studentN
   if (!isOpen) return null
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={handleClose}>
       <div className="modal-content create-lesson-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>

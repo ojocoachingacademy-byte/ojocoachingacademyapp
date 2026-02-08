@@ -1,3 +1,8 @@
+/* Lesson plan modal must appear above fixed bottom nav (z-index: 9999) */
+.lesson-plan-modal-overlay {
+  z-index: 10050;
+}
+
 /* =============================================
    COACH DASHBOARD - LESSON CARD STYLES
    ============================================= */
@@ -406,5 +411,76 @@
     width: 100%;
     min-height: 44px;
     font-size: 16px;
+  }
+}
+
+/* Status badge: show only icon on iPhone SE, full text on larger screens */
+@media (max-width: 375px) {
+  .status-text {
+    display: none;
+  }
+}
+
+/* =============================================
+   Mobile Optimization - iPhone SE (375px) through iPhone 14 Pro Max (430px)
+   ============================================= */
+@media (max-width: 400px) {
+  .coach-dashboard {
+    padding: 12px 8px !important;
+  }
+
+  .dashboard-header {
+    font-size: 20px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .date-info {
+    font-size: 13px !important;
+    gap: 8px !important;
+  }
+
+  .lesson-card {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .lesson-time {
+    font-size: 13px !important;
+    width: 60px !important;
+    min-width: 60px !important;
+  }
+
+  .student-name {
+    font-size: 14px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .lesson-status-badge {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+
+  .credits-badge {
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+  }
+
+  /* Navigation buttons */
+  .nav-buttons button {
+    font-size: 13px !important;
+    padding: 8px 12px !important;
+  }
+
+  .generate-all-button {
+    font-size: 11px !important;
+    padding: 8px 10px !important;
+  }
+}
+
+/* Tablet and larger phones */
+@media (min-width: 401px) and (max-width: 768px) {
+  .generate-all-button {
+    font-size: 13px !important;
+    padding: 10px 16px !important;
   }
 }

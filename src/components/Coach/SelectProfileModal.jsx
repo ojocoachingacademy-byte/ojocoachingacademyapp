@@ -39,7 +39,7 @@ export default function SelectProfileModal({ currentProfileId, onSelect, onClose
   )
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content select-profile-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Select Profile to Merge With</h2>

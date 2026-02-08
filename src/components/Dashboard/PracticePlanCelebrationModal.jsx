@@ -25,7 +25,7 @@ export default function PracticePlanCelebrationModal({ goal, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content celebration-modal" onClick={(e) => e.stopPropagation()}>
         <button 
           className="modal-close-button" 

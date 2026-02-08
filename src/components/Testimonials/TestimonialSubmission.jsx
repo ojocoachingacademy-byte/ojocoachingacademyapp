@@ -175,7 +175,7 @@ export default function TestimonialSubmission({ onClose, onSuccess, studentId, l
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content testimonial-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Share Your Experience</h2>

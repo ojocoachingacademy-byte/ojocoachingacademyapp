@@ -80,7 +80,7 @@ export default function NewConversationModal({ isOpen, onClose, preselectedUserI
 
   if (selectedUser) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay modal-above-tabs" onClick={onClose}>
         <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
           <div className="modal-header">
             <h2 className="modal-title">New Message to {selectedUser.full_name}</h2>
@@ -103,7 +103,7 @@ export default function NewConversationModal({ isOpen, onClose, preselectedUserI
   )
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay modal-above-tabs" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
         <div className="modal-header">
           <h2 className="modal-title">New Message</h2>

@@ -34,6 +34,7 @@ import { ToastContainer, useToast } from './components/shared/Toast'
 import ErrorBoundary from './components/shared/ErrorBoundary'
 import AppUpdateNotice from './components/shared/AppUpdateNotice'
 import PlayersLanding from './components/Public/PlayersLanding'
+import DefaultStudentRedirect from './components/Auth/DefaultStudentRedirect'
 import { trackEvent, EVENTS } from './utils/analytics'
 
 function App() {
@@ -193,9 +194,9 @@ function App() {
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
         <Route path="/reset-password" element={!session ? <ResetPassword /> : <Navigate to="/dashboard" />} />
         <Route path="/auth/confirmed" element={<EmailConfirmed />} />
-            <Route 
-              path="/dashboard" 
-              element={session && !isCoach ? <StudentPageWrapper><StudentDashboard /></StudentPageWrapper> : <Navigate to="/login" />} 
+        <Route 
+          path="/dashboard" 
+          element={session && !isCoach ? <StudentPageWrapper><StudentDashboard /></StudentPageWrapper> : <Navigate to="/login" />} 
             />
             <Route 
               path="/lessons" 
@@ -273,7 +274,7 @@ function App() {
           path="/settings" 
           element={session && !isCoach ? <StudentPageWrapper><StudentSettings /></StudentPageWrapper> : <Navigate to="/login" />} 
         />
-            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/" element={<DefaultStudentRedirect />} />
         </Routes>
       </ErrorBoundary>
     </Router>

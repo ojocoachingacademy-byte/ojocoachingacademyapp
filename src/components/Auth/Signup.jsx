@@ -106,18 +106,23 @@ export default function Signup() {
     // Create auth user with email confirmation redirect
     const fullName = `${firstName} ${lastName}`.trim()
     const phoneDigitsOnly = phone.replace(/\D/g, '')
-    
+    const urlParams = new URLSearchParams(window.location.search)
+    const redirect = urlParams.get('redirect')
+    const confirmedUrl = redirect
+      ? `${window.location.origin}/auth/confirmed?redirect=${encodeURIComponent(redirect)}`
+      : `${window.location.origin}/auth/confirmed`
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { 
+        data: {
           full_name: fullName,
           phone: phoneDigitsOnly,
           account_type: accountType,
           ntrp_level: ntrpLevel
         },
-        emailRedirectTo: `${window.location.origin}/auth/confirmed`
+        emailRedirectTo: confirmedUrl
       }
     })
 

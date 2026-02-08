@@ -1,5 +1,4 @@
 import React from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { GOAL_OPTIONS, MILESTONES } from '../../DevelopmentPlan/MilestonesConstants'
 import './OnboardingScreens.css'
 
@@ -81,33 +80,7 @@ const JourneySummaryScreen = ({
           </div>
         </div>
 
-        <div className="onboarding-screen-actions">
-          <button className="btn-onboarding-secondary" onClick={onBack}>
-            <ArrowLeft size={18} />
-            Back
-          </button>
-          <button 
-            className="btn-onboarding-primary"
-            onClick={onNext}
-          >
-            See My Path
-            <ArrowRight size={18} />
-          </button>
-        </div>
-
-        <div className="onboarding-screen-actions">
-          <button className="btn-onboarding-secondary" onClick={onBack}>
-            <ArrowLeft size={18} />
-            Back
-          </button>
-          <button 
-            className="btn-onboarding-primary"
-            onClick={onNext}
-          >
-            See My Path
-            <ArrowRight size={18} />
-          </button>
-        </div>
+        {/* Buttons rendered by OnboardingFlow fixed bar */}
       </div>
     </div>
   )
