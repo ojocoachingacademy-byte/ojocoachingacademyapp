@@ -15,6 +15,8 @@ export default function StudentSettings() {
   const [success, setSuccess] = useState(false)
   const [referralData, setReferralData] = useState({ rank: null, referralCount: 0, referralRevenue: 0, totalReferrers: 0 })
   const [topReferrers, setTopReferrers] = useState([])
+  const [activePackage, setActivePackage] = useState(null)
+  const [creditsRemaining, setCreditsRemaining] = useState(0)
   const navigate = useNavigate()
 
   // Helper function to validate and get avatar URL
@@ -105,6 +107,33 @@ export default function StudentSettings() {
 
       setProfile(profileData)
       setStudent(studentData || null)
+
+      // Fetch active package and credits remaining (package-based)
+      if (user?.id) {
+        try {
+          const { data: pkg } = await supabase
+            .from('student_packages')
+            .select('*')
+            .eq('student_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle()
+
+          if (pkg) {
+            const remaining = Number.isFinite(pkg.lessons_remaining)
+              ? Math.max(0, pkg.lessons_remaining)
+              : Math.max(0, (Number(pkg.lessons_purchased ?? pkg.package_size) || 0) - (Number(pkg.lessons_used) || 0))
+            setActivePackage(pkg)
+            setCreditsRemaining(remaining)
+          } else {
+            setActivePackage(null)
+            setCreditsRemaining(0)
+          }
+        } catch (e) {
+          console.warn('[Settings] Package fetch failed:', e)
+          setActivePackage(null)
+          setCreditsRemaining(0)
+        }
+      }
       
       // Populate form - split full_name into first_name and last_name
       // profileData is guaranteed to exist here due to null check above
@@ -448,7 +477,11 @@ export default function StudentSettings() {
             <div className="info-grid">
               <div className="info-item">
                 <span className="info-label">Lesson Credits:</span>
-                <span className="info-value">{student.lesson_credits || 0}</span>
+                <span className="info-value">
+                  {activePackage
+                    ? `${creditsRemaining} left (${activePackage.package_name})`
+                    : 'No active package'}
+                </span>
               </div>
               <div className="info-item">
                 <span className="info-label">Member Since:</span>

@@ -52,6 +52,8 @@ export default function StudentDashboard() {
   const location = useLocation()
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmModalConfig, setConfirmModalConfig] = useState(null)
+  const [activePackage, setActivePackage] = useState(null)
+  const [creditsRemaining, setCreditsRemaining] = useState(0)
   const developmentPlanRef = useRef(null)
   const promptedLessonsRef = useRef(new Set())
   const componentMountTimeRef = useRef(new Date()) // Track when component mounted
@@ -331,6 +333,31 @@ export default function StudentDashboard() {
 
       if (lessonsError) throw lessonsError
       setLessons(lessonsData || [])
+
+      // Fetch active package - use lessons_remaining (updated by DB trigger on lesson completion)
+      // lesson_transactions may not have package_id/credits_used populated for all lessons
+      try {
+        const { data: pkg } = await supabase
+          .from('student_packages')
+          .select('*')
+          .eq('student_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle()
+
+        if (pkg) {
+          const remaining = Number.isFinite(pkg.lessons_remaining)
+            ? Math.max(0, pkg.lessons_remaining)
+            : Math.max(0, (Number(pkg.lessons_purchased ?? pkg.package_size) || 0) - (Number(pkg.lessons_used) || 0))
+          setActivePackage(pkg)
+          setCreditsRemaining(remaining)
+        } else {
+          setActivePackage(null)
+          setCreditsRemaining(0)
+        }
+      } catch (e) {
+        setActivePackage(null)
+        setCreditsRemaining(0)
+      }
 
       // Check if we should show the lesson plan welcome screen
       // Only show if: onboarding completed, has a lesson with a plan, hasn't been dismissed, AND no completed lessons yet
@@ -766,7 +793,7 @@ export default function StudentDashboard() {
                   <div className="stat-icon-small">💰</div>
                   <div className="stat-info-small">
                     <div className="stat-label-small">Lesson Credits</div>
-                    <div className="stat-value-small">{student?.lesson_credits || 0}</div>
+                    <div className="stat-value-small">{activePackage ? creditsRemaining : 0}</div>
                   </div>
                 </div>
               </div>
@@ -1722,7 +1749,7 @@ export default function StudentDashboard() {
         onClose={() => setShowBookingModal(false)}
         studentId={user?.id}
         studentEmail={user?.email || profile?.email}
-        availableCredits={student?.lesson_credits || 0}
+        availableCredits={activePackage ? creditsRemaining : 0}
       />
           </div>
         </div>

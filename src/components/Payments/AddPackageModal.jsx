@@ -14,6 +14,7 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
   const [notes, setNotes] = useState('')
   const [processing, setProcessing] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [creditsRemaining, setCreditsRemaining] = useState(0)
 
   // Fetch pricing based on student's pricing tier
   useEffect(() => {
@@ -23,7 +24,33 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
   const fetchPricing = async () => {
     try {
       setLoading(true)
-      
+      if (!student?.id) {
+        setLoading(false)
+        return
+      }
+
+      // Credits remaining from active package (package-based)
+      try {
+        const { data: pkg } = await supabaseAdmin
+          .from('student_packages')
+          .select('*')
+          .eq('student_id', student.id)
+          .eq('is_active', true)
+          .maybeSingle()
+        if (pkg) {
+          const { data: txList } = await supabaseAdmin
+            .from('lesson_transactions')
+            .select('credits_used')
+            .eq('package_id', pkg.id)
+          const used = txList?.reduce((sum, t) => sum + (t.credits_used || 0), 0) || 0
+          setCreditsRemaining(pkg.total_credits - used)
+        } else {
+          setCreditsRemaining(0)
+        }
+      } catch (e) {
+        setCreditsRemaining(0)
+      }
+
       // Get student's pricing tier
       const { data: studentData, error: studentError } = await supabaseAdmin
         .from('students')
@@ -193,8 +220,6 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
     }
   }
 
-  const currentCredits = student.lesson_credits || 0
-
   return (
     <div className="package-modal-overlay" onClick={onClose}>
       <div className="package-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -206,7 +231,7 @@ export default function AddPackageModal({ student, onClose, onSuccess }) {
         <div className="package-modal-body">
           <div className="package-student-info">
             <p className="student-name">{student.profiles?.full_name || 'Unknown Student'}</p>
-            <p className="current-credits">Current Credits: <strong>{currentCredits}</strong></p>
+            <p className="current-credits">Current Credits: <strong>{creditsRemaining}</strong></p>
           </div>
 
           {/* Pricing Tier Display */}

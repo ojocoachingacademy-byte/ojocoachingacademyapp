@@ -46,7 +46,7 @@ export default function BookLessonModal({ isOpen, onClose, studentId, studentEma
           <div>
             <h2 className="modal-title">Book a Lesson</h2>
             <p style={{ margin: '8px 0 0 0', color: '#666', fontSize: '14px' }}>
-              Available Credits: <strong style={{ color: 'var(--color-primary)' }}>{availableCredits}</strong>
+              Credits Remaining: <strong style={{ color: 'var(--color-primary)' }}>{availableCredits}</strong>
             </p>
             {availableCredits === 0 && (
               <p style={{ margin: '8px 0 0 0', color: '#F44336', fontSize: '14px', fontWeight: 600 }}>

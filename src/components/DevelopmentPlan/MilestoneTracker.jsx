@@ -168,14 +168,14 @@ export default function MilestoneTracker({ studentId, isCoach = false, playerLev
     return getCurrentCamp()
   })
 
-  // Update expanded camp when achievements change (current camp from nextMilestoneNumber)
+  // Only set initial expanded camp on first load, don't auto-switch when achievements change
   useEffect(() => {
     if (!loading) {
       const currentCamp = getCurrentCamp()
       setExpandedCamp(currentCamp)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, achievedMilestones])
+  }, [loading]) // REMOVED achievedMilestones from dependencies
 
   // Pyramid layout: 1-2-3 structure (6 nodes total)
   //     6

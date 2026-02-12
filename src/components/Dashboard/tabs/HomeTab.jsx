@@ -23,6 +23,7 @@ const HomeTab = ({ studentData, onBookLesson }) => {
   const [manualFocusAreas, setManualFocusAreas] = useState([])
   const [showMilestoneModal, setShowMilestoneModal] = useState(false)
   const [currentMilestone, setCurrentMilestone] = useState(null)
+  const [activePackage, setActivePackage] = useState(null)
 
   // Helper to extract goal from development plan
   const getStudentGoal = () => {
@@ -123,12 +124,32 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         }
       }
 
+      // Fetch package info - use lessons_remaining from package (updated by DB trigger on lesson completion)
+      // lesson_transactions may not have package_id/credits_used populated for all lessons
+      const { data: pkg } = await supabase
+        .from('student_packages')
+        .select('*')
+        .eq('student_id', studentData.id)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (pkg) {
+        setActivePackage(pkg)
+      } else {
+        setActivePackage(null)
+      }
+
     } catch (error) {
       console.error('Error fetching home data:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  // Use lessons_remaining from package (DB trigger keeps it in sync) - more reliable than lesson_transactions
+  const creditsRemaining = activePackage != null && Number.isFinite(activePackage.lessons_remaining)
+    ? Math.max(0, activePackage.lessons_remaining)
+    : (activePackage ? Math.max(0, (Number(activePackage.lessons_purchased ?? activePackage.package_size) || 0) - (Number(activePackage.lessons_used) || 0)) : 0)
 
   const handleViewLessonPlan = async (lessonId) => {
     trackEvent(EVENTS.VIEW_LESSON_PLAN, { lesson_id: lessonId })
@@ -350,11 +371,11 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         <div className="stat-item enhanced">
           <div className="stat-icon">💳</div>
           <div className="stat-content">
-            <span className="stat-value">{studentData?.lesson_credits || 0}</span>
+            <span className="stat-value">{activePackage ? creditsRemaining : 0}</span>
             <span className="stat-label">Credits</span>
-            {(studentData?.lesson_credits ?? 0) <= 2 && (
+            {activePackage && creditsRemaining <= 2 && (
               <span className="stat-progress">
-                {(studentData?.lesson_credits ?? 0) === 0 ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
+                {creditsRemaining === 0 ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
               </span>
             )}
           </div>
@@ -393,11 +414,29 @@ const HomeTab = ({ studentData, onBookLesson }) => {
 
           {/* Current Practice Plan - Show if available */}
           {activePracticePlan && (
-            <PracticePlanCard 
-              lesson={activePracticePlan}
-              onComplete={fetchHomeData}
-              studentGoal={getStudentGoal()}
-            />
+            <>
+              <PracticePlanCard 
+                lesson={activePracticePlan}
+                onComplete={fetchHomeData}
+                studentGoal={getStudentGoal()}
+              />
+              <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                <button
+                  onClick={() => navigate('/practice-plans')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6366f1',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  View All Practice Plans →
+                </button>
+              </div>
+            </>
           )}
 
           {/* Next Upcoming Lesson Card (if synced from calendar) */}
@@ -448,11 +487,29 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         <>
           {/* Current Practice Plan */}
           {activePracticePlan && (
-            <PracticePlanCard 
-              lesson={activePracticePlan}
-              onComplete={fetchHomeData}
-              studentGoal={getStudentGoal()}
-            />
+            <>
+              <PracticePlanCard 
+                lesson={activePracticePlan}
+                onComplete={fetchHomeData}
+                studentGoal={getStudentGoal()}
+              />
+              <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                <button
+                  onClick={() => navigate('/practice-plans')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6366f1',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  View All Practice Plans →
+                </button>
+              </div>
+            </>
           )}
 
           {/* Next Lesson Card */}
@@ -509,11 +566,29 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         <>
           {/* 1. Practice Plan - Most actionable */}
           {activePracticePlan && (
-            <PracticePlanCard 
-              lesson={activePracticePlan}
-              onComplete={fetchHomeData}
-              studentGoal={getStudentGoal()}
-            />
+            <>
+              <PracticePlanCard 
+                lesson={activePracticePlan}
+                onComplete={fetchHomeData}
+                studentGoal={getStudentGoal()}
+              />
+              <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                <button
+                  onClick={() => navigate('/practice-plans')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6366f1',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  View All Practice Plans →
+                </button>
+              </div>
+            </>
           )}
 
 
@@ -634,19 +709,23 @@ const HomeTab = ({ studentData, onBookLesson }) => {
         </>
       )}
 
-      {/* Book More Lessons CTA - If low on credits (not Stage 1) */}
-      {stage?.stageNumber !== 1 && studentData?.lesson_credits <= 2 && studentData?.lesson_credits > 0 && (
+      {/* Book More Lessons CTA - If low on credits (package-aware, not Stage 1) */}
+      {stage?.stageNumber !== 1 && activePackage && creditsRemaining <= 2 && (
         <div className="low-credits-banner">
           <span className="banner-icon">⚠️</span>
           <div className="banner-content">
             <strong>Running low on credits!</strong>
-            <p>You have {studentData.lesson_credits} lesson{studentData.lesson_credits === 1 ? '' : 's'} remaining</p>
+            <p>
+              {creditsRemaining === 0
+                ? `Your ${activePackage.package_name} is used up`
+                : `Only ${creditsRemaining} lesson${creditsRemaining === 1 ? '' : 's'} left in your ${activePackage.package_name}`}
+            </p>
           </div>
-          <button 
+          <button
             className="btn-secondary"
-            onClick={handleBookLesson}
+            onClick={() => navigate('/packages')}
           >
-            Book More →
+            View Package →
           </button>
         </div>
       )}

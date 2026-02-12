@@ -68,7 +68,62 @@
   font-size: 1rem;
 }
 
-/* Credits Card */
+/* Package Card */
+.package-card {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+  margin-bottom: 2rem;
+}
+
+.package-card.clickable:hover {
+  border-color: #6366f1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.package-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.package-icon {
+  font-size: 32px;
+}
+
+.package-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.package-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.package-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.package-subtitle {
+  font-size: 13px;
+  color: #999;
+}
+
+.package-arrow {
+  font-size: 24px;
+  color: #d1d5db;
+}
+
+/* Credits Card (legacy - kept for reference) */
 .credits-card {
   background: linear-gradient(135deg, #F3F0FF 0%, #E9E3FF 100%);
   border: 3px solid #4B2C6C;

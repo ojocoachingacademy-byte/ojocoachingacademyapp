@@ -4,11 +4,12 @@ import { supabase } from '../../../supabaseClient'
 import { trackEvent, EVENTS } from '../../../utils/analytics'
 import { GOAL_OPTIONS } from '../../DevelopmentPlan/MilestonesConstants'
 import { NTRP_OPTIONS, getNtrpLabel } from '../../../utils/ntrpLabels'
-import { Edit2, X } from 'lucide-react'
+import { Edit2 } from 'lucide-react'
 import './ProfileTab.css'
 
 const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHittingPartnersOnly = false }) => {
   const navigate = useNavigate()
+  const [activePackage, setActivePackage] = useState(null)
   const [accountStats, setAccountStats] = useState({
     totalLessons: 0,
     completedPractice: 0,
@@ -23,12 +24,50 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
     phone: '',
     ntrp_level: '3.0'
   })
+  const [editFormData, setEditFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    ntrp_level: '3.0'
+  })
 
   useEffect(() => {
     if (studentData?.id) {
       fetchAccountStats()
     }
   }, [studentData])
+
+  useEffect(() => {
+    fetchPackageInfo()
+  }, [studentData?.id])
+
+  const fetchPackageInfo = async () => {
+    if (!studentData?.id) return
+
+    try {
+      // Get active package
+      const { data: pkg } = await supabase
+        .from('student_packages')
+        .select('*')
+        .eq('student_id', studentData.id)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (pkg) {
+        setActivePackage(pkg)
+      } else {
+        setActivePackage(null)
+      }
+    } catch (error) {
+      console.error('Error fetching package:', error)
+    }
+  }
+
+  // Use lessons_remaining from package (DB trigger keeps it in sync)
+  const creditsRemaining = activePackage != null && Number.isFinite(activePackage.lessons_remaining)
+    ? Math.max(0, activePackage.lessons_remaining)
+    : (activePackage ? Math.max(0, (Number(activePackage.lessons_purchased ?? activePackage.package_size) || 0) - (Number(activePackage.lessons_used) || 0)) : 0)
 
   useEffect(() => {
     // Initialize form data when studentData changes
@@ -91,6 +130,16 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
   }
 
   const handleOpenEditModal = () => {
+    const nameParts = (profileFormData.full_name || '').trim().split(' ')
+    const firstName = nameParts[0] || ''
+    const lastName = nameParts.slice(1).join(' ') || ''
+    setEditFormData({
+      first_name: firstName,
+      last_name: lastName,
+      email: profileFormData.email || '',
+      phone: profileFormData.phone || '',
+      ntrp_level: profileFormData.ntrp_level || '3.0'
+    })
     setShowEditModal(true)
   }
 
@@ -98,8 +147,11 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
     setShowEditModal(false)
   }
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (e) => {
+    e?.preventDefault?.()
     if (!studentData?.id) return
+
+    const fullName = [editFormData.first_name, editFormData.last_name].filter(Boolean).join(' ').trim()
 
     setEditingProfile(true)
     try {
@@ -107,25 +159,31 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          full_name: profileFormData.full_name,
-          email: profileFormData.email,
-          phone: profileFormData.phone,
-          ntrp_level: profileFormData.ntrp_level
+          full_name: fullName || profileFormData.full_name,
+          email: editFormData.email,
+          phone: editFormData.phone,
+          ntrp_level: editFormData.ntrp_level
         })
         .eq('id', studentData.id)
 
       if (profileError) throw profileError
 
       // If email changed, update auth email
-      if (profileFormData.email !== studentData.profiles?.email) {
+      if (editFormData.email !== studentData.profiles?.email) {
         const { error: emailError } = await supabase.auth.updateUser({
-          email: profileFormData.email
+          email: editFormData.email
         })
         if (emailError) {
           console.warn('Email update may require confirmation:', emailError.message)
         }
       }
 
+      setProfileFormData({
+        full_name: fullName || profileFormData.full_name,
+        email: editFormData.email,
+        phone: editFormData.phone,
+        ntrp_level: editFormData.ntrp_level
+      })
       alert('Profile updated successfully!')
       setShowEditModal(false)
       
@@ -150,11 +208,6 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
     )
   }
 
-  // Use lesson_credits (the actual field name) instead of lessons_remaining
-  const credits = studentData?.lesson_credits || 0
-  const creditsLow = credits <= 2 && credits > 0
-  const creditsEmpty = credits === 0
-
   return (
     <div className="profile-tab">
       {/* Header */}
@@ -168,70 +221,139 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
         </div>
       </div>
 
-      {/* Credits Card - Most Important (hidden for hitting-partners-only profile) */}
+      {/* Package Card - Clickable (hidden for hitting-partners-only profile) */}
       {!isHittingPartnersOnly && (
-        <div className={`credits-card ${creditsLow ? 'low' : ''} ${creditsEmpty ? 'empty' : ''}`}>
-          <div className="credits-content">
-            <div className="credits-icon">🎾</div>
-            <div className="credits-info">
-              <span className="credits-label">Lesson Credits</span>
-              <span className="credits-value">{credits}</span>
-              {credits <= 2 && (
-                <span className="credits-reup-hint">
-                  {creditsEmpty ? 'Time to Re-Up' : 'Almost Time to Re-Up'}
-                </span>
-              )}
-              {creditsLow && !creditsEmpty && (
-                <span className="credits-warning">Running low!</span>
-              )}
-              {creditsEmpty && (
-                <span className="credits-warning empty">No credits remaining</span>
+        <div
+          className="package-card clickable"
+          onClick={() => navigate('/packages')}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="package-content">
+            <div className="package-icon">📦</div>
+            <div className="package-info">
+              <span className="package-label">Lesson Package</span>
+              {activePackage ? (
+                <>
+                  <span className="package-value">
+                    {creditsRemaining} credits left
+                  </span>
+                  <span className="package-subtitle">
+                    {activePackage.package_name}
+                  </span>
+                </>
+              ) : (
+                <span className="package-value">No active package</span>
               )}
             </div>
+            <div className="package-arrow">→</div>
           </div>
-          <button 
-            className={`btn-credits ${creditsEmpty ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleBookLessons}
-          >
-            {creditsEmpty ? 'Buy Package' : 'Book More Lessons'}
-          </button>
+          {activePackage && creditsRemaining <= 2 && (
+            <div style={{
+              marginTop: '12px',
+              padding: '8px 12px',
+              background: '#fef2f2',
+              borderRadius: '6px',
+              fontSize: '13px',
+              color: '#991b1b'
+            }}>
+              ⚠️ {creditsRemaining === 0 ? 'No credits remaining' : 'Running low on credits'}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Account Stats (hidden for hitting-partners-only profile) */}
+      {/* Practice Plans Card */}
       {!isHittingPartnersOnly && (
-        <div className="account-stats">
+        <div
+          className="practice-plans-card clickable"
+          onClick={() => navigate('/practice-plans')}
+          style={{
+            cursor: 'pointer',
+            background: 'white',
+            border: '2px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '20px',
+            transition: 'all 0.2s ease',
+            marginTop: '16px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#6366f1'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.15)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#e5e7eb'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ fontSize: '32px' }}>🎯</div>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: '13px', color: '#666', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                Practice Plans
+              </span>
+              <span style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                View all practice assignments
+              </span>
+            </div>
+            <div style={{ fontSize: '24px', color: '#d1d5db' }}>→</div>
+          </div>
+        </div>
+      )}
+
+      {/* Account Stats - 3 cards, each on its own row (hidden for hitting-partners-only profile) */}
+      {!isHittingPartnersOnly && (
+        <div className="account-stats" style={{ marginBottom: '2rem' }}>
           <h3>Your Stats</h3>
-          <div className="stats-grid">
-            <div className="stat-item">
-              <span className="stat-icon">🎾</span>
-              <div className="stat-content">
-                <span className="stat-value">{accountStats.totalLessons}</span>
-                <span className="stat-label">Total Lessons</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Total Lessons */}
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              background: '#f9fafb',
+              borderRadius: '12px'
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '8px' }}>🎾</div>
+              <div style={{ fontSize: '32px', fontWeight: 700, color: '#111827' }}>
+                {accountStats.totalLessons}
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Total Lessons
               </div>
             </div>
 
-            <div className="stat-item">
-              <span className="stat-icon">✅</span>
-              <div className="stat-content">
-                <span className="stat-value">{accountStats.completedPractice}</span>
-                <span className="stat-label">Practice Completed</span>
+            {/* Practice Completed */}
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              background: '#f9fafb',
+              borderRadius: '12px'
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '8px' }}>✅</div>
+              <div style={{ fontSize: '32px', fontWeight: 700, color: '#111827' }}>
+                {accountStats.completedPractice}
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Practice Completed
               </div>
             </div>
 
-            <div className="stat-item">
-              <span className="stat-icon">📅</span>
-              <div className="stat-content">
-                <span className="stat-value">
-                  {accountStats.joinedDate 
-                    ? new Date(accountStats.joinedDate).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        year: 'numeric' 
-                      })
-                    : 'N/A'
-                  }
-                </span>
-                <span className="stat-label">Member Since</span>
+            {/* Member Since */}
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              background: '#f9fafb',
+              borderRadius: '12px'
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '8px' }}>📅</div>
+              <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>
+                {accountStats.joinedDate
+                  ? new Date(accountStats.joinedDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                  : 'N/A'}
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Member Since
               </div>
             </div>
           </div>
@@ -272,86 +394,272 @@ const ProfileTab = ({ studentData, onBookLesson, onProfileUpdate, onClose, isHit
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile Modal - mobile responsive */}
       {showEditModal && (
-        <div className="edit-profile-modal-overlay" onClick={handleCloseEditModal}>
-          <div className="edit-profile-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="edit-profile-modal-header">
-              <h2>Edit Profile</h2>
-              <button 
-                className="edit-profile-modal-close"
+        <div
+          className="edit-profile-modal-overlay modal-overlay"
+          onClick={handleCloseEditModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '16px'
+          }}
+        >
+          <div
+            className="edit-profile-modal-content modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '500px',
+              maxHeight: 'calc(100vh - 32px)',
+              overflowY: 'auto',
+              position: 'relative'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              position: 'sticky',
+              top: 0,
+              background: 'white',
+              zIndex: 1,
+              borderRadius: '12px 12px 0 0'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>
+                Edit Profile
+              </h2>
+              <button
                 onClick={handleCloseEditModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  color: '#6b7280'
+                }}
                 aria-label="Close"
               >
-                <X size={20} />
+                ×
               </button>
             </div>
-            <div className="edit-profile-modal-body">
-              <div className="form-group">
-                <label htmlFor="edit-full-name">Full Name</label>
-                <input
-                  id="edit-full-name"
-                  type="text"
-                  value={profileFormData.full_name}
-                  onChange={(e) => setProfileFormData({ ...profileFormData, full_name: e.target.value })}
-                  placeholder="Your full name"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-email">Email</label>
-                <input
-                  id="edit-email"
-                  type="email"
-                  value={profileFormData.email}
-                  onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })}
-                  placeholder="your@email.com"
-                  required
-                />
-                <small style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>
-                  Changing email may require verification
-                </small>
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-phone">Phone</label>
-                <input
-                  id="edit-phone"
-                  type="tel"
-                  value={profileFormData.phone}
-                  onChange={(e) => setProfileFormData({ ...profileFormData, phone: e.target.value })}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-ntrp">Skill Level (NTRP)</label>
-                <select
-                  id="edit-ntrp"
-                  value={profileFormData.ntrp_level}
-                  onChange={(e) => setProfileFormData({ ...profileFormData, ntrp_level: e.target.value })}
-                >
-                  {NTRP_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="edit-profile-modal-actions">
-                <button 
-                  className="btn-secondary"
-                  onClick={handleCloseEditModal}
-                  disabled={editingProfile}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn-primary"
-                  onClick={handleSaveProfile}
-                  disabled={editingProfile}
-                >
-                  {editingProfile ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px' }}>
+              <form onSubmit={handleSaveProfile}>
+                {/* First Name */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.first_name || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Last Name */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.last_name || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Email */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={editFormData.email || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <small style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>
+                    Changing email may require verification
+                  </small>
+                </div>
+
+                {/* Phone */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editFormData.phone || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Skill Level (NTRP) */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: '#374151'
+                  }}>
+                    Skill Level (NTRP)
+                  </label>
+                  <select
+                    value={editFormData.ntrp_level || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, ntrp_level: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    {NTRP_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Buttons */}
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginTop: '24px',
+                  flexDirection: 'column'
+                }}>
+                  <button
+                    type="submit"
+                    disabled={editingProfile}
+                    style={{
+                      width: '100%',
+                      padding: '12px 20px',
+                      background: '#6366f1',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      cursor: editingProfile ? 'not-allowed' : 'pointer',
+                      opacity: editingProfile ? 0.6 : 1
+                    }}
+                  >
+                    {editingProfile ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCloseEditModal}
+                    disabled={editingProfile}
+                    style={{
+                      width: '100%',
+                      padding: '12px 20px',
+                      background: '#f3f4f6',
+                      color: '#374151',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
+
+          {/* Mobile styles - scoped to edit profile modal */}
+          <style>{`
+            @media (max-width: 640px) {
+              .edit-profile-modal-overlay {
+                padding: 8px !important;
+                align-items: flex-end !important;
+              }
+              
+              .edit-profile-modal-content {
+                max-width: 100% !important;
+                max-height: calc(100vh - 16px) !important;
+                border-radius: 16px 16px 0 0 !important;
+              }
+            }
+          `}</style>
         </div>
       )}
 

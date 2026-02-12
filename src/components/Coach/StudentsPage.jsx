@@ -27,6 +27,7 @@ export default function StudentsPage() {
     referredName: '',
     referrerId: ''
   })
+  const [creditsByStudentId, setCreditsByStudentId] = useState({})
 
   useEffect(() => {
     fetchStudents()
@@ -88,6 +89,41 @@ export default function StudentsPage() {
       }
 
       setStudents(studentsData)
+
+      // Credits remaining per student (package-based)
+      const studentIds = (studentsData || []).map(s => s.id)
+      const creditsMap = {}
+      if (studentIds.length > 0) {
+        try {
+          const { data: packages } = await supabaseAdmin
+            .from('student_packages')
+            .select('id, student_id, total_credits')
+            .eq('is_active', true)
+            .in('student_id', studentIds)
+
+          if (packages?.length) {
+            const pkgIds = packages.map(p => p.id)
+            const { data: txList } = await supabaseAdmin
+              .from('lesson_transactions')
+              .select('package_id, credits_used')
+              .in('package_id', pkgIds)
+
+            const usedByPkgId = {}
+            ;(txList || []).forEach(t => {
+              usedByPkgId[t.package_id] = (usedByPkgId[t.package_id] || 0) + (t.credits_used || 0)
+            })
+
+            packages.forEach(pkg => {
+              const used = usedByPkgId[pkg.id] || 0
+              creditsMap[pkg.student_id] = Math.max(0, pkg.total_credits - used)
+            })
+          }
+        } catch (e) {
+          console.warn('Credits by student fetch failed:', e)
+        }
+      }
+      setCreditsByStudentId(creditsMap)
+
       setLoading(false)
     } catch (error) {
       console.error('Error fetching students:', error)
@@ -163,7 +199,7 @@ export default function StudentsPage() {
         case 'level':
           return parseFloat(b.profiles?.ntrp_level || 0) - parseFloat(a.profiles?.ntrp_level || 0)
         case 'credits':
-          return (b.lesson_credits || 0) - (a.lesson_credits || 0)
+          return (creditsByStudentId[b.id] ?? b.lesson_credits ?? 0) - (creditsByStudentId[a.id] ?? a.lesson_credits ?? 0)
         case 'dateCreated':
           // Sort by start_date (newest first)
           const dateA = a.start_date ? new Date(a.start_date).getTime() : 0
@@ -192,7 +228,7 @@ export default function StudentsPage() {
   const handleEditCredits = (e, student) => {
     e.stopPropagation() // Prevent navigating to student detail
     setEditingCredits(student.id)
-    setEditCreditsValue(student.lesson_credits || 0)
+    setEditCreditsValue(creditsByStudentId[student.id] ?? student.lesson_credits ?? 0)
   }
 
   const handleSaveCredits = async (e, studentId) => {
@@ -379,7 +415,7 @@ export default function StudentsPage() {
                         onClick={(e) => handleEditCredits(e, student)}
                         title="Click to edit credits"
                       >
-                        {student.lesson_credits || 0} Credits
+                        {creditsByStudentId[student.id] ?? student.lesson_credits ?? 0} Credits
                         <Edit2 size={12} className="edit-icon" />
                       </span>
                     )}

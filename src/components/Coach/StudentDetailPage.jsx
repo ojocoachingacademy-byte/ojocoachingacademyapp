@@ -80,6 +80,7 @@ export default function StudentDetailPage() {
   const [showLinkPartnerModal, setShowLinkPartnerModal] = useState(false)
   const [pairedPartner, setPairedPartner] = useState(null)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [creditsRemainingFromPackage, setCreditsRemainingFromPackage] = useState(null)
   const [editingLesson, setEditingLesson] = useState(false)
   const [lessonEditForm, setLessonEditForm] = useState({
     lesson_date: '',
@@ -132,6 +133,76 @@ export default function StudentDetailPage() {
     }
   }, [student?.referred_by_student_id])
 
+  const handleImpersonateStudent = async () => {
+    if (!student?.id) return
+
+    const studentName = student.profiles?.full_name || student.profiles?.email || 'Student'
+    const confirmImpersonate = window.confirm(
+      `Switch to ${studentName}'s account?\n\nYou'll see the app exactly as they see it. Click "Exit Impersonation" to return to your coach account.`
+    )
+
+    if (!confirmImpersonate) return
+
+    try {
+      // Store current coach session info in localStorage (before signing out)
+      const { data: { session: coachSession } } = await supabase.auth.getSession()
+
+      if (coachSession) {
+        localStorage.setItem('impersonation_coach_session', JSON.stringify({
+          access_token: coachSession.access_token,
+          refresh_token: coachSession.refresh_token,
+          user_id: coachSession.user.id,
+          timestamp: new Date().toISOString()
+        }))
+      }
+
+      // Get student's session - pass coach token for auth verification
+      const response = await fetch('/.netlify/functions/impersonate-student', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(coachSession?.access_token && { Authorization: `Bearer ${coachSession.access_token}` })
+        },
+        body: JSON.stringify({ student_id: student.id })
+      })
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to impersonate student')
+      }
+
+      const { session: studentSession } = await response.json()
+
+      // Sign out coach session before switching
+      await supabase.auth.signOut()
+
+      // Set the student's session
+      await supabase.auth.setSession({
+        access_token: studentSession.access_token,
+        refresh_token: studentSession.refresh_token
+      })
+
+      // Redirect to student home
+      window.location.href = '/dashboard'
+    } catch (error) {
+      console.error('Error impersonating student:', error)
+      alert('Failed to impersonate student. Please try again.')
+      // Restore coach session if we stored it
+      const coachSessionStr = localStorage.getItem('impersonation_coach_session')
+      if (coachSessionStr) {
+        try {
+          const coachSession = JSON.parse(coachSessionStr)
+          await supabase.auth.setSession({
+            access_token: coachSession.access_token,
+            refresh_token: coachSession.refresh_token
+          })
+        } catch (e) {
+          console.error('Failed to restore coach session:', e)
+        }
+      }
+    }
+  }
+
   const fetchReferringStudent = async () => {
     const { data } = await supabaseAdmin
       .from('profiles')
@@ -168,53 +239,64 @@ export default function StudentDetailPage() {
   }
 
   const fetchFinancialData = async () => {
-    if (!id || !student) return
-    
+    if (!student?.id) return
+
     try {
-      // Fetch lesson dates from lesson_transactions
-      const { data: lessonTransactions } = await supabaseAdmin
-        .from('lesson_transactions')
-        .select('transaction_date, transaction_type')
-        .eq('student_id', id)
-        .eq('transaction_type', 'lesson_taken')
-        .order('transaction_date', { ascending: true })
-      
-      const lessonDates = (lessonTransactions || []).map(t => t.transaction_date).filter(Boolean)
-      
-      // Fetch payment transactions to calculate revenue from transactions
-      const { data: paymentTransactions } = await supabaseAdmin
-        .from('lesson_transactions')
-        .select('amount_paid, package_size, transaction_date')
-        .eq('student_id', id)
-        .eq('transaction_type', 'package_purchase')
-        .order('transaction_date', { ascending: true })
-      
-      // Calculate revenue from payment transactions
-      const revenueFromTransactions = (paymentTransactions || []).reduce((sum, t) => {
-        const amount = parseFloat(t.amount_paid || 0)
-        return sum + (isNaN(amount) ? 0 : amount)
-      }, 0)
-      
-      // Calculate total lessons purchased from payment transactions
-      const lessonsPurchasedFromTransactions = (paymentTransactions || []).reduce((sum, t) => {
-        const size = parseInt(t.package_size || 0, 10)
-        return sum + (isNaN(size) ? 0 : size)
-      }, 0)
-      
-      // Use student.total_revenue and total_lessons_purchased as fallback, but prefer transaction data
-      // This ensures we're always in sync with actual transactions
-      const totalRevenue = revenueFromTransactions > 0 ? revenueFromTransactions : parseFloat(student.total_revenue || 0)
-      const totalLessonsPurchased = lessonsPurchasedFromTransactions > 0 ? lessonsPurchasedFromTransactions : (student.total_lessons_purchased || 0)
-      const avgPerLesson = totalLessonsPurchased > 0 ? totalRevenue / totalLessonsPurchased : 0
-      
+      // Get active package
+      const { data: activePackage } = await supabaseAdmin
+        .from('student_packages')
+        .select('*')
+        .eq('student_id', student.id)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      // Get all transactions for active package
+      let creditsUsed = 0
+      if (activePackage) {
+        const { data: transactions } = await supabaseAdmin
+          .from('lesson_transactions')
+          .select('credits_used')
+          .eq('package_id', activePackage.id)
+
+        creditsUsed = transactions?.reduce((sum, tx) => sum + (tx.credits_used || 0), 0) || 0
+      }
+
+      const creditsRemaining = activePackage
+        ? (Number(activePackage.lessons_remaining) >= 0 ? Number(activePackage.lessons_remaining) : Math.max(0, (Number(activePackage.total_credits) || 0) - creditsUsed))
+        : 0
+
+      // Get all packages for total revenue calculation
+      const { data: allPackages } = await supabaseAdmin
+        .from('student_packages')
+        .select('price_paid, package_size')
+        .eq('student_id', student.id)
+
+      const totalRevenue = allPackages?.reduce((sum, pkg) => sum + (pkg.price_paid || 0), 0) || 0
+      const totalLessonsPurchased = allPackages?.reduce((sum, pkg) => sum + (pkg.package_size || 0), 0) || 0
+
+      // Get lesson dates
+      const { data: allLessons } = await supabaseAdmin
+        .from('lessons')
+        .select('lesson_date')
+        .eq('student_id', student.id)
+        .order('lesson_date', { ascending: true })
+
+      const lessonDates = allLessons?.map(l => l.lesson_date) || []
+      const firstLessonDate = lessonDates[0] || null
+      const lastLessonDate = lessonDates.length > 0 ? lessonDates[lessonDates.length - 1] : null
+
+      const avgPerLesson = totalLessonsPurchased > 0
+        ? totalRevenue / totalLessonsPurchased
+        : 0
+
       setFinancialData({
-        totalRevenue: totalRevenue,
-        totalLessonsPurchased: totalLessonsPurchased,
-        lessonCredits: student.lesson_credits || 0,
-        lessonDates: lessonDates,
-        firstLessonDate: lessonDates[0] || null,
-        lastLessonDate: lessonDates.length > 0 ? lessonDates[lessonDates.length - 1] : null,
-        avgPerLesson: avgPerLesson
+        totalRevenue,
+        totalLessonsPurchased,
+        lessonCredits: creditsRemaining,
+        avgPerLesson,
+        lessonDates,
+        firstLessonDate,
+        lastLessonDate
       })
     } catch (error) {
       logger.error('Error fetching financial data:', error)
@@ -305,10 +387,10 @@ export default function StudentDetailPage() {
   }
 
   useEffect(() => {
-    if (student && activeTab === 'financial') {
+    if (student && (activeTab === 'overview' || activeTab === 'financial')) {
       fetchFinancialData()
     }
-  }, [student, activeTab, id, student?.total_revenue, student?.total_lessons_purchased, student?.lesson_credits])
+  }, [student, activeTab, id])
 
   const fetchStudentData = async () => {
     try {
@@ -437,6 +519,37 @@ export default function StudentDetailPage() {
         }
       } else {
         setPairedPartner(null)
+      }
+
+      // Credits remaining: use ACTIVE package only (is_active = true), never lesson_credits when a package exists
+      try {
+        const { data: pkg } = await supabaseAdmin
+          .from('student_packages')
+          .select('id, lessons_remaining, total_credits')
+          .eq('student_id', id)
+          .eq('is_active', true)
+          .maybeSingle()
+
+        if (pkg != null) {
+          const fromLessonsRemaining = Number(pkg.lessons_remaining)
+          if (Number.isFinite(fromLessonsRemaining)) {
+            setCreditsRemainingFromPackage(fromLessonsRemaining)
+          } else {
+            const { data: txList } = await supabaseAdmin
+              .from('lesson_transactions')
+              .select('credits_used')
+              .eq('package_id', pkg.id)
+            const used = Number(txList?.reduce((sum, t) => sum + (t.credits_used || 0), 0)) || 0
+            const total = Number(pkg.total_credits) || 0
+            const remaining = Math.max(0, total - used)
+            setCreditsRemainingFromPackage(Number.isFinite(remaining) ? remaining : 0)
+          }
+        } else {
+          setCreditsRemainingFromPackage(Number(data.lesson_credits) || 0)
+        }
+      } catch (e) {
+        logger.warn('Package credits fetch failed:', e)
+        setCreditsRemainingFromPackage(null)
       }
       
       // Populate profile form data - split full_name into first_name and last_name
@@ -1643,6 +1756,31 @@ export default function StudentDetailPage() {
                             </button>
 
                             <button
+                              onClick={() => {
+                                setShowActionsMenu(false)
+                                handleImpersonateStudent()
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                background: 'none',
+                                border: 'none',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '14px',
+                                color: '#6366f1',
+                                fontWeight: 500,
+                                borderTop: '1px solid #f0f0f0'
+                              }}
+                            >
+                              <UserCheck size={16} />
+                              Impersonate Student
+                            </button>
+
+                            <button
                               className="dropdown-action-item"
                               onClick={() => {
                                 setShowActionsMenu(false)
@@ -1762,7 +1900,7 @@ export default function StudentDetailPage() {
                   </div>
                   <div className="contact-item">
                     <Calendar size={16} />
-                    <span>{student.lesson_credits || 0} Credits</span>
+                    <span>{financialData?.lessonCredits ?? 0} credits remaining</span>
                   </div>
                 </div>
 
@@ -1959,8 +2097,8 @@ export default function StudentDetailPage() {
                 <div className="stat-value">{pastLessons.length}</div>
               </div>
               <div className="stat-card">
-                <div className="stat-label">Credits</div>
-                <div className="stat-value">{student.lesson_credits || 0}</div>
+                <div className="stat-label">Credits remaining</div>
+                <div className="stat-value">{financialData?.lessonCredits ?? 0}</div>
               </div>
             </div>
 
@@ -2700,12 +2838,12 @@ export default function StudentDetailPage() {
                     <div 
                       className="financial-stat-value editable"
                       onClick={() => {
-                        setEditCreditsValue(financialData.lessonCredits.toString())
+                        setEditCreditsValue((Number.isFinite(financialData.lessonCredits) ? financialData.lessonCredits : 0).toString())
                         setEditingCredits(true)
                       }}
                       title="Click to edit"
                     >
-                      {financialData.lessonCredits || 0}
+                      {Number.isFinite(financialData.lessonCredits) ? financialData.lessonCredits : 0}
                       <Edit2 size={14} style={{ marginLeft: '8px', opacity: 0.6 }} />
                     </div>
                   )}

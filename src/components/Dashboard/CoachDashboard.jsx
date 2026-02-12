@@ -185,6 +185,7 @@ export default function CoachDashboard() {
     referredName: '',
     referrerId: ''
   })
+  const [creditsByStudentId, setCreditsByStudentId] = useState({})
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -300,6 +301,39 @@ export default function CoachDashboard() {
       })
 
       setLessons(enrichedLessons)
+
+      // Credits remaining per student (package-based)
+      const creditsMap = {}
+      if (activeStudentIds.length > 0) {
+        try {
+          const { data: packages } = await supabaseAdmin
+            .from('student_packages')
+            .select('id, student_id, total_credits')
+            .eq('is_active', true)
+            .in('student_id', activeStudentIds)
+
+          if (packages?.length) {
+            const pkgIds = packages.map(p => p.id)
+            const { data: txList } = await supabaseAdmin
+              .from('lesson_transactions')
+              .select('package_id, credits_used')
+              .in('package_id', pkgIds)
+
+            const usedByPkgId = {}
+            ;(txList || []).forEach(t => {
+              usedByPkgId[t.package_id] = (usedByPkgId[t.package_id] || 0) + (t.credits_used || 0)
+            })
+
+            packages.forEach(pkg => {
+              const used = usedByPkgId[pkg.id] || 0
+              creditsMap[pkg.student_id] = Math.max(0, pkg.total_credits - used)
+            })
+          }
+        } catch (e) {
+          console.warn('Credits by student fetch failed:', e)
+        }
+      }
+      setCreditsByStudentId(creditsMap)
 
       setLoading(false)
       setError(null)
@@ -2408,7 +2442,7 @@ export default function CoachDashboard() {
                               {(() => {
                                 const lessonCount = lesson.students?.lesson_count || 0
                                 const stage = getStudentStage(lessonCount)
-                                const credits = lesson.students?.lesson_credits || 0
+                                const credits = creditsByStudentId[lesson.student_id] ?? lesson.students?.lesson_credits ?? 0
                                 return (
                                   <>
                                     <span style={{
@@ -2785,7 +2819,7 @@ export default function CoachDashboard() {
                               // Get lesson count from student data
                               const lessonCount = lesson.students?.lesson_count || 0
                               const stage = getStudentStage(lessonCount)
-                              const credits = lesson.students?.lesson_credits || 0
+                              const credits = creditsByStudentId[lesson.student_id] ?? lesson.students?.lesson_credits ?? 0
                               return (
                                 <>
                                   <span style={{

@@ -1,0 +1,17 @@
+.student-package-page {
+  /* Base styles - layout controlled by inline in component */
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .student-package-page {
+    padding: 16px !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 375px) {
+  .student-package-page {
+    padding: 12px !important;
+  }
+}

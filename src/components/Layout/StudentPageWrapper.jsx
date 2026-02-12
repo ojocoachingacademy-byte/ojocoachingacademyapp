@@ -5,6 +5,7 @@ import { supabase } from '../../supabaseClient'
 import StudentTabs from '../Dashboard/StudentTabs'
 import MoreMenu from './MoreMenu'
 import ProfileTab from '../Dashboard/tabs/ProfileTab'
+import ImpersonationBanner from '../shared/ImpersonationBanner'
 import './StudentPageWrapper.css'
 import '../Dashboard/StudentDashboard.css'
 
@@ -165,53 +166,56 @@ export default function StudentPageWrapper({ children }) {
   )
 
   return (
-    <div className="student-page-wrapper">
-      <div className="student-page-content">
-        {children}
-      </div>
-      {typeof document !== 'undefined' && document.body && createPortal(bottomNav, document.body)}
+    <>
+      <ImpersonationBanner />
+      <div className="student-page-wrapper">
+        <div className="student-page-content">
+          {children}
+        </div>
+        {typeof document !== 'undefined' && document.body && createPortal(bottomNav, document.body)}
 
-      {/* Profile modal (opened from More menu when not on dashboard) */}
-      {showProfileModal && (
-        <div
-          className="profile-modal-overlay"
-          onClick={() => setShowProfileModal(false)}
-          aria-modal="true"
-        >
-          <div className="profile-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="profile-modal-header">
-              <h2>Profile</h2>
-              <button
-                className="profile-modal-close"
-                onClick={() => setShowProfileModal(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className="profile-modal-body">
-              {profileModalLoading ? (
-                <p style={{ padding: '1.5rem', color: '#666' }}>Loading...</p>
-              ) : profileModalData ? (
-                <ProfileTab
-                  studentData={profileModalData}
-                  onBookLesson={() => {
-                    setShowProfileModal(false)
-                    navigate('/dashboard')
-                  }}
-                  onProfileUpdate={() => {
-                    setShowProfileModal(false)
-                  }}
-                  onClose={() => setShowProfileModal(false)}
-                  isHittingPartnersOnly
-                />
-              ) : (
-                <p style={{ padding: '1.5rem', color: '#666' }}>Could not load profile.</p>
-              )}
+        {/* Profile modal (opened from More menu when not on dashboard) */}
+        {showProfileModal && (
+          <div
+            className="profile-modal-overlay"
+            onClick={() => setShowProfileModal(false)}
+            aria-modal="true"
+          >
+            <div className="profile-modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="profile-modal-header">
+                <h2>Profile</h2>
+                <button
+                  className="profile-modal-close"
+                  onClick={() => setShowProfileModal(false)}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="profile-modal-body">
+                {profileModalLoading ? (
+                  <p style={{ padding: '1.5rem', color: '#666' }}>Loading...</p>
+                ) : profileModalData ? (
+                  <ProfileTab
+                    studentData={profileModalData}
+                    onBookLesson={() => {
+                      setShowProfileModal(false)
+                      navigate('/dashboard')
+                    }}
+                    onProfileUpdate={() => {
+                      setShowProfileModal(false)
+                    }}
+                    onClose={() => setShowProfileModal(false)}
+                    isHittingPartnersOnly
+                  />
+                ) : (
+                  <p style={{ padding: '1.5rem', color: '#666' }}>Could not load profile.</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   )
 }

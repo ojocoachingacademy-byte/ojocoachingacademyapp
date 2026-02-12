@@ -18,6 +18,8 @@ import StudentDetailPage from './components/Coach/StudentDetailPage'
 import CalendarView from './components/Coach/CalendarView'
 import StudentSettings from './components/Settings/StudentSettings'
 import StudentLessonsPage from './components/Dashboard/StudentLessonsPage'
+import StudentPackagePage from './components/Student/StudentPackagePage'
+import StudentPracticePlansPage from './components/Student/StudentPracticePlansPage'
 import FinancesOverview from './components/Finances/FinancesOverview'
 import HistoricalFinances from './components/Finances/HistoricalFinances'
 import ExpensesPage from './components/Finances/ExpensesPage'
@@ -192,7 +194,7 @@ function App() {
         <Route path="/login" element={!session ? <Login /> : <Navigate to={isCoach ? "/coach" : "/dashboard"} />} />
         <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={!session ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
-        <Route path="/reset-password" element={!session ? <ResetPassword /> : <Navigate to="/dashboard" />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/confirmed" element={<EmailConfirmed />} />
         <Route 
           path="/dashboard" 
@@ -201,6 +203,14 @@ function App() {
             <Route 
               path="/lessons" 
               element={session && !isCoach ? <StudentPageWrapper><StudentLessonsPage /></StudentPageWrapper> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/packages" 
+              element={session && !isCoach ? <StudentPageWrapper><StudentPackagePage /></StudentPageWrapper> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/practice-plans" 
+              element={session && !isCoach ? <StudentPageWrapper><StudentPracticePlansPage /></StudentPageWrapper> : <Navigate to="/login" />} 
             />
             <Route 
               path="/coach" 

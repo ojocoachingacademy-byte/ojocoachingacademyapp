@@ -8,6 +8,7 @@ export default function StudentLessonHistory({ studentId }) {
   const [transactions, setTransactions] = useState([])
   const [lessons, setLessons] = useState([])
   const [student, setStudent] = useState(null)
+  const [creditsRemaining, setCreditsRemaining] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('packages')
 
@@ -51,6 +52,23 @@ export default function StudentLessonHistory({ studentId }) {
         .order('lesson_date', { ascending: false })
 
       setLessons(lessonsData || [])
+
+      // Credits remaining from active package
+      const { data: pkg } = await supabase
+        .from('student_packages')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (pkg) {
+        const remaining = Number.isFinite(pkg.lessons_remaining)
+          ? Math.max(0, pkg.lessons_remaining)
+          : Math.max(0, (Number(pkg.lessons_purchased ?? pkg.package_size) || 0) - (Number(pkg.lessons_used) || 0))
+        setCreditsRemaining(remaining)
+      } else {
+        setCreditsRemaining(0)
+      }
 
     } catch (error) {
       console.error('Error fetching history:', error)
@@ -130,7 +148,7 @@ export default function StudentLessonHistory({ studentId }) {
     doc.setFontSize(11)
     doc.setTextColor(0, 0, 0)
     doc.text(`Total Lessons Completed: ${lessons.filter(l => l.status === 'completed').length}`, 20, finalY)
-    doc.text(`Credits Remaining: ${student.lesson_credits || 0}`, 20, finalY + 7)
+    doc.text(`Credits Remaining: ${creditsRemaining}`, 20, finalY + 7)
     
     // Footer
     doc.setFontSize(9)
@@ -193,7 +211,7 @@ export default function StudentLessonHistory({ studentId }) {
         <div className="history-stat-card">
           <div className="stat-icon">🎟️</div>
           <div className="stat-info">
-            <div className="stat-value">{student.lesson_credits || 0}</div>
+            <div className="stat-value">{creditsRemaining}</div>
             <div className="stat-label">Credits Remaining</div>
           </div>
         </div>
