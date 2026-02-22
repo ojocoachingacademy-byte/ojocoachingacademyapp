@@ -18,8 +18,8 @@ const ForgotPassword = () => {
     try {
       // Ensure we're using the correct redirect URL
       // Supabase requires the redirect URL to be whitelisted in the dashboard
-      const redirectUrl = `${window.location.origin}/reset-password`
-      
+      const redirectUrl = 'https://ojocoachingacademyapp.netlify.app/reset-password'
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
       })

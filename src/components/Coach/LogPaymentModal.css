@@ -18,7 +18,7 @@
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
@@ -66,12 +66,15 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .log-payment-modal-body {
   padding: 24px;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .log-payment-form-group {
@@ -232,8 +235,7 @@
   padding: 20px 24px;
   border-top: 2px solid #E0E0E0;
   background: #FAFAFA;
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
 }
 
 .log-payment-btn-primary {
