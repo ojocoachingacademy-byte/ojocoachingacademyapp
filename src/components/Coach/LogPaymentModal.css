@@ -9,28 +9,31 @@
   align-items: center;
   justify-content: center;
   z-index: 10050; /* above bottom nav (9999) on mobile */
-  padding: 20px;
+  padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 
 .log-payment-modal-content {
   background: white;
-  border-radius: 12px;
-  max-width: 600px;
+  border-radius: 16px;
   width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px); /* Dynamic viewport height for mobile */
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .log-payment-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 2px solid #E0E0E0;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
   background: linear-gradient(135deg, #F8F5FC 0%, #EDE7F6 100%);
+  flex-shrink: 0; /* Don't let header shrink */
   position: sticky;
   top: 0;
   z-index: 10;
@@ -70,11 +73,11 @@
 }
 
 .log-payment-modal-body {
-  padding: 24px;
-  flex: 1;
+  padding: 20px;
+  overflow-y: auto; /* Make body scrollable */
+  flex: 1; /* Take remaining space */
   min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .log-payment-form-group {
@@ -230,12 +233,15 @@
 }
 
 .log-payment-modal-footer {
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom)); /* Safe area for notched phones */
+  border-top: 1px solid #e5e7eb;
   display: flex;
   gap: 12px;
-  padding: 20px 24px;
-  border-top: 2px solid #E0E0E0;
-  background: #FAFAFA;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Keep footer visible */
+  background: white;
+  position: sticky;
+  bottom: 0;
 }
 
 .log-payment-btn-primary {
@@ -282,24 +288,20 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
-@media (max-width: 600px) {
+/* Responsive - mobile phones */
+@media (max-width: 640px) {
   .log-payment-modal-content {
     max-width: 100%;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-  
-  .log-payment-modal-body {
-    padding: 20px;
+    max-height: calc(100dvh - 24px);
+    border-radius: 12px 12px 0 0;
   }
   
   .log-payment-modal-footer {
     flex-direction: column-reverse;
+    gap: 8px;
   }
   
-  .log-payment-btn-primary,
-  .log-payment-btn-secondary {
+  .log-payment-modal-footer button {
     width: 100%;
   }
 }
