@@ -47,20 +47,6 @@ export default function CreateLessonModal({ isOpen, onClose, studentId, studentN
         throw error
       }
 
-      // Deduct one credit
-      const { data: student } = await supabase
-        .from('students')
-        .select('lesson_credits')
-        .eq('id', studentId)
-        .single()
-
-      if (student && student.lesson_credits > 0) {
-        await supabase
-          .from('students')
-          .update({ lesson_credits: student.lesson_credits - 1 })
-          .eq('id', studentId)
-      }
-
       alert('Lesson created successfully!')
       onSuccess?.()
       handleClose()

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { supabaseAdmin } from '../../supabaseAdmin'
 import { Plus } from 'lucide-react'
 import './HittingPartnersAdmin.css'
 
@@ -8,7 +9,9 @@ export default function HittingPartnersAdmin() {
   const [players, setPlayers] = useState([])
   const [interactions, setInteractions] = useState([])
   const [allHittingPartners, setAllHittingPartners] = useState([])
+  const [allStudents, setAllStudents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAllInteractions, setShowAllInteractions] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all') // 'all', 'active', 'inactive'
   const [profileFilter, setProfileFilter] = useState('all') // 'all', 'complete', 'incomplete'
@@ -31,6 +34,10 @@ export default function HittingPartnersAdmin() {
     fetchAllHittingPartners()
   }, [])
 
+  useEffect(() => {
+    fetchAllStudents()
+  }, [])
+
   const fetchAllHittingPartners = async () => {
     const { data } = await supabase
       .from('hitting_partners')
@@ -39,6 +46,32 @@ export default function HittingPartnersAdmin() {
       .order('id')
 
     setAllHittingPartners(data || [])
+  }
+
+  const fetchAllStudents = async () => {
+    const { data: studentsData, error: studentsError } = await supabaseAdmin
+      .from('students')
+      .select('id')
+      .eq('is_active', true)
+      .order('id')
+
+    if (studentsError || !studentsData?.length) {
+      setAllStudents([])
+      return
+    }
+
+    const studentIds = studentsData.map(s => s.id)
+    const { data: profilesData } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', studentIds)
+
+    const studentsWithProfiles = studentsData.map(student => ({
+      id: student.id,
+      profiles: (profilesData || []).find(p => p.id === student.id) || null
+    }))
+
+    setAllStudents(studentsWithProfiles)
   }
 
   const fetchDashboardData = async () => {
@@ -95,7 +128,7 @@ export default function HittingPartnersAdmin() {
 
       setPlayers(playersWithActivity)
 
-      // Fetch recent interactions
+      // Fetch recent interactions (up to 100)
       const { data: interactionsData } = await supabase
         .from('hitting_partner_interactions')
         .select(`
@@ -106,7 +139,7 @@ export default function HittingPartnersAdmin() {
           partner:profiles!hitting_partner_interactions_partner_id_fkey(full_name)
         `)
         .order('created_at', { ascending: false })
-        .limit(10)
+        .limit(100)
 
       setInteractions(interactionsData || [])
       setLoading(false)
@@ -168,9 +201,7 @@ export default function HittingPartnersAdmin() {
 
   const markAsPlayed = async (interactionId, requesterName, partnerName) => {
     try {
-      console.log('Marking as played:', interactionId)
-
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('hitting_partner_interactions')
         .update({ interaction_type: 'confirmed_play' })
         .eq('id', interactionId)
@@ -205,7 +236,7 @@ export default function HittingPartnersAdmin() {
     setLoggingMatch(true)
 
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('hitting_partner_interactions')
         .insert({
           requester_id: manualMatchData.partner1_id,
@@ -416,54 +447,101 @@ export default function HittingPartnersAdmin() {
           {interactions.length === 0 ? (
             <p>No interactions yet</p>
           ) : (
-            interactions.map(interaction => (
-              <div key={interaction.id} className="interaction-item">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <strong>{interaction.requester?.full_name || 'Someone'}</strong>
-                    {' contacted '}
-                    <strong>{interaction.partner?.full_name || 'someone'}</strong>
-                    <span className="interaction-time">
-                      {' • '}{getLastActiveText(interaction.created_at)}
-                    </span>
-                    {interaction.interaction_type === 'confirmed_play' && (
-                      <span style={{
-                        marginLeft: '8px',
-                        background: '#dcfce7',
-                        color: '#16a34a',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: 600
-                      }}>
-                        ✓ Played
-                      </span>
-                    )}
-                  </div>
-                  {interaction.interaction_type !== 'confirmed_play' && (
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => markAsPlayed(
-                        interaction.id,
-                        interaction.requester?.full_name,
-                        interaction.partner?.full_name
+            <>
+              {(() => {
+                const confirmed = interactions.filter(i => i.interaction_type === 'confirmed_play')
+                const contactRequests = interactions.filter(i => i.interaction_type !== 'confirmed_play')
+                const combined = [...confirmed, ...contactRequests]
+                const displayed = showAllInteractions ? combined : combined.slice(0, 20)
+                const displayedConfirmed = displayed.filter(i => i.interaction_type === 'confirmed_play')
+                const displayedContactRequests = displayed.filter(i => i.interaction_type !== 'confirmed_play')
+                const hasMore = interactions.length > 20 && !showAllInteractions
+
+                const renderInteraction = (interaction) => (
+                  <div key={interaction.id} className="interaction-item">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <strong>{interaction.requester?.full_name || 'Someone'}</strong>
+                        {' contacted '}
+                        <strong>{interaction.partner?.full_name || 'someone'}</strong>
+                        <span className="interaction-time">
+                          {' • '}{getLastActiveText(interaction.created_at)}
+                        </span>
+                        {interaction.interaction_type === 'confirmed_play' && (
+                          <span style={{
+                            marginLeft: '8px',
+                            background: '#dcfce7',
+                            color: '#16a34a',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: 600
+                          }}>
+                            ✓ Played
+                          </span>
+                        )}
+                      </div>
+                      {interaction.interaction_type !== 'confirmed_play' && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => markAsPlayed(
+                            interaction.id,
+                            interaction.requester?.full_name,
+                            interaction.partner?.full_name
+                          )}
+                          style={{
+                            fontSize: '12px',
+                            padding: '4px 12px',
+                            background: '#6366f1',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Mark as Played
+                        </button>
                       )}
-                      style={{
-                        fontSize: '12px',
-                        padding: '4px 12px',
-                        background: '#6366f1',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Mark as Played
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
+                    </div>
+                  </div>
+                )
+
+                return (
+                  <>
+                    {confirmed.length > 0 && (
+                      <>
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', marginTop: 0 }}>✓ Confirmed Plays</h3>
+                        {displayedConfirmed.map(renderInteraction)}
+                      </>
+                    )}
+                    {contactRequests.length > 0 && (
+                      <>
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', marginTop: confirmed.length > 0 ? '20px' : 0 }}>📲 Contact Requests</h3>
+                        {displayedContactRequests.map(renderInteraction)}
+                      </>
+                    )}
+                    {hasMore && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllInteractions(true)}
+                        style={{
+                          marginTop: '16px',
+                          padding: '8px 16px',
+                          background: '#f3f4f6',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Show all ({interactions.length})
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
+            </>
           )}
         </div>
       </div>
@@ -547,11 +625,15 @@ export default function HittingPartnersAdmin() {
                   }}
                 >
                   <option value="">Select partner...</option>
-                  {allHittingPartners?.map(partner => (
-                    <option key={partner.id} value={partner.id}>
-                      {partner.profiles?.full_name || partner.profiles?.email || 'Unknown'}
-                    </option>
-                  ))}
+                  {allStudents?.map(student => {
+                    const inDirectory = allHittingPartners?.some(hp => hp.id === student.id || hp.profiles?.id === student.id)
+                    return (
+                      <option key={student.id} value={student.id}>
+                        {student.profiles?.full_name || student.profiles?.email || 'Unknown'}
+                        {inDirectory ? ' (in directory)' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 
@@ -579,11 +661,15 @@ export default function HittingPartnersAdmin() {
                   }}
                 >
                   <option value="">Select partner...</option>
-                  {allHittingPartners?.map(partner => (
-                    <option key={partner.id} value={partner.id}>
-                      {partner.profiles?.full_name || partner.profiles?.email || 'Unknown'}
-                    </option>
-                  ))}
+                  {allStudents?.map(student => {
+                    const inDirectory = allHittingPartners?.some(hp => hp.id === student.id || hp.profiles?.id === student.id)
+                    return (
+                      <option key={student.id} value={student.id}>
+                        {student.profiles?.full_name || student.profiles?.email || 'Unknown'}
+                        {inDirectory ? ' (in directory)' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 

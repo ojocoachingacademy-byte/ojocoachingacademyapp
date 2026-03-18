@@ -18,6 +18,7 @@ import CreateLessonModal from '../Calendar/CreateLessonModal'
 import { MILESTONES, GOAL_OPTIONS, getMilestonesByLevel } from '../DevelopmentPlan/MilestonesConstants'
 import { NTRP_OPTIONS, getNtrpLabel } from '../../utils/ntrpLabels'
 import { safeJsonParse } from '../../utils/safeJsonParse'
+import { setLessonCredits } from '../../utils/creditUtils'
 import { logger } from '../../utils/logger'
 import { retrySupabaseQuery } from '../../utils/retry'
 import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
@@ -365,14 +366,7 @@ export default function StudentDetailPage() {
     setSavingCredits(true)
     try {
       const credits = parseInt(editCreditsValue) || 0
-      const { error } = await retrySupabaseQuery(() =>
-        supabaseAdmin
-          .from('students')
-          .update({ lesson_credits: credits })
-          .eq('id', id)
-      )
-
-      if (error) throw error
+      await setLessonCredits(id, credits, supabaseAdmin)
 
       // Update local state
       setStudent(prev => ({ ...prev, lesson_credits: credits }))
@@ -1175,17 +1169,8 @@ export default function StudentDetailPage() {
 
       if (profileError) throw profileError
 
-      // Update students table (lesson_credits) with retry logic
-      const { error: studentError } = await retrySupabaseQuery(() =>
-        supabaseAdmin
-          .from('students')
-          .update({
-            lesson_credits: profileFormData.lesson_credits
-          })
-          .eq('id', id)
-      )
-
-      if (studentError) throw studentError
+      // Update students table (lesson_credits) via centralized helper
+      await setLessonCredits(id, profileFormData.lesson_credits, supabaseAdmin)
 
       showToast('Student information updated successfully!', 'success')
       setEditingProfile(false)

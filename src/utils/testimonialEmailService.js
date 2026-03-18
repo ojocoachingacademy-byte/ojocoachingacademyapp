@@ -6,7 +6,7 @@
 import { supabase } from '../supabaseClient'
 
 // Email service configuration
-// Uses Netlify Function to send emails via SendGrid (server-side)
+// Uses Netlify Function to send emails via Brevo (server-side)
 const EMAIL_SERVICE_ENABLED = true
 const NETLIFY_FUNCTION_URL = import.meta.env.VITE_NETLIFY_FUNCTION_URL || '/.netlify/functions/send-testimonial-email'
 

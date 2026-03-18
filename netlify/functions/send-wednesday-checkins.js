@@ -162,15 +162,17 @@ export const handler = async (event, context) => {
       }
     }
 
-    // Get SendGrid configuration
-    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
-    const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL
+    // Get Brevo configuration
+    const BREVO_API_KEY = process.env.BREVO_API_KEY
+    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL
+    const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || 'Coach Tobi'
+    const BREVO_REPLY_TO = process.env.BREVO_REPLY_TO
 
-    if (!SENDGRID_API_KEY || !SENDGRID_FROM_EMAIL) {
-      console.error('SendGrid not configured')
+    if (!BREVO_API_KEY || !BREVO_FROM_EMAIL) {
+      console.error('Brevo not configured')
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'SendGrid not configured' })
+        body: JSON.stringify({ error: 'Brevo not configured' })
       }
     }
 
@@ -270,31 +272,27 @@ export const handler = async (event, context) => {
           </div>
         `
 
-        // Send email via SendGrid
+        // Send email via Brevo
         const emailData = {
-          personalizations: [{
-            to: [{ email: studentEmail }],
-            subject: `Midweek Check-In - ${studentName}`
-          }],
-          from: { email: SENDGRID_FROM_EMAIL },
-          content: [{
-            type: 'text/html',
-            value: emailHtml
-          }]
+          sender: { name: BREVO_FROM_NAME, email: BREVO_FROM_EMAIL },
+          to: [{ email: studentEmail }],
+          subject: `Midweek Check-In - ${studentName}`,
+          htmlContent: emailHtml,
+          ...(BREVO_REPLY_TO && { replyTo: { email: BREVO_REPLY_TO } })
         }
 
         if (isTestMode) {
           // Test mode: Just log what would be sent
           console.log(`[TEST MODE] Would send email to ${studentEmail}`)
-          console.log(`[TEST MODE] Subject: ${emailData.personalizations[0].subject}`)
+          console.log(`[TEST MODE] Subject: ${emailData.subject}`)
           console.log(`[TEST MODE] Student: ${studentName}`)
           sentCount++
         } else {
           // Production mode: Actually send the email
-          const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+              'api-key': BREVO_API_KEY,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify(emailData)

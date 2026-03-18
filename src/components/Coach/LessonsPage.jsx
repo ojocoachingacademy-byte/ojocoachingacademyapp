@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { supabaseAdmin } from '../../supabaseAdmin'
+import { deductLessonCredit } from '../../utils/creditUtils'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save } from 'lucide-react'
 import CoachLayout from '../Layout/CoachLayout'
@@ -100,26 +101,10 @@ export default function LessonsPage() {
 
       // If completing a lesson, deduct credit from student
       if (newStatus === 'completed') {
-        // Get lesson details to find student
         const lesson = lessons.find(l => l.id === lessonId)
         if (lesson && lesson.student_id) {
-          // Get current credits
-          const { data: student } = await supabaseAdmin
-            .from('students')
-            .select('lesson_credits')
-            .eq('id', lesson.student_id)
-            .single()
-
-          if (student) {
-            const currentCredits = student.lesson_credits || 0
-            const newCredits = Math.max(0, currentCredits - 1)
-
-            // Deduct 1 credit
-            await supabaseAdmin
-              .from('students')
-              .update({ lesson_credits: newCredits })
-              .eq('id', lesson.student_id)
-          }
+          const lessonDate = lesson.lesson_date ? new Date(lesson.lesson_date).toISOString().split('T')[0] : undefined
+          await deductLessonCredit(lesson.student_id, supabaseAdmin, { lessonId, lessonDate })
         }
       }
 

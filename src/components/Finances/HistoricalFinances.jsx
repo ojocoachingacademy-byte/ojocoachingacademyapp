@@ -113,9 +113,24 @@ export default function HistoricalFinances() {
             .select('id, full_name, email')
             .in('id', studentIds)
 
+          // Fetch student_packages (is_active=true) for credits source of truth
+          const { data: packages } = await supabase
+            .from('student_packages')
+            .select('student_id, lessons_remaining, lessons_purchased, lessons_used')
+            .eq('is_active', true)
+            .in('student_id', studentIds)
+          const packageCreditsByStudentId = {}
+          ;(packages || []).forEach(pkg => {
+            const remaining = Number.isFinite(pkg.lessons_remaining)
+              ? Math.max(0, pkg.lessons_remaining)
+              : Math.max(0, (Number(pkg.lessons_purchased) || 0) - (Number(pkg.lessons_used) || 0))
+            packageCreditsByStudentId[pkg.student_id] = remaining
+          })
+
           studentData = studentData.map(s => ({
             ...s,
-            profiles: (profiles || []).find(p => p.id === s.id) || null
+            profiles: (profiles || []).find(p => p.id === s.id) || null,
+            lesson_credits: packageCreditsByStudentId[s.id] ?? s.lesson_credits ?? 0
           }))
         }
       } catch (e) {

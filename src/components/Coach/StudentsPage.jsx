@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../../supabaseAdmin'
 import { useNavigate } from 'react-router-dom'
 import { Search, Award, Calendar, User, Edit2, Check, X, UserPlus } from 'lucide-react'
 import { getNtrpLabel } from '../../utils/ntrpLabels'
+import { setLessonCredits } from '../../utils/creditUtils'
 import AddStudentModal from './AddStudentModal'
 import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 import CoachLayout from '../Layout/CoachLayout'
@@ -90,32 +91,23 @@ export default function StudentsPage() {
 
       setStudents(studentsData)
 
-      // Credits remaining per student (package-based)
+      // Credits remaining per student (package-based): student_packages where is_active=true
       const studentIds = (studentsData || []).map(s => s.id)
       const creditsMap = {}
       if (studentIds.length > 0) {
         try {
           const { data: packages } = await supabaseAdmin
             .from('student_packages')
-            .select('id, student_id, total_credits')
+            .select('id, student_id, lessons_remaining, lessons_purchased, lessons_used')
             .eq('is_active', true)
             .in('student_id', studentIds)
 
           if (packages?.length) {
-            const pkgIds = packages.map(p => p.id)
-            const { data: txList } = await supabaseAdmin
-              .from('lesson_transactions')
-              .select('package_id, credits_used')
-              .in('package_id', pkgIds)
-
-            const usedByPkgId = {}
-            ;(txList || []).forEach(t => {
-              usedByPkgId[t.package_id] = (usedByPkgId[t.package_id] || 0) + (t.credits_used || 0)
-            })
-
             packages.forEach(pkg => {
-              const used = usedByPkgId[pkg.id] || 0
-              creditsMap[pkg.student_id] = Math.max(0, pkg.total_credits - used)
+              const remaining = Number.isFinite(pkg.lessons_remaining)
+                ? Math.max(0, pkg.lessons_remaining)
+                : Math.max(0, (Number(pkg.lessons_purchased) || 0) - (Number(pkg.lessons_used) || 0))
+              creditsMap[pkg.student_id] = remaining
             })
           }
         } catch (e) {
@@ -234,17 +226,14 @@ export default function StudentsPage() {
   const handleSaveCredits = async (e, studentId) => {
     e.stopPropagation()
     try {
-      const { error } = await supabaseAdmin
-        .from('students')
-        .update({ lesson_credits: parseInt(editCreditsValue) || 0 })
-        .eq('id', studentId)
-
-      if (error) throw error
+      const newValue = parseInt(editCreditsValue) || 0
+      await setLessonCredits(studentId, newValue, supabaseAdmin)
 
       // Update local state
+      setCreditsByStudentId(prev => ({ ...prev, [studentId]: newValue }))
       setStudents(prev => prev.map(s => 
         s.id === studentId 
-          ? { ...s, lesson_credits: parseInt(editCreditsValue) || 0 }
+          ? { ...s, lesson_credits: newValue }
           : s
       ))
       setEditingCredits(null)

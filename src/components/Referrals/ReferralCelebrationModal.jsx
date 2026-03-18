@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabaseAdmin } from '../../supabaseAdmin'
+import { addBonusCredit } from '../../utils/creditUtils'
 import '../shared/Modal.css'
 
 export default function ReferralCelebrationModal({ 
@@ -14,25 +15,7 @@ export default function ReferralCelebrationModal({
   const handleAddCredit = async () => {
     setAddingCredit(true)
     try {
-      // Get current credits
-      const { data: student, error: fetchError } = await supabaseAdmin
-        .from('students')
-        .select('lesson_credits')
-        .eq('id', referrerId)
-        .single()
-
-      if (fetchError) throw fetchError
-
-      const currentCredits = student.lesson_credits || 0
-
-      // Add 1 credit
-      const { error: updateError } = await supabaseAdmin
-        .from('students')
-        .update({ lesson_credits: currentCredits + 1 })
-        .eq('id', referrerId)
-
-      if (updateError) throw updateError
-
+      await addBonusCredit(referrerId, supabaseAdmin, 'Referral reward')
       setCreditAdded(true)
     } catch (error) {
       console.error('Error adding referral credit:', error)

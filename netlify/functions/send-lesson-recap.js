@@ -18,11 +18,11 @@ export const handler = async (event, context) => {
 
   try {
     // Validate environment variables
-    if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
-      console.error('SendGrid configuration missing')
+    if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM_EMAIL) {
+      console.error('Brevo configuration missing')
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'SendGrid configuration missing' })
+        body: JSON.stringify({ error: 'Brevo configuration missing' })
       }
     }
 
@@ -129,8 +129,10 @@ export const handler = async (event, context) => {
     console.log(`Found ${completedLessons.length} completed lessons with valid student profiles`)
 
 
-    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
-    const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL
+    const BREVO_API_KEY = process.env.BREVO_API_KEY
+    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL
+    const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || 'Coach Tobi - OJO Coaching Academy'
+    const BREVO_REPLY_TO = process.env.BREVO_REPLY_TO
 
     let sentCount = 0
     let errorCount = 0
@@ -155,26 +157,19 @@ export const handler = async (event, context) => {
           lesson.lesson_date
         )
 
-        // Send email via SendGrid
+        // Send email via Brevo
         const emailData = {
-          personalizations: [{
-            to: [{ email: studentEmail, name: studentName }],
-            subject: `Great Lesson Today, ${firstName}! 🎾`
-          }],
-          from: {
-            email: SENDGRID_FROM_EMAIL,
-            name: 'Coach Tobi - OJO Coaching Academy'
-          },
-          content: [{
-            type: 'text/html',
-            value: emailHtml
-          }]
+          sender: { name: BREVO_FROM_NAME, email: BREVO_FROM_EMAIL },
+          to: [{ email: studentEmail, name: studentName }],
+          subject: `Great Lesson Today, ${firstName}! 🎾`,
+          htmlContent: emailHtml,
+          ...(BREVO_REPLY_TO && { replyTo: { email: BREVO_REPLY_TO } })
         }
 
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+            'api-key': BREVO_API_KEY,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(emailData)

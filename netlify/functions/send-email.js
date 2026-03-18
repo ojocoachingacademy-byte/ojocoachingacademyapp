@@ -1,5 +1,4 @@
-// Netlify Function to send emails via SendGrid or similar service
-// This is a template - you'll need to configure your email service
+// Netlify Function to send emails via Brevo (formerly Sendinblue)
 
 export const handler = async (event, context) => {
   // CORS headers for browser requests
@@ -48,57 +47,33 @@ export const handler = async (event, context) => {
       }
     }
 
-    // Send email via SendGrid
-    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
-    const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL
+    // Send email via Brevo
+    const BREVO_API_KEY = process.env.BREVO_API_KEY
+    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL
+    const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || 'Coach Tobi'
+    const BREVO_REPLY_TO = process.env.BREVO_REPLY_TO
 
-    if (!SENDGRID_API_KEY || !SENDGRID_FROM_EMAIL) {
-      console.error('SendGrid not configured')
+    if (!BREVO_API_KEY || !BREVO_FROM_EMAIL) {
+      console.error('Brevo not configured')
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ error: 'SendGrid not configured' })
+        body: JSON.stringify({ error: 'Brevo not configured' })
       }
     }
 
-    // Build content array - SendGrid requires text/plain FIRST, then text/html
-    const content = []
-    
-    // Add text/plain first if it exists
-    if (text) {
-      content.push({
-        type: 'text/plain',
-        value: text
-      })
-    }
-    
-    // Add text/html second (or use text if html not provided)
-    if (html) {
-      content.push({
-        type: 'text/html',
-        value: html
-      })
-    } else if (text) {
-      // If only text provided, use it as HTML too
-      content.push({
-        type: 'text/html',
-        value: text
-      })
-    }
-
     const emailData = {
-      personalizations: [{
-        to: [{ email: to }],
-        subject: subject
-      }],
-      from: { email: SENDGRID_FROM_EMAIL },
-      content: content
+      sender: { name: BREVO_FROM_NAME, email: BREVO_FROM_EMAIL },
+      to: [{ email: to }],
+      subject,
+      ...(html ? { htmlContent: html } : { textContent: text }),
+      ...(BREVO_REPLY_TO && { replyTo: { email: BREVO_REPLY_TO } })
     }
 
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+        'api-key': BREVO_API_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(emailData)
@@ -106,7 +81,7 @@ export const handler = async (event, context) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('SendGrid error:', response.status, errorText)
+      console.error('Brevo error:', response.status, errorText)
       return {
         statusCode: 500,
         headers,

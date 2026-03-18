@@ -1,6 +1,6 @@
 /**
  * Netlify Function: Send Testimonial Emails
- * Server-side email sending using SendGrid
+ * Server-side email sending using Brevo
  * 
  * Usage: POST /.netlify/functions/send-testimonial-email
  * Body: {
@@ -30,11 +30,16 @@ export const handler = async (event, context) => {
 
   try {
     // Validate environment variables
-    if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
+    const BREVO_API_KEY = process.env.BREVO_API_KEY
+    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL
+    const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || 'Coach Tobi - OJO Coaching Academy'
+    const BREVO_REPLY_TO = process.env.BREVO_REPLY_TO
+
+    if (!BREVO_API_KEY || !BREVO_FROM_EMAIL) {
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ error: 'SendGrid configuration missing' })
+        body: JSON.stringify({ error: 'Brevo configuration missing' })
       }
     }
 
@@ -48,64 +53,23 @@ export const handler = async (event, context) => {
       }
     }
 
-    // Import SendGrid (you'll need to install @sendgrid/mail in website repo)
-    // For now, we'll use fetch to SendGrid API directly
-    const sendGridUrl = 'https://api.sendgrid.com/v3/mail/send'
-
-    let emailData = {}
-
+    let subject, htmlContent, senderName
     switch (type) {
       case 'request':
-        emailData = {
-          personalizations: [{
-            to: [{ email: to, name: name }],
-            subject: "We'd Love to Hear From You!"
-          }],
-          from: {
-            email: process.env.SENDGRID_FROM_EMAIL,
-            name: 'Coach Tobi - OJO Coaching Academy'
-          },
-          content: [{
-            type: 'text/html',
-            value: getTestimonialRequestEmailTemplate(name, lessonCount || 5)
-          }]
-        }
+        subject = "We'd Love to Hear From You!"
+        htmlContent = getTestimonialRequestEmailTemplate(name, lessonCount || 5)
+        senderName = 'Coach Tobi - OJO Coaching Academy'
         break
-
       case 'thankyou':
-        emailData = {
-          personalizations: [{
-            to: [{ email: to, name: name }],
-            subject: 'Thank You for Your Testimonial!'
-          }],
-          from: {
-            email: process.env.SENDGRID_FROM_EMAIL,
-            name: 'Coach Tobi - OJO Coaching Academy'
-          },
-          content: [{
-            type: 'text/html',
-            value: getThankYouEmailTemplate(name)
-          }]
-        }
+        subject = 'Thank You for Your Testimonial!'
+        htmlContent = getThankYouEmailTemplate(name)
+        senderName = 'Coach Tobi - OJO Coaching Academy'
         break
-
       case 'coach_notification':
-        emailData = {
-          personalizations: [{
-            to: [{ email: to }],
-            subject: 'New Testimonial Submitted'
-          }],
-          from: {
-            email: process.env.SENDGRID_FROM_EMAIL,
-            name: 'OJO Coaching Academy'
-          },
-          content: [{
-            type: 'text/html',
-            value: getCoachNotificationEmailTemplate(name)
-          }]
-        }
+        subject = 'New Testimonial Submitted'
+        htmlContent = getCoachNotificationEmailTemplate(name)
+        senderName = 'OJO Coaching Academy'
         break
-
       default:
         return {
           statusCode: 400,
@@ -114,11 +78,18 @@ export const handler = async (event, context) => {
         }
     }
 
-    // Send email via SendGrid API
-    const response = await fetch(sendGridUrl, {
+    const emailData = {
+      sender: { name: senderName, email: BREVO_FROM_EMAIL },
+      to: type === 'coach_notification' ? [{ email: to }] : [{ email: to, name }],
+      subject,
+      htmlContent,
+      ...(BREVO_REPLY_TO && { replyTo: { email: BREVO_REPLY_TO } })
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+        'api-key': BREVO_API_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(emailData)
@@ -126,7 +97,7 @@ export const handler = async (event, context) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('SendGrid error:', errorText)
+      console.error('Brevo error:', errorText)
       return {
         statusCode: response.status,
         headers,

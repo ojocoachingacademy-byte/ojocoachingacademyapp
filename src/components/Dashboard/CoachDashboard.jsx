@@ -13,6 +13,7 @@ import ReferralCelebrationModal from '../Referrals/ReferralCelebrationModal'
 import CoachLayout from '../Layout/CoachLayout'
 import { useToast, ToastContainer } from '../shared/Toast'
 import ConfirmationModal from '../shared/ConfirmationModal'
+import { deductLessonCredit, setLessonCredits } from '../../utils/creditUtils'
 
 // Helper to get initials from name
 const getInitials = (name) => {
@@ -302,31 +303,22 @@ export default function CoachDashboard() {
 
       setLessons(enrichedLessons)
 
-      // Credits remaining per student (package-based)
+      // Credits remaining per student: student_packages (lessons_remaining) - source of truth
       const creditsMap = {}
       if (activeStudentIds.length > 0) {
         try {
           const { data: packages } = await supabaseAdmin
             .from('student_packages')
-            .select('id, student_id, total_credits')
+            .select('id, student_id, lessons_remaining, lessons_purchased, lessons_used')
             .eq('is_active', true)
             .in('student_id', activeStudentIds)
 
           if (packages?.length) {
-            const pkgIds = packages.map(p => p.id)
-            const { data: txList } = await supabaseAdmin
-              .from('lesson_transactions')
-              .select('package_id, credits_used')
-              .in('package_id', pkgIds)
-
-            const usedByPkgId = {}
-            ;(txList || []).forEach(t => {
-              usedByPkgId[t.package_id] = (usedByPkgId[t.package_id] || 0) + (t.credits_used || 0)
-            })
-
             packages.forEach(pkg => {
-              const used = usedByPkgId[pkg.id] || 0
-              creditsMap[pkg.student_id] = Math.max(0, pkg.total_credits - used)
+              const remaining = Number.isFinite(pkg.lessons_remaining)
+                ? Math.max(0, pkg.lessons_remaining)
+                : Math.max(0, (Number(pkg.lessons_purchased) || 0) - (Number(pkg.lessons_used) || 0))
+              creditsMap[pkg.student_id] = remaining
             })
           }
         } catch (e) {
@@ -380,25 +372,6 @@ export default function CoachDashboard() {
 
       if (lessonError) {
         throw lessonError
-      }
-
-      // Deduct one credit if student has credits
-      const { data: student } = await supabaseAdmin
-        .from('students')
-        .select('lesson_credits')
-        .eq('id', selectedStudent)
-        .single()
-
-      if (student && student.lesson_credits > 0) {
-        const { error: creditError } = await supabaseAdmin
-          .from('students')
-          .update({ lesson_credits: student.lesson_credits - 1 })
-          .eq('id', selectedStudent)
-
-        if (creditError) {
-          console.error('Error deducting credit:', creditError)
-          // Don't fail the lesson creation if credit deduction fails
-        }
       }
 
       showToast('Lesson created successfully!', 'success')
@@ -637,17 +610,12 @@ export default function CoachDashboard() {
 
   const handleUpdateCredits = async (studentId, currentCredits, change) => {
     const newCredits = currentCredits + change
-    
-    const { error } = await supabaseAdmin
-      .from('students')
-      .update({ lesson_credits: newCredits })
-      .eq('id', studentId)
-
-    if (error) {
-      showToast('Error updating credits: ' + error.message, 'error')
-    } else {
+    try {
+      await setLessonCredits(studentId, newCredits, supabaseAdmin)
       showToast('Credits updated successfully', 'success')
       fetchCoachData()
+    } catch (error) {
+      showToast('Error updating credits: ' + error.message, 'error')
     }
   }
 
@@ -1422,64 +1390,16 @@ export default function CoachDashboard() {
 
       if (error) throw error
 
-      // If completing a lesson, deduct credit from student and record in lesson_transactions
+      // If completing a lesson, deduct credit from student via centralized helper
       if (newStatus === 'completed') {
-        // Get lesson details to find student
         const { data: lesson } = await supabaseAdmin
           .from('lessons')
-          .select('student_id, lesson_date, students(lesson_credits)')
+          .select('student_id, lesson_date')
           .eq('id', lessonId)
           .single()
-
-        if (lesson && lesson.student_id && lesson.students) {
-          const currentCredits = lesson.students.lesson_credits || 0
-          const newCredits = Math.max(0, currentCredits - 1)
-
-          // Deduct 1 credit
-          const { error: creditError } = await supabaseAdmin
-            .from('students')
-            .update({ lesson_credits: newCredits })
-            .eq('id', lesson.student_id)
-
-          if (!creditError) {
-            console.log(`Credit deducted for student. New balance: ${newCredits}`)
-          }
-
-          // Record lesson in lesson_transactions for financial tracking
-          // Check if transaction already exists to avoid duplicates
-          try {
-            const lessonDate = lesson.lesson_date ? new Date(lesson.lesson_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-            
-            // Check if transaction already exists
-            const { data: existingTransaction } = await supabaseAdmin
-              .from('lesson_transactions')
-              .select('id')
-              .eq('student_id', lesson.student_id)
-              .eq('transaction_date', lessonDate)
-              .eq('transaction_type', 'lesson_taken')
-              .maybeSingle()
-            
-            // Only insert if it doesn't already exist
-            if (!existingTransaction) {
-              const { error: txInsertError } = await supabaseAdmin
-                .from('lesson_transactions')
-                .insert({
-                  student_id: lesson.student_id,
-                  transaction_date: lessonDate,
-                  transaction_type: 'lesson_taken',
-                  amount_paid: 0,
-                  package_size: 0,
-                  notes: 'Lesson completed'
-                })
-              
-              if (txInsertError) {
-                console.warn('Could not record lesson transaction:', txInsertError.message)
-              }
-            }
-          } catch (txError) {
-            // If table doesn't exist or insert fails, log but don't fail the status update
-            console.warn('Could not record lesson transaction:', txError.message)
-          }
+        if (lesson?.student_id) {
+          const lessonDate = lesson.lesson_date ? new Date(lesson.lesson_date).toISOString().split('T')[0] : undefined
+          await deductLessonCredit(lesson.student_id, supabaseAdmin, { lessonId, lessonDate })
         }
       }
 

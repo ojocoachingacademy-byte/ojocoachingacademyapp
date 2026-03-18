@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../supabaseClient'
+import { addBonusCredit } from './creditUtils'
 
 /**
  * Award referral credit to a referrer
@@ -13,57 +14,34 @@ import { supabase } from '../supabaseClient'
  */
 export async function awardReferralCredit(referrerStudentId, referredStudentId) {
   try {
-    // Get current credits for the referrer
-    const { data: referrerData, error: fetchError } = await supabase
-      .from('students')
-      .select('lesson_credits, total_lessons_purchased')
-      .eq('id', referrerStudentId)
-      .single()
+    await addBonusCredit(referrerStudentId, supabase, 'Referral reward')
 
-    if (fetchError) throw fetchError
-    if (!referrerData) {
-      throw new Error('Referrer student not found')
+    // Create a payment transaction record for tracking (non-fatal)
+    try {
+      const { error: transactionError } = await supabase
+        .from('payment_transactions')
+        .insert({
+          student_id: referrerStudentId,
+          payment_date: new Date().toISOString().split('T')[0],
+          amount_paid: 0, // Free credit
+          package_size: 1, // 1 credit
+          transaction_type: 'referral_reward',
+          metadata: {
+            referred_student_id: referredStudentId,
+            reward_type: 'lesson_credit',
+            credits_awarded: 1
+          }
+        })
+
+      if (transactionError) {
+        console.error('Error creating referral reward transaction:', transactionError)
+      }
+    } catch (txErr) {
+      console.error('Error creating referral reward transaction:', txErr)
     }
 
-    const currentCredits = parseInt(referrerData.lesson_credits || 0)
-    const currentTotalPurchased = parseInt(referrerData.total_lessons_purchased || 0)
-
-    // Add 1 credit
-    const newCredits = currentCredits + 1
-    const newTotalPurchased = currentTotalPurchased + 1
-
-    // Update student record
-    const { error: updateError } = await supabase
-      .from('students')
-      .update({
-        lesson_credits: newCredits,
-        total_lessons_purchased: newTotalPurchased
-      })
-      .eq('id', referrerStudentId)
-
-    if (updateError) throw updateError
-
-    // Create a payment transaction record for tracking
-    const { error: transactionError } = await supabase
-      .from('payment_transactions')
-      .insert({
-        student_id: referrerStudentId,
-        payment_date: new Date().toISOString().split('T')[0],
-        amount_paid: 0, // Free credit
-        package_size: 1, // 1 credit
-        transaction_type: 'referral_reward',
-        metadata: {
-          referred_student_id: referredStudentId,
-          reward_type: 'lesson_credit',
-          credits_awarded: 1
-        }
-      })
-
-    if (transactionError) {
-      console.error('Error creating referral reward transaction:', transactionError)
-      // Don't fail the whole operation if transaction recording fails
-    }
-
+    const { data: student } = await supabase.from('students').select('lesson_credits').eq('id', referrerStudentId).single()
+    const newCredits = student?.lesson_credits ?? 0
     console.log(`✅ Referral reward: Added 1 credit to student ${referrerStudentId} (new total: ${newCredits})`)
     
     return {

@@ -147,7 +147,7 @@ export const handler = async (event, context) => {
     console.error('Error sending lesson plan notification:', error)
     const message = error.message || 'Internal server error'
     const hint = message === 'fetch failed'
-      ? ' (Check SendGrid env vars SENDGRID_API_KEY / SENDGRID_FROM_EMAIL, or invoke send-email directly.)'
+      ? ' (Check Brevo env vars BREVO_API_KEY / BREVO_FROM_EMAIL, or invoke send-email directly.)'
       : ''
     return {
       statusCode: 500,
